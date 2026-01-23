@@ -1,0 +1,4 @@
+data/preprocessed/behavioral_data.csv filter=lfs diff=lfs merge=lfs -text
+data/preprocessed/narps_svs.csv filter=lfs diff=lfs merge=lfs -text
+data/preprocessed/pupil_data_alignedResponseTime.csv filter=lfs diff=lfs merge=lfs -text
+data/preprocessed/pupil_data_alignedStartTime.csv filter=lfs diff=lfs merge=lfs -text
