@@ -1,0 +1,17 @@
+.venv/*
+
+data/figure_examples/*
+data/raw/*
+data/derivatives/*
+
+src/riskhistory/__pycache__/*
+src/riskhistory.egg-info/*
+src/riskhistory/*/__pycache__/*
+src/riskhistory/*delete*
+src/riskhistory/*/*delete*
+src/riskhistory/trash/*
+
+figures/*
+results/*
+sections/*
+scripts/*

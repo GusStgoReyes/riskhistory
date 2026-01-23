@@ -1,0 +1,11 @@
+Regressor,count,mean,std,min,max,Interpretation
+RT,212,11.79,4.75,4.86,33.24,High
+entropy,212,10.57,18.32,4.44,199.95,High
+neg_sv,212,11.1,8.18,2.15,64.63,High
+pos_sv,212,14.69,15.42,2.39,144.48,High
+repeat,212,40.92,19.48,7.23,138.78,High
+strongly_accept,211,39.87,23.67,4.34,140.95,High
+strongly_reject,204,23.07,15.89,2.62,122.54,High
+switch,212,23.92,10.01,2.85,52.23,High
+weakly_accept,209,22.51,23.0,2.5,277.07,High
+weakly_reject,201,17.41,21.06,1.96,200.22,High
