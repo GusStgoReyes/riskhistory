@@ -8,26 +8,36 @@ This is a neuroscience research project analyzing choice history effects under r
 
 ## Repository Structure
 
-- `src/riskhistory/`: Main package containing all analysis code
-  - `setup_behavioraldata/`: Python scripts for behavioral data preparation
-  - `setup_pupildata/`: R scripts for pupillometry preprocessing
-  - `setup_fmridata/`: fMRI data preparation
-  - `analysis_acceptglme/`: R-based GLME models for accept/reject choice analysis
-  - `analysis_pupillme/`: R-based LME models for pupil analysis
-  - `analysis_fmri/`: fMRI analysis (LSA, MVPA, contrast analysis)
-  - `config.py` / `config.R`: Configuration files defining data paths
-- `scripts/`: Top-level analysis pipeline scripts (currently gitignored)
-- `figures/`: Jupyter notebooks for generating manuscript figures (currently gitignored)
-- `data/`: Raw and preprocessed data
-- `results/`: Analysis outputs (gitignored)
-- `statsmodel_specs/`: Statistical model specifications
+```
+riskhistory/
+├── src/riskhistory/              # Main package
+│   ├── setup_behavioraldata/     # Behavioral data preprocessing (Python)
+│   ├── setup_pupildata/          # Pupillometry preprocessing (R)
+│   ├── setup_pupilbetas/         # Pupil beta extraction via GLM (Python)
+│   ├── setup_fmridata/           # fMRI data preparation
+│   ├── analysis_acceptglme/      # GLME choice analysis (R)
+│   ├── analysis_pupillme/        # Pupil LME per timepoint (R)
+│   ├── analysis_pupilbehavior/   # Pupil-behavior relationship (R)
+│   ├── analysis_ddm/             # Drift-diffusion modeling (Python)
+│   ├── config.py                 # Python configuration
+│   └── config.R                  # R configuration
+├── data/
+│   ├── raw/                      # Raw data (not tracked)
+│   ├── preprocessed/             # Processed data
+│   ├── derivatives/              # Derived data products
+│   └── model_ids/                # Model identifier mappings
+├── results/                      # Analysis outputs (gitignored)
+├── figures/                      # Figure generation scripts
+├── scripts/                      # Top-level pipeline scripts
+├── sbatch/                       # SLURM job model specifications
+```
 
 ## Development Setup
 
 This project uses `uv` for Python dependency management:
 
 ```bash
-# Install dependencies (uses uv.lock)
+# Install dependencies
 uv pip install -e .
 
 # Activate virtual environment
@@ -35,75 +45,65 @@ source .venv/bin/activate
 ```
 
 Python version: 3.12+
+R version: 4.3+
 
 ## Key Commands
 
 ### Using Make (Recommended)
 ```bash
-# Show available targets
-make help
-
-# Setup behavioral data
-make setup_behavioral
-
-# Setup pupil data
-make setup_pupildata
-
-# Run accept/reject GLME analysis
-make analysis_acceptglme
-
-# Run all analyses
-make all_analyses
-
-# Clean results
-make clean
+make help                    # Show available targets
+make setup_behavioral        # Setup behavioral data (Python)
+make setup_pupildata         # Setup pupil data (R)
+make analysis_acceptglme     # Run accept/reject GLME analysis (R)
+make all_analyses            # Run all analyses
+make clean                   # Remove generated results
 ```
 
 ### Direct Execution
 ```bash
-# Setup behavioral data (Python)
+# Python scripts
 uv run python src/riskhistory/setup_behavioraldata/run_setup_behavioraldata.py
+uv run python src/riskhistory/setup_pupilbetas/run_setup_pupilbetas.py
 
-# Run GLME analysis (R) - run from analysis directory
+# R scripts (run from their directories)
 cd src/riskhistory/analysis_acceptglme && Rscript run_analysis_acceptglme.R
-
-# Setup pupil data (R)
 cd src/riskhistory/setup_pupildata && Rscript run_setup_pupildata.R
+cd src/riskhistory/analysis_pupillme && Rscript run_analysispupillme.R
+cd src/riskhistory/analysis_pupilbehavior && Rscript run_analysis_pupilbehavior.R
 ```
 
 ## Architecture Details
 
 ### Dual-Language Design
-The project uses **Python for data processing** and **R for statistical modeling**:
-- Python handles data cleaning, preprocessing, and integration across datasets
-- R performs generalized/linear mixed effects modeling using lme4/lmerTest
+- **Python**: Data preprocessing, GLM-based beta extraction, DDM modeling
+- **R**: Statistical modeling using lme4/lmerTest for mixed-effects models
 - Both languages share configuration through parallel config files (`config.py` and `config.R`)
 
 ### Configuration System
-The project uses auto-detected paths with optional environment variable overrides:
-- **Python**: `src/riskhistory/config.py` - Auto-detects repo root from file location
-- **R**: `src/riskhistory/config.R` - Auto-detects repo root from file location
+Auto-detected paths with optional environment variable overrides:
+- **Python**: `src/riskhistory/config.py`
+- **R**: `src/riskhistory/config.R`
 - **Override**: Set `RISKHISTORY_ROOT` environment variable
 
 Analysis-specific configs extend the base config:
-- `analysis_acceptglme/0_config.R` - GLME analysis settings, model lists
-- `setup_pupildata/0_config.R` - Pupil preprocessing paths
+- `analysis_acceptglme/0_config.R`
+- `analysis_pupillme/0_config.R`
+- `analysis_pupilbehavior/0_config.R`
+- `setup_pupildata/0_config.R`
 
 ### Data Flow
 1. Raw data (in `data/raw/`) from NARPS and Sheng2020 datasets
 2. Python scripts create unified behavioral dataset with choice history variables
 3. Preprocessed data saved to `data/preprocessed/`
 4. R scripts load preprocessed data and fit hierarchical models
-5. Results saved to `results/`
+5. Results saved to `results/<analysis_name>/`
 
 ### Choice History Variables
-The behavioral data preparation creates lagged choice variables:
+Computed **within runs** to avoid contamination across run boundaries:
 - `choice_prev[N]`: Choice made N trials ago (+1 accept, -1 reject)
 - `switch`: Whether choice differs from previous trial
 - `repeat`: Whether choice matches previous trial
 - `switch_button`: Whether button press changed (independent of choice)
-
-These are computed **within runs** to avoid contamination across run boundaries.
 
 ### Subject-Specific Corrections
 - **Subject 56 (NARPS)**: Response mapping was inverted; corrected in preprocessing
@@ -119,30 +119,65 @@ Trials are excluded based on:
 
 ### Behavioral GLME Analysis (`analysis_acceptglme/`)
 Generalized linear mixed-effects models testing:
-- Baseline choice model (gain/loss effects)
-- Choice history effects (perseveration)
-- Lag choice history (choices 2-5 trials back)
-- RT history effects
-- Value history vs choice history comparisons
+- `1_baselinechoicemodel.R`: Baseline gain/loss effects (M1)
+- `2_choicehistorymodels.R`: Choice history and value history models (M2-M8)
+- `3_lagchoicehistorymodels.R`: Lagged choices 2-5 trials back (M9-M12)
+- `4_rthistorymodels.R`: Response time history effects
+- `5_supplementarymodels.R`: Interaction and additional models
 
-Models are numbered sequentially: `1_baselinechoicemodel.R`, `2_choicehistorymodels.R`, etc.
+Key utility files:
+- `utils_modelcomparison.R`: AIC/BIC/BF model comparison
+- `utils_savefixedeffects.R`: Extract and save fixed effects
+- `utils_addsubjectivevalues.R`: Compute trial-by-trial subjective values
 
-### Pupil Analysis (`analysis_pupillme/`)
-Linear mixed-effects models for pupil dilation:
-- Response-aligned analysis (`1_pupilmodel_responseAligned.R`)
-- Start-aligned analysis (`1_pupilmodel_startAligned.R`)
+### Pupil Timepoint Analysis (`analysis_pupillme/`)
+Linear mixed-effects models per timepoint:
+- `2_pupilmodel_startAligned.R`: Stimulus-onset aligned analysis
+- `2_pupilmodel_responseAligned.R`: Response-aligned analysis
+- `utils_timepointmodels.R`: Functions for fitting models across timepoints
 
-### fMRI Analysis (`analysis_fmri/`)
-- **LSA**: Trial-by-trial beta extraction (`lsa_trial_beta_extraction.py`)
-- **MVPA**: Multivariate pattern analysis (`mvpa_classification.py`)
-- **Contrast Analysis**: Group-level statistical maps (`analyze_contrasts.py`)
-- **VIF Analysis**: Design matrix collinearity checks (`vifs_design.py`)
+Model formula:
+```r
+pupil_size ~ sv + entropy + logRT + choice + switch + (1 + switch + sv || sub)
+```
+
+### Pupil-Behavior Analysis (`analysis_pupilbehavior/`)
+Models examining pupil-behavior relationships:
+- `1_pupilchoicemodel.R`: How pupil dilation relates to choice
+- `utils_pupilpertrial.R`: Per-trial pupil metrics extraction
+
+### Pupil Beta Extraction (`setup_pupilbetas/`)
+GLM-based trial-by-trial amplitude extraction:
+- `run_setup_pupilbetas.py`: Main runner
+- `utils_glm.py`: GLM fitting with PRF convolution
+- `utils_prf.py`: Pupil response function definitions
+- `utils_io.py`: Data I/O utilities
+
+### Drift-Diffusion Modeling (`analysis_ddm/`)
+Hierarchical DDM using HDDM:
+- `model_hddm.py`: Model definitions
+- `utils_data.py`: Data preparation for HDDM
+- `utils_model.py`: Model fitting utilities
+- `utils_stats.py`: Statistical analysis of DDM parameters
+
+### Data Setup
+
+#### Behavioral Data (`setup_behavioraldata/`)
+- `run_setup_behavioraldata.py`: Main preprocessing script
+- `utils_behavioraldata.py`: Data loading and transformation functions
+
+#### Pupil Data (`setup_pupildata/`)
+- `1_preprocess_narps.R`: NARPS pupil preprocessing
+- `1_preprocess_sheng2020.R`: Sheng2020 pupil preprocessing
+- `2_combine_datasets.R`: Merge datasets
+- `3_exclusions.R`: Apply exclusion criteria
+- `utils_eyeris.R`: eyeris package utilities
 
 ## Package Dependencies
 
-### Python (see pyproject.toml)
+### Python (pyproject.toml)
 - Data: `pandas`, `numpy`
-- Statistics: `statsmodels`, `rpy2` (Python-R interface)
+- Statistics: `statsmodels`, `rpy2`
 - Visualization: `matplotlib`, `seaborn`
 - Notebooks: `jupyter`
 
@@ -150,3 +185,17 @@ Linear mixed-effects models for pupil dilation:
 - Mixed models: `lme4`, `lmerTest`
 - Data manipulation: `dplyr`, `tidyr`
 - Model extraction: `broom.mixed`
+
+## Testing and Validation
+
+Models are validated through:
+- Convergence checks (`utils_checkmodelconverge.R`)
+- VIF analysis for multicollinearity
+- Random effects structure comparison
+- Cross-dataset replication (equalIndifference, equalRange, Sheng2020)
+
+## Notes
+
+- The Makefile references `setup_pupildata_v2` which should be `setup_pupildata`
+- R scripts must be run from their respective directories due to relative path usage
+- Results directories are created automatically by analysis scripts
