@@ -42,6 +42,8 @@ all_start_epochs <- list()
 all_response_epochs <- list()
 all_baselines <- list()
 all_statistics <- list()
+all_start_timings <- list()
+all_response_timings <- list()
 
 for (file in asc_files) {
   # Extract subject and run IDs from filename
@@ -85,6 +87,7 @@ for (file in asc_files) {
     response_epoch_limits = RESPONSE_EPOCH_LIMITS,
     baseline_window = BASELINE_PERIOD,
     start_task_window = START_EPOCH_LIMITS,
+    trials_per_run = NARPS_TRIALS_PER_RUN,
     sub_id = sub_id,
     run_id = run_id
   )
@@ -94,7 +97,7 @@ for (file in asc_files) {
   # ---------------------------------------------------------------------------
   # Full preprocessing pipeline
   # ---------------------------------------------------------------------------
-  data <- preprocess_eyeris(
+  results <- preprocess_eyeris(
     data,
     apply_deblink = TRUE,
     deblink_extend = DEBLINK_EXTEND,
@@ -107,6 +110,40 @@ for (file in asc_files) {
     bins_per_second = OUTPUT_SAMPLING_RATE,
     apply_detrend = TRUE
   )
+  data <- results$data
+
+  # Full time series after filtering (not binned)
+  timeseries_pupil <- results$timeseries_pupil
+  # Save the timeseries output
+  timeseries_output_path <- file.path(
+    narps_output_dir,
+    "timeseries",
+    sprintf("sub-%03d_run-%d_timeseries.csv", sub_id, run_id)
+  )
+  write.csv(
+    timeseries_pupil,
+    file = timeseries_output_path,
+    row.names = FALSE
+  )
+  cat("  Saved timeseries to", timeseries_output_path, "\n")
+
+  # Collect the timing of the Stimulus onset
+  start_time_run <- data$timeseries$block_1$time_orig[1]
+  timings <- extract_trial_times(data$events$block_1,
+                                 NARPS_EVENT_START_PATTERN,
+                                 NARPS_EVENT_RESPONSE_PATTERN,
+                                 time_offset = start_time_run)
+  start_timings <- timings$start_events
+  start_timings$run_id <- run_id
+  start_timings$sub_id <- sub_id
+  all_start_timings[[length(all_start_timings) + 1]] <- start_timings
+  print(str(head(start_timings)))
+
+  response_timings <- timings$response_events
+  response_timings$run_id <- run_id
+  response_timings$sub_id <- sub_id
+  all_response_timings[[length(all_response_timings) + 1]] <- response_timings
+  print(str(head(response_timings)))
 
   # ---------------------------------------------------------------------------
   # Extract start-aligned epochs
@@ -156,8 +193,22 @@ start_epochs_df <- bind_rows(all_start_epochs)
 response_epochs_df <- bind_rows(all_response_epochs)
 baselines_df <- bind_rows(all_baselines)
 statistics_df <- bind_rows(all_statistics)
+start_timings_df <- bind_rows(all_start_timings)
+response_timings_df <- bind_rows(all_response_timings)
 
 # Save to CSV
+write.csv(
+  start_timings_df,
+  file = file.path(narps_output_dir, "timeseries", "narps_start_timings.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  response_timings_df,
+  file = file.path(narps_output_dir, "timeseries", "narps_response_timings.csv"),
+  row.names = FALSE
+)
+
 write.csv(
   start_epochs_df,
   file = file.path(narps_output_dir, "narps_start_aligned.csv"),

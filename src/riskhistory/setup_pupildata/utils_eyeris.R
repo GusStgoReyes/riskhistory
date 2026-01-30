@@ -54,6 +54,26 @@ preprocess_eyeris <- function(
   # Low-pass filter
   data <- lpfilt(data, wp = lowpass_wp, ws = lowpass_ws, rp = lowpass_rp, rs = lowpass_rs)
 
+  # Full time series before binning
+  data_full <- detrend(data)
+  data_full <- zscore(data_full)
+
+  # Full time series after filtering
+  timeseries_time <- data_full$timeseries$block_1$time_secs
+  pupil_filtered <- data_full$timeseries$block_1[[data_full$latest$block_1]]
+  eye_x <- data_full$timeseries$block_1$eye_x
+  eye_y <- data_full$timeseries$block_1$eye_y
+  # If eye_x is Na, set to 0
+  eye_x[is.na(eye_x)] <- 0
+  eye_y[is.na(eye_y)] <- 0
+
+  timeseries_pupil <- tibble::tibble(
+    time_secs = timeseries_time,
+    pupil_filtered = pupil_filtered,
+    eye_x = eye_x,
+    eye_y = eye_y
+  )
+
   # Keep only necessary columns for efficiency
   current_col <- data$latest$block_1
   columns_selected <- c("block", "time_orig", "time_secs", current_col)
@@ -79,7 +99,13 @@ preprocess_eyeris <- function(
   names(data$timeseries$block_1)[names(data$timeseries$block_1) == final_col] <- "pupil_processed"
   data$latest$block_1 <- "pupil_processed"
 
-  return(data)
+  # Return the preprocessed data and the full time series before binning
+  results <- list(
+    data = data,
+    timeseries_pupil = timeseries_pupil
+  )
+
+  return(results)
 }
 
 # =============================================================================
@@ -114,6 +140,7 @@ calculate_trial_statistics <- function(
   baseline_window = c(0, 0.5),
   start_task_window = c(0.5, 4.5),
   response_task_window = c(0, 4),
+  trials_per_run,
   sub_id,
   run_id
 ) {
@@ -234,6 +261,7 @@ calculate_trial_statistics <- function(
       longest_nan_sec_startAligned,
       longest_nan_sec_responseAligned
     )
+  summary_df$trial <- summary_df$trial + trials_per_run * (run_id - 1)
 
   return(summary_df)
 }
@@ -256,7 +284,7 @@ calculate_trial_statistics <- function(
 extract_start_aligned_epoch <- function(
   data,
   event_pattern,
-  limits = c(0, 3),
+  limits = c(0, 4),
   baseline_period = c(-0.5, 0),
   sub_id,
   run_id,
@@ -334,7 +362,9 @@ extract_response_aligned_epoch <- function(
   dataset
 ) {
   # Epoch
-  response_epoch <- epoch(data, events = event_pattern, limits = limits)
+  response_epoch <- epoch(data,
+                          events = event_pattern,
+                          limits = limits)
 
   # Get epoch data frame name
   epoch_name <- names(response_epoch)[grepl("^epoch_", names(response_epoch))][1]
@@ -382,4 +412,36 @@ should_skip_data <- function(data, max_na_percentage = 90) {
 get_na_percentage <- function(data) {
   sum(is.na(data$timeseries$block_1$pupil_raw)) /
     nrow(data$timeseries$block_1) * 100
+}
+
+
+# =============================================================================
+# Additional helpers
+# =============================================================================
+extract_trial_times <- function(event_list, pattern_start, pattern_response, time_offset = 0) {
+  start_events <-  event_list %>%
+    filter(str_starts(text, pattern_start)) %>%
+    mutate(
+      trial = str_extract(text, "Trial\\d+") %>%
+        str_remove_all("Trial") %>%
+        as.integer(),
+      time_secs = (time - time_offset) / 1000  # Convert ms to seconds
+    ) %>%
+    select(trial, time_secs)
+
+  response_events <- event_list %>%
+    filter(str_starts(text, pattern_response)) %>%
+    mutate(
+      trial = str_extract(text, "Trial\\d+") %>%
+        str_remove_all("Trial") %>%
+        as.integer(),
+      time_secs = (time - time_offset) / 1000  # Convert ms to seconds
+    ) %>%
+    select(trial, time_secs)
+
+  results <- list(
+    start_events = start_events,
+    response_events = response_events
+  )
+  return(results)
 }

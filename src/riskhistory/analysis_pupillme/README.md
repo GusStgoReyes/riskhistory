@@ -27,3 +27,17 @@ For the random effect structure, we will try:
 Since we know that reward and uncertainty have been thought to influence pupil dilation. 
 2. (1 + choice_alternation | sub)
 Is the minimal random effect structure. 
+
+
+When I ran this:
+model_formula <- pupil_size ~ sv + entropy + logRT + choice + switch + (1 + switch + sv + entropy || sub)
+Total results: 576 rows
+  equalIndifference: 32 timebins, 56% converged
+  equalRange: 32 timebins, 47% converged
+  sheng2020: 32 timebins, 62% converged
+
+When I ran this:
+model_formula <- pupil_size ~ sv + entropy + logRT + choice + switch + (1 + switch + sv || sub)
+  equalIndifference: 32 timebins, 66% converged
+  equalRange: 32 timebins, 53% converged
+  sheng2020: 32 timebins, 81% converged

@@ -6,6 +6,7 @@
 
 library(dplyr)
 library(tibble)
+library(tidyr)
 
 # =============================================================================
 # Missing Sample Interpolation
@@ -38,6 +39,7 @@ snap_to_grid <- function(t, grid) {
 fill_missing_samples_grid <- function(
   data,
   time_col = "TimeSignal",
+  event_col = "StimulusName",
   sampling_rate = 125,
   tolerance = 0.5
 ) {
@@ -69,7 +71,8 @@ fill_missing_samples_grid <- function(
 
 
   filled <- grid %>%
-    left_join(data_aligned, by = time_col)
+    left_join(data_aligned, by = time_col) %>%
+    fill(!!sym(event_col), .direction = "down")
 
   return(filled)
 }

@@ -26,28 +26,28 @@ source(file.path(script_dir, "0_config.R"))
 # Define thresholds per dataset
 thresholds <- list(
   equalIndifference = list(
-    pct_nan_baseline = 100,
-    pct_nan_start_aligned = 75,
-    pct_nan_response_aligned = 75,
-    longest_nan_sec_start = 2.5,
-    longest_nan_sec_response = 2.5,
-    pct_trials_excluded = 35
+    pct_nan_baseline = 75,
+    pct_nan_start_aligned = 40,
+    pct_nan_response_aligned = 40,
+    longest_nan_sec_start = 2,
+    longest_nan_sec_response = 2,
+    pct_trials_excluded = 30
   ),
   equalRange = list(
-    pct_nan_baseline = 100,
-    pct_nan_start_aligned = 75,
-    pct_nan_response_aligned = 75,
-    longest_nan_sec_start = 2.5,
-    longest_nan_sec_response = 2.5,
-    pct_trials_excluded = 35
+    pct_nan_baseline = 75,
+    pct_nan_start_aligned = 40,
+    pct_nan_response_aligned = 40,
+    longest_nan_sec_start = 2,
+    longest_nan_sec_response = 2,
+    pct_trials_excluded = 30
   ),
   sheng2020 = list(
-    pct_nan_baseline = 100,
-    pct_nan_start_aligned = 75,
-    pct_nan_response_aligned = 75,
-    longest_nan_sec_start = 2.5,
-    longest_nan_sec_response = 2.5,
-    pct_trials_excluded = 35
+    pct_nan_baseline = 75,
+    pct_nan_start_aligned = 40,
+    pct_nan_response_aligned = 40,
+    longest_nan_sec_start = 2,
+    longest_nan_sec_response = 2,
+    pct_trials_excluded = 30
   )
 )
 
@@ -83,19 +83,20 @@ cat("  Loaded", nrow(statistics), "trial records\n\n")
 cat("Applying trial-level exclusions...\n")
 
 # Function to apply thresholds for a specific dataset
+# Note: NA values in any statistic are treated as exclusions (TRUE)
 apply_trial_exclusions <- function(data, ds_thresholds) {
   data %>%
     mutate(
       # Baseline exclusion (applies to both alignments)
-      exclude_baseline = pct_nan_baseline > ds_thresholds$pct_nan_baseline,
+      exclude_baseline = is.na(pct_nan_baseline) | pct_nan_baseline > ds_thresholds$pct_nan_baseline,
 
       # Start-aligned specific exclusions
-      exclude_start_pct = pct_nan_trial_startAligned > ds_thresholds$pct_nan_start_aligned,
-      exclude_start_longest = longest_nan_sec_startAligned > ds_thresholds$longest_nan_sec_start,
+      exclude_start_pct = is.na(pct_nan_trial_startAligned) | pct_nan_trial_startAligned > ds_thresholds$pct_nan_start_aligned,
+      exclude_start_longest = is.na(longest_nan_sec_startAligned) | longest_nan_sec_startAligned > ds_thresholds$longest_nan_sec_start,
 
       # Response-aligned specific exclusions
-      exclude_response_pct = pct_nan_trial_responseAligned > ds_thresholds$pct_nan_response_aligned,
-      exclude_response_longest = longest_nan_sec_responseAligned > ds_thresholds$longest_nan_sec_response,
+      exclude_response_pct = is.na(pct_nan_trial_responseAligned) | pct_nan_trial_responseAligned > ds_thresholds$pct_nan_response_aligned,
+      exclude_response_longest = is.na(longest_nan_sec_responseAligned) | longest_nan_sec_responseAligned > ds_thresholds$longest_nan_sec_response,
 
       # Separate exclusion flags for each alignment type
       exclude_trial_startAligned = exclude_baseline | exclude_start_pct | exclude_start_longest,
@@ -116,28 +117,6 @@ statistics <- statistics %>%
     }
   }) %>%
   ungroup()
-
-# Summary of trial exclusions by dataset and alignment
-cat("\nTrial exclusions by dataset:\n")
-trial_summary <- statistics %>%
-  group_by(dataset) %>%
-  summarise(
-    n_trials = n(),
-    n_exclude_startAligned = sum(exclude_trial_startAligned, na.rm = TRUE),
-    n_exclude_responseAligned = sum(exclude_trial_responseAligned, na.rm = TRUE),
-    pct_exclude_start = round(n_exclude_startAligned / n_trials * 100, 1),
-    pct_exclude_response = round(n_exclude_responseAligned / n_trials * 100, 1),
-    .groups = "drop"
-  )
-
-for (i in seq_len(nrow(trial_summary))) {
-  cat("\n  ", trial_summary$dataset[i], ":\n", sep = "")
-  cat("    Total trials:", trial_summary$n_trials[i], "\n")
-  cat("    Start-aligned excluded:", trial_summary$n_exclude_startAligned[i],
-      "(", trial_summary$pct_exclude_start[i], "%)\n")
-  cat("    Response-aligned excluded:", trial_summary$n_exclude_responseAligned[i],
-      "(", trial_summary$pct_exclude_response[i], "%)\n")
-}
 
 # =============================================================================
 # Apply Subject-Level Exclusions (Separate for Each Alignment)
@@ -211,8 +190,7 @@ for (ds in unique(subject_exclusions$dataset)) {
 statistics <- statistics %>%
   left_join(
     subject_exclusions %>%
-      select(sub, dataset, exclude_subject_startAligned, exclude_subject_responseAligned,
-             pct_trials_excluded_startAligned, pct_trials_excluded_responseAligned),
+      select(sub, dataset, exclude_subject_startAligned, exclude_subject_responseAligned),
     by = c("sub", "dataset")
   ) %>%
   mutate(
@@ -264,7 +242,7 @@ start_aligned <- read.csv(output_start_aligned)
 
 # Create exclusion lookup for start-aligned
 exclusion_lookup_start <- statistics %>%
-  select(sub, trial, dataset, exclude_startAligned, exclude_subject_startAligned) %>%
+  select(sub, trial, dataset, exclude_startAligned) %>%
   distinct()
 
 # Merge exclusion flags
@@ -275,9 +253,9 @@ start_aligned <- start_aligned %>%
   ) %>%
   mutate(
     # Exclude if subject is excluded OR trial is excluded
-    exclude = coalesce(exclude_startAligned, FALSE)
+    exclude = exclude_startAligned
   ) %>%
-  select(-exclude_startAligned, -exclude_subject_startAligned)
+  select(-exclude_startAligned)
 
 write.csv(start_aligned, file = output_start_aligned, row.names = FALSE)
 cat("  Updated:", output_start_aligned, "\n")
@@ -289,7 +267,7 @@ response_aligned <- read.csv(output_response_aligned)
 
 # Create exclusion lookup for response-aligned
 exclusion_lookup_response <- statistics %>%
-  select(sub, trial, dataset, exclude_responseAligned, exclude_subject_responseAligned) %>%
+  select(sub, trial, dataset, exclude_responseAligned) %>%
   distinct()
 
 # Merge exclusion flags
@@ -299,9 +277,9 @@ response_aligned <- response_aligned %>%
     by = c("sub", "trial", "dataset")
   ) %>%
   mutate(
-    exclude = coalesce(exclude_responseAligned, FALSE)
+    exclude = exclude_responseAligned
   ) %>%
-  select(-exclude_responseAligned, -exclude_subject_responseAligned)
+  select(-exclude_responseAligned)
 
 write.csv(response_aligned, file = output_response_aligned, row.names = FALSE)
 cat("  Updated:", output_response_aligned, "\n")

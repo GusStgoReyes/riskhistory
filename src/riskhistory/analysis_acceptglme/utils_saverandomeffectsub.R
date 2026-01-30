@@ -26,3 +26,26 @@ extract_random_effects_sv <- function(
 
   ranef
 }
+
+extract_random_effects_history <- function(
+  model,
+  ds
+) {
+  # Extract fixed effects
+  fixef_vals <- fixef(model)
+  choice_prev_fixed <- fixef_vals["choice_prev1"]
+
+  # Extract random effects for loss and gain (slopes)
+  ranef_vals <- ranef(model)$sub %>% rownames_to_column("sub")
+  ranef_vals$sub <- as.integer(ranef_vals$sub)
+  colnames(ranef_vals)[4] <- "u_choice_prev"
+
+  ranef_vals$dataset <- ds
+  ranef <- ranef_vals %>%
+    mutate(
+      beta_choice_prev = u_choice_prev + choice_prev_fixed,
+    ) %>%
+    select(sub, dataset, beta_choice_prev)
+
+  ranef
+}

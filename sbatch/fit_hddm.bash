@@ -4,10 +4,10 @@ set -euo pipefail
 # ======================
 # User settings
 # ======================
-REPO_PTH=/scratch/users/gustxsr/cptpyddm
+REPO_PTH=/scratch/users/gustxsr/riskhistory
 DATASET_NAME=${1:-equalIndifference}
 TEST_MODE=${2:-0}
-SCRIPT="$REPO_PTH/src/cptpyddm/model_hddm.py"
+SCRIPT="$REPO_PTH/src/riskhistory/analysis_ddm/model_hddm.py"
 
 source "$REPO_PTH/sbatch/configs/general.sh"
 

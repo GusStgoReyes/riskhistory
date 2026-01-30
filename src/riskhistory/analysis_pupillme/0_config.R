@@ -32,6 +32,15 @@ library(dplyr)
 library(tibble)
 library(lmerTest)
 
+# Source utility functions
+source(file.path(utils_path, "utils_addsubjectivevalues.R"))
+source(file.path(utils_path, "utils_scalestimuli.R"))
+source(file.path(utils_path, "utils_addentropy.R"))
+source(file.path(utils_path, "utils_modelanalytics.R"))
+source(file.path(utils_path, "utils_createpupilregressors.R"))
+source(file.path(utils_path, "utils_timepointmodels.R"))
+
+
 # =============================================================================
 # Analysis settings
 # =============================================================================
@@ -44,36 +53,16 @@ datasets <- c("equalIndifference", "equalRange", "sheng2020")
 p_method <- "BH"  # Benjamini-Hochberg
 
 # =============================================================================
-# Helper functions
-# =============================================================================
-
-# Sigmoid function for computing entropy from subjective value
-sigmoid <- function(x) {
-  1 / (1 + exp(-x))
-}
-
-# Compute entropy from subjective value
-entropy_from_sv <- function(sv) {
-  p_accept <- sigmoid(sv)
-  entropy <- - (p_accept * log2(p_accept) + (1 - p_accept) * log2(1 - p_accept))
-  return(entropy)
-}
-
-# Check model convergence
-check_model_convergence <- function(model) {
-  if (inherits(model, "merMod")) {
-    return(is.null(model@optinfo$conv$lme4$messages))
-  }
-  return(TRUE)
-}
-
-# =============================================================================
 # Load and prepare behavioral data
 # =============================================================================
 message("Loading behavioral data...")
 behavioral_data <- read.csv(file.path(analysis_data_path,
                                       "preprocessed",
                                       "behavioral_data.csv"))
+
+# Scale stimuli (creates gain_centered, loss_centered)
+message("Scaling stimuli...")
+behavioral_data <- scale_stimuli(behavioral_data)
 
 # Load betas from baseline behavior model
 message("Loading subject-specific betas...")
@@ -85,46 +74,9 @@ betas_sub <- read.csv(betas_path)
 behavioral_data <- merge(behavioral_data, betas_sub,
                          by = c("sub", "dataset"))
 
-# =============================================================================
-# Scale gain/loss variables (needed for SV computation)
-# =============================================================================
-# Define stimulus ranges per dataset
-ranges <- list(
-  equalIndifference = list(gain = seq(from = 10, to = 40, by = 2),
-                           loss = seq(from = 5, to = 20, by = 1)),
-  equalRange        = list(gain = seq(from = 5, to = 20, by = 1),
-                           loss = seq(from = 5, to = 20, by = 1)),
-  sheng2020         = list(gain = seq(from = 1, to = 10, by = 1),
-                           loss = seq(from = 1, to = 10, by = 1))
-)
-
-behavioral_data <- behavioral_data %>%
-  rowwise() %>%
-  mutate(
-    gain_centered = gain - mean(ranges[[dataset]]$gain),
-    loss_centered = loss - mean(ranges[[dataset]]$loss)
-  ) %>%
-  ungroup()
-
-# =============================================================================
-# Compute derived columns
-# =============================================================================
-message("Computing derived columns (sv, entropy, logRT)...")
-
-# Compute subjective value (sv) using subject-specific betas
-behavioral_data <- behavioral_data %>%
-  mutate(
-    sv = beta_intercept + beta_gain * gain_centered + beta_loss * loss_centered,
-    entropy = entropy_from_sv(sv),
-    logRT = log(rt)
-  )
-
-# Ensure choice_prev1 and switch are numeric
-behavioral_data <- behavioral_data %>%
-  mutate(
-    choice_prev1 = as.numeric(choice_prev1),
-    switch = as.numeric(switch)
-  )
+# Create pupil regressors (sv, entropy, logRT, switch, choice_prev1)
+message("Creating pupil regressors...")
+behavioral_data <- create_pupil_regressors(behavioral_data)
 
 # =============================================================================
 # Load pupil data
@@ -138,6 +90,13 @@ pupil_data_start <- read.csv(file.path(analysis_data_path,
 pupil_data_response <- read.csv(file.path(analysis_data_path,
                                           "preprocessed",
                                           "pupil_data_alignedResponseTime.csv"))
+
+# Remove baseline from pupil size
+pupil_data_start <- pupil_data_start %>%
+  mutate(pupil_size = pupil_size - baseline_pupil)
+
+pupil_data_response <- pupil_data_response %>%
+  mutate(pupil_size = pupil_size - baseline_pupil)
 
 # Rename exclude column in pupil data to avoid conflict
 pupil_data_start <- pupil_data_start %>%
@@ -153,7 +112,7 @@ message("Merging behavioral and pupil data...")
 
 # Select relevant behavioral columns for merge
 behavioral_cols <- c("sub", "trial", "dataset", "sv", "entropy", "logRT",
-                     "choice_prev1", "switch", "exclude")
+                     "choice_prev1", "switch", "choice", "exclude")
 behavioral_subset <- behavioral_data[, behavioral_cols]
 
 # Merge with pupil data

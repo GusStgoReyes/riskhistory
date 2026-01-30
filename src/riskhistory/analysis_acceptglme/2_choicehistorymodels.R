@@ -9,6 +9,8 @@ data <- add_subjectivevalues(
   pth_betas = pth_betas
 )
 
+betas_model2 <- list()
+
 for (ds in datasets) {
   print(paste("Running choice history models for dataset:", ds))
   df_sub <- data[data$dataset == ds, ]
@@ -42,8 +44,15 @@ for (ds in datasets) {
                     prev_loss_centered + choice_prev1 +
                     (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
+
+  # CHOICE HISTORY MODEL + RND EFFECT OF CHOICE HISTORY
+  model2_rnd <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
+                        (1 + loss_centered | sub) +
+                        (0 + choice_prev1 | sub),
+                      data = df_sub, family = binomial)
   models <- list(
     M2 = model2,
+    M2_rnd = model2_rnd,
     M3 = model3,
     M4 = model4,
     M5 = model5,
@@ -56,4 +65,18 @@ for (ds in datasets) {
     ds     = ds,
     models = models
   )
+
+  # COMPUTE CHOICE HISTORY RANDOM EFFECTS PER SUBJECT
+  betas_model2[[ds]] <- extract_random_effects_history(
+    model = model2_rnd,
+    ds = ds
+  )
 }
+
+# Combine all datasets' betas into a single data frame
+final_betas_model2 <- bind_rows(betas_model2)
+
+# Save to CSV
+write.csv(final_betas_model2, file.path(analysis_results_path,
+                                        "2_choicehistory_betas.csv"),
+          row.names = FALSE)

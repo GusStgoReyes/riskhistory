@@ -12,8 +12,9 @@ for (ds in datasets) {
   df_sub <- data[data$dataset == ds, ]
 
   # RT Model: Does previous choice influence RTs?
-  model_rt <- lmer(log_rt ~ abs_sv_scaled + choice * choice_prev1 +
-                     (1 + abs_sv_scaled | sub), data = df_sub)
+  model_rt <- lmer(log_rt ~ abs_sv_scaled + choice * switch +
+                     (1 + abs_sv_scaled | sub) + (0 + switch | sub),
+                   data = df_sub)
   models <- list(
     M_RT = model_rt
   )

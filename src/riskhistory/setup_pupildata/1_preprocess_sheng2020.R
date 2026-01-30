@@ -45,6 +45,8 @@ all_start_epochs <- list()
 all_response_epochs <- list()
 all_baselines <- list()
 all_statistics <- list()
+all_start_timings <- list()
+all_response_timings <- list()
 
 for (sub_indx in seq_along(data_list)) {
   sub_data <- data_list[[sub_indx]]
@@ -62,6 +64,7 @@ for (sub_indx in seq_along(data_list)) {
   sub_data <- fill_missing_samples_grid(
     sub_data,
     time_col = "TimeSignal",
+    event_col = "StimulusName",
     sampling_rate = SHENG2020_SAMPLING_RATE,
     tolerance = 0.5
   )
@@ -92,6 +95,7 @@ for (sub_indx in seq_along(data_list)) {
     response_epoch_limits = RESPONSE_EPOCH_LIMITS,
     baseline_window = BASELINE_PERIOD,
     start_task_window = START_EPOCH_LIMITS,
+    trials_per_run = SHENG2020_TRIALS_PER_RUN,
     sub_id = sub_id,
     run_id = run_id
   )
@@ -102,7 +106,7 @@ for (sub_indx in seq_along(data_list)) {
   # Full preprocessing pipeline
   # Note: No deblink for Sheng2020, and no detrend (following original pipeline)
   # ---------------------------------------------------------------------------
-  data <- preprocess_eyeris(
+  results <- preprocess_eyeris(
     data,
     apply_deblink = FALSE,  # Sheng2020 already has blink correction
     detransient_n = DETRANSIENT_N,
@@ -114,6 +118,39 @@ for (sub_indx in seq_along(data_list)) {
     bins_per_second = OUTPUT_SAMPLING_RATE,
     apply_detrend = TRUE
   )
+  data <- results$data
+
+  # Full time series after filtering (not binned)
+  timeseries_pupil <- results$timeseries_pupil
+  # Save the timeseries output
+  timeseries_output_path <- file.path(
+    sheng2020_output_dir,
+    "timeseries",
+    sprintf("sub-%03d_run-%d_timeseries.csv", sub_id, run_id)
+  )
+  write.csv(
+    timeseries_pupil,
+    file = timeseries_output_path,
+    row.names = FALSE
+  )
+  cat("  Saved timeseries to", timeseries_output_path, "\n")
+  start_time_run <- data$timeseries$block_1$time_orig[1]
+  # Collect the timing of the Stimulus onset
+  timings <- extract_trial_times(data$events$block_1,
+                                 SHENG2020_EVENT_START_PATTERN,
+                                 SHENG2020_EVENT_RESPONSE_PATTERN,
+                                 time_offset = start_time_run)
+  start_timings <- timings$start_events
+  start_timings$run_id <- run_id
+  start_timings$sub_id <- sub_id
+  all_start_timings[[length(all_start_timings) + 1]] <- start_timings
+  print(str(head(start_timings)))
+
+  response_timings <- timings$response_events
+  response_timings$run_id <- run_id
+  response_timings$sub_id <- sub_id
+  all_response_timings[[length(all_response_timings) + 1]] <- response_timings
+  print(str(head(response_timings)))
 
   # ---------------------------------------------------------------------------
   # Extract start-aligned epochs
@@ -163,8 +200,22 @@ start_epochs_df <- bind_rows(all_start_epochs)
 response_epochs_df <- bind_rows(all_response_epochs)
 baselines_df <- bind_rows(all_baselines)
 statistics_df <- bind_rows(all_statistics)
+start_timings_df <- bind_rows(all_start_timings)
+response_timings_df <- bind_rows(all_response_timings)
 
 # Save to CSV
+write.csv(
+  start_timings_df,
+  file = file.path(sheng2020_output_dir, "timeseries", "sheng2020_start_timings.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  response_timings_df,
+  file = file.path(sheng2020_output_dir, "timeseries", "sheng2020_response_timings.csv"),
+  row.names = FALSE
+)
+
 write.csv(
   start_epochs_df,
   file = file.path(sheng2020_output_dir, "sheng2020_start_aligned.csv"),
