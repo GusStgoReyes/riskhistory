@@ -31,7 +31,8 @@ thresholds <- list(
     pct_nan_response_aligned = 40,
     longest_nan_sec_start = 2,
     longest_nan_sec_response = 2,
-    pct_trials_excluded = 30
+    pct_trials_excluded = 30,
+    num_runs = 4
   ),
   equalRange = list(
     pct_nan_baseline = 75,
@@ -39,7 +40,8 @@ thresholds <- list(
     pct_nan_response_aligned = 40,
     longest_nan_sec_start = 2,
     longest_nan_sec_response = 2,
-    pct_trials_excluded = 30
+    pct_trials_excluded = 30,
+    num_runs = 4
   ),
   sheng2020 = list(
     pct_nan_baseline = 75,
@@ -47,7 +49,8 @@ thresholds <- list(
     pct_nan_response_aligned = 40,
     longest_nan_sec_start = 2,
     longest_nan_sec_response = 2,
-    pct_trials_excluded = 30
+    pct_trials_excluded = 30,
+    num_runs = 2
   )
 )
 
@@ -66,6 +69,7 @@ for (ds in names(thresholds)) {
   cat("    Max longest NaN start-aligned:", thresholds[[ds]]$longest_nan_sec_start, "sec\n")
   cat("    Max longest NaN response-aligned:", thresholds[[ds]]$longest_nan_sec_response, "sec\n")
   cat("    Max % trials excluded:", thresholds[[ds]]$pct_trials_excluded, "%\n")
+  cat("    Min unique runs required:", thresholds[[ds]]$num_runs, "\n")
 }
 
 # =============================================================================
@@ -131,6 +135,7 @@ calculate_subject_exclusions <- function(stats_data, exclude_col, alignment_name
     summarise(
       n_trials_available = n(),
       n_trials_excluded = sum(.data[[exclude_col]], na.rm = TRUE),
+      n_unique_runs = n_distinct(run),
       .groups = "drop"
     ) %>%
     mutate(
@@ -146,13 +151,17 @@ calculate_subject_exclusions <- function(stats_data, exclude_col, alignment_name
     rowwise() %>%
     mutate(
       thresh = thresholds[[dataset]]$pct_trials_excluded,
-      exclude_subject = pct_trials_excluded > thresh
+      exclude_pct_trials = pct_trials_excluded > thresh,
+      exclude_num_runs = n_unique_runs < thresholds[[dataset]]$num_runs,
+      exclude_subject = exclude_pct_trials | exclude_num_runs
     ) %>%
     ungroup() %>%
     select(sub, dataset, n_trials_available, n_trials_excluded, n_trials_missing,
-           total_trials, pct_trials_excluded, exclude_subject) %>%
+           total_trials, pct_trials_excluded, n_unique_runs,
+           exclude_pct_trials, exclude_num_runs, exclude_subject) %>%
     rename_with(~ paste0(., "_", alignment_name),
-                .cols = c("n_trials_excluded", "pct_trials_excluded", "exclude_subject"))
+                .cols = c("n_trials_excluded", "pct_trials_excluded",
+                          "exclude_pct_trials", "exclude_num_runs", "exclude_subject"))
 }
 
 # Calculate subject exclusions for each alignment
@@ -176,11 +185,13 @@ cat("\nSubject exclusions by dataset and alignment:\n")
 for (ds in unique(subject_exclusions$dataset)) {
   ds_data <- subject_exclusions %>% filter(dataset == ds)
   n_total <- nrow(ds_data)
+  n_excl_runs <- sum(ds_data$exclude_num_runs_startAligned)
   n_excl_start <- sum(ds_data$exclude_subject_startAligned)
   n_excl_response <- sum(ds_data$exclude_subject_responseAligned)
   cat("\n  ", ds, ":\n", sep = "")
-  cat("    Start-aligned:", n_excl_start, "/", n_total, "subjects excluded\n")
-  cat("    Response-aligned:", n_excl_response, "/", n_total, "subjects excluded\n")
+  cat("    Insufficient runs:", n_excl_runs, "/", n_total, "subjects excluded\n")
+  cat("    Start-aligned:", n_excl_start, "/", n_total, "subjects excluded (total)\n")
+  cat("    Response-aligned:", n_excl_response, "/", n_total, "subjects excluded (total)\n")
 }
 
 # =============================================================================
@@ -373,6 +384,7 @@ for (ds in names(thresholds)) {
     paste0("  Max longest NaN start-aligned: ", thresholds[[ds]]$longest_nan_sec_start, " sec"),
     paste0("  Max longest NaN response-aligned: ", thresholds[[ds]]$longest_nan_sec_response, " sec"),
     paste0("  Max % trials excluded per subject: ", thresholds[[ds]]$pct_trials_excluded, "%"),
+    paste0("  Min unique runs required: ", thresholds[[ds]]$num_runs),
     ""
   )
 }

@@ -14,5 +14,9 @@ src/riskhistory/trash/*
 
 figures/*
 results/*
+!results/analysis_ddm
+!results/analysis_ddm/*
+results/analysis_ddm/db/*
+results/analysis_ddm/hddm/*
 sections/*
 scripts/*

@@ -21,7 +21,7 @@ message("Extracting fixed effects...")
 fixed_effects <- extract_fixed_effects(
   model_list = models_list,
   datasets   = datasets,
-  model_name = "M1",
+  model_name = "ModelPupilBehavior",
   p_method   = p_method
 )
 

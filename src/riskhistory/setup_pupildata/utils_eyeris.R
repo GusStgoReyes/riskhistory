@@ -58,6 +58,18 @@ preprocess_eyeris <- function(
   data_full <- detrend(data)
   data_full <- zscore(data_full)
 
+  # Bin to 25Hz
+  data_full$timeseries$block_1 <- dplyr::select(
+    data_full$timeseries$block_1,
+    block,
+    time_orig,
+    time_secs,
+    eye_x,
+    eye_y,
+    all_of(data_full$latest$block_1)
+  )
+  data_full <- bin(data_full, bins_per_second = 25, method = "mean")
+
   # Full time series after filtering
   timeseries_time <- data_full$timeseries$block_1$time_secs
   pupil_filtered <- data_full$timeseries$block_1[[data_full$latest$block_1]]

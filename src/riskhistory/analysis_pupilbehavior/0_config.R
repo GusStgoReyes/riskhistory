@@ -36,6 +36,8 @@ library(lmerTest)
 source(file.path(utils_path, "utils_pupilpertrial.R"))
 source(file.path(utils_path, "utils_scalestimuli.R"))
 source(file.path(utils_path, "utils_savefixedeffects.R"))
+source(file.path(utils_path, "utils_processdata.R"))
+source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils_getchoicehistory.R"))
 
 # =============================================================================
 # Analysis settings
@@ -49,72 +51,16 @@ datasets <- c("equalIndifference", "equalRange", "sheng2020")
 p_method <- "BH"  # Benjamini-Hochberg
 
 # =============================================================================
-# Load and compute per-trial pupil data
+# Load and process data
 # =============================================================================
-message("Loading pupil betas...")
+pupil_beta_path <- file.path(results_path,
+                             "setup_pupilbetas",
+                             "pupilbetas_lss_results.csv")
+behavioral_data_path <- file.path(analysis_data_path,
+                                  "preprocessed",
+                                  "behavioral_data.csv")
 
-pupil_beta_path <- file.path(analysis_data_path,
-                             "preprocessed",
-                             "pupil_data_alignedResponseTime.csv")
-
-pupil_per_trial_df <- compute_pupil_per_trial(pupil_data_path)
-
-message(sprintf("Pupil per-trial data: %d trials", nrow(pupil_per_trial_df)))
-
-# =============================================================================
-# Load behavioral data
-# =============================================================================
-message("Loading behavioral data...")
-
-behavioral_data <- read.csv(file.path(analysis_data_path,
-                                      "preprocessed",
-                                      "behavioral_data.csv"))
-
-message(sprintf("Behavioral data: %d trials", nrow(behavioral_data)))
-
-# =============================================================================
-# Merge pupil and behavioral data
-# =============================================================================
-message("Merging pupil and behavioral data...")
-
-merged_data <- merge(behavioral_data, pupil_per_trial_df,
-                     by = c("sub", "trial", "dataset"),
-                     all.x = FALSE)
-
-message(sprintf("Merged data: %d trials", nrow(merged_data)))
-
-# =============================================================================
-# Apply exclusion criteria
-# =============================================================================
-message("Applying exclusion criteria...")
-
-# Combined exclusion: exclude if either behavioral or pupil exclusion flag
-merged_data$combined_exclude <- (merged_data$exclude == "True") |
-                                (merged_data$pupil_exclude == TRUE)
-
-# Count exclusions
-n_behavioral_exclude <- sum(merged_data$exclude == "True")
-n_pupil_exclude <- sum(merged_data$pupil_exclude == TRUE)
-n_combined_exclude <- sum(merged_data$combined_exclude)
-
-message(sprintf("Behavioral exclusions: %d", n_behavioral_exclude))
-message(sprintf("Pupil exclusions: %d", n_pupil_exclude))
-message(sprintf("Combined exclusions: %d", n_combined_exclude))
-
-# Filter to non-excluded trials
-data_clean <- merged_data[!merged_data$combined_exclude, ]
-
-message(sprintf("Clean data: %d trials after exclusion", nrow(data_clean)))
-
-# =============================================================================
-# Rescale gain and loss
-# =============================================================================
-message("Rescaling gain and loss...")
-
-data_clean <- scale_stimuli(data_clean)
-
-# Ensure choice_prev1 is numeric
-data_clean$choice_prev1 <- as.numeric(data_clean$choice_prev1)
+data_clean <- process_data(pupil_beta_path, behavioral_data_path)
 
 # =============================================================================
 # Initialize model storage

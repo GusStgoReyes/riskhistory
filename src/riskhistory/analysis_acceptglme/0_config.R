@@ -35,6 +35,7 @@ source(file.path(utils_path, "utils_saverandomeffectsub.R"))
 source(file.path(utils_path, "utils_savefixedeffects.R"))
 source(file.path(utils_path, "utils_modelcomparison.R"))
 source(file.path(utils_path, "utils_scalestimuli.R"))
+source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils_getchoicehistory.R"))
 
 # =============================================================================
 # Analysis settings
@@ -47,6 +48,7 @@ datasets <- c("equalIndifference", "equalRange", "sheng2020")
 # Multiple comparisons method
 p_method <- "BH"  # Benjamini-Hochberg
 
+DECAY_RATES <- list(equalIndifference = 0.5, equalRange = 0.5, sheng2020 = 0.5)
 # =============================================================================
 # Load and prepare data
 # =============================================================================
@@ -63,6 +65,18 @@ behavioral_data_full <- scale_stimuli(behavioral_data_full)
 
 # Filter out excluded trials for behavioral analyses
 behavioral_data <- subset(behavioral_data_full, exclude == "False")
+
+# Add choice history variables
+for (n in 1:6) {
+  # Fill choice_prev{n} 0 if NA
+  prev_col <- paste0("choice_prev", n)
+  behavioral_data[[prev_col]][is.na(behavioral_data[[prev_col]])] <- 0
+  behavioral_data <- compute_choice_history(
+    behavioral_data,
+    num_prev_trials = n,
+    decay_rate = DECAY_RATES
+  )
+}
 
 # =============================================================================
 # Initialize model storage lists

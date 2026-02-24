@@ -1,7 +1,7 @@
 # Common paths (the REPO_PTH variable should be set in the sbatch script)
 DATASET_DIR="$REPO_PTH/data"
 BEHAV_CSV="$DATASET_DIR/preprocessed/behavioral_data.csv"
-RESULTS_DIR="$REPO_PTH/results"
+RESULTS_DIR="$REPO_PTH/results/analysis_ddm"
 
 # PyDDM Models
 MODEL_CSV="$DATASET_DIR/model_ids/pyddm.csv"

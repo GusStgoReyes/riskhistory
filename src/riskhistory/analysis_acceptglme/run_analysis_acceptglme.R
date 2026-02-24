@@ -55,7 +55,7 @@ write.csv(fixed_effects, file.path(analysis_results_path,
 
 print(paste0("Extracting model comparison and fixed",
              "effects for lag choice history models..."))
-models <- c("M1", "M9", "M10", "M11", "M12", "M13")
+models <- c("M1", "M9", "M10", "M11", "M12", "M13", "M14")
 lagchoice_comparison_df <- compare_models(
   model_list      = behavioral_models_list,
   datasets        = datasets,
@@ -70,7 +70,7 @@ write.csv(lagchoice_comparison_df,
 lagchoice_fixed_effects <- extract_fixed_effects(
   model_list = behavioral_models_list,
   datasets   = datasets,
-  models     = c("M9", "M10", "M11", "M12", "M13"),
+  models     = c("M9", "M10", "M11", "M12", "M13", "M14"),
   p_method   = p_method
 )
 # Save fixed effects results
@@ -122,7 +122,7 @@ write.csv(supplementary_fixed_effects,
 print("Checking convergence for all behavioral models...")
 # Check convergence for all behavioral models
 behavioral_models <- c("M1_sv", "M1", "M2", "M3", "M4", "M5", "M6", "M7",
-                       "M8", "M9", "M10", "M11", "M12", "M13", "M_Sup1")
+                       "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M_Sup1")
 convergence_behavioral <- check_convergence_all_models(
   model_list = behavioral_models_list,
   datasets   = datasets,
