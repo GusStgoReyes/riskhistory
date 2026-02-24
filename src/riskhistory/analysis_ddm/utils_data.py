@@ -24,13 +24,14 @@ def load_data(
     pd.DataFrame
         Preprocessed data ready for HDDM fitting.
     """
-    data = hddm.load_csv(data_pth).query(f"dataset == '{dataset_name}'")
+    data = hddm.load_csv(data_pth)
+    data = data[data["dataset"] == dataset_name]
 
     if subj_IDs is not None:
-        data = data.query(f"sub in {subj_IDs}")
+        data = data[data["sub"].isin(subj_IDs)]
 
     data = data.rename(columns={"accept": "response", "sub": "subj_idx"})
-    data = data.query("exclude == False")
+    data = data[~data["exclude"]]
     data = hddm.utils.flip_errors(data)
 
     return data
