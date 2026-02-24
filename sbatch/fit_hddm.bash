@@ -7,7 +7,8 @@ set -euo pipefail
 REPO_PTH=/scratch/users/gustxsr/riskhistory
 DATASET_NAME=${1:-equalIndifference}
 TEST_MODE=${2:-0}
-SCRIPT="$REPO_PTH/src/riskhistory/analysis_ddm/model_hddm.py"
+PYTHONPATH="$REPO_PTH/src"
+MODULE="riskhistory.analysis_ddm.model_hddm"
 
 source "$REPO_PTH/sbatch/configs/general.sh"
 
@@ -66,7 +67,8 @@ MODEL_ID=${models[$IDX]}
 
 echo "Running model: $MODEL_ID"
 
-singularity exec "$REPO_PTH/hddm.sif" python "$SCRIPT" \
+PYTHONPATH="$PYTHONPATH" singularity exec "$REPO_PTH/hddm.sif" \
+  python -m "$MODULE" \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
   --data_pth "$BEHAV_CSV" \
@@ -77,6 +79,6 @@ EOF
 # ======================
 # Submit and clean up
 # ======================
-export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV RESULTS_DIR HDDM_MODEL_CSV SCRIPT
+export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE
 echo "Submitting array job..."
 sbatch --export=ALL "$TEMP_SBATCH"
