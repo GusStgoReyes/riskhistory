@@ -72,6 +72,7 @@ PYTHONPATH="$PYTHONPATH" singularity exec "$REPO_PTH/hddm.sif" \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
   --data_pth "$BEHAV_CSV" \
+  --pupil_pth "$PUPIL_CSV" \
   --results_pth "$RESULTS_DIR" \
   $TEST_FLAG
 EOF

@@ -1,10 +1,42 @@
-import numpy as np
 import pandas as pd
 from riskhistory.setup_pupilbetas.utils_get_data import (get_all_participants,
                                                             get_all_timings_df,
-                                                            get_participant_pupil_data)
+                                                            get_participant_pupil_data,
+                                                            get_behavioral_data)
 from riskhistory.setup_pupilbetas.utils_lss import lss_single_sub
 from riskhistory.setup_pupilbetas.utils_prf import get_prf
+from riskhistory.config import (results_pth,
+                                preprocessed_data_pth)
+
+
+def save_betas_to_csv(results_df, exclusions, behavioral_data):
+    # Save all of the extracted betas into the results
+    results_dir = results_pth / "setup_pupilbetas"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    results_df.to_csv(results_dir / "pupilbetas_lss_results.csv", index=False)
+
+    # Merge behavioral and pupil exclusion criteria
+    exclusions = exclusions[["dataset", "sub", "trial", "run", "exclude_startAligned"]]
+    behavioral_data = behavioral_data[["dataset", "sub", "trial", "run", "exclude"]]
+    exclude = exclusions.merge(behavioral_data, on=["dataset", "sub", "trial", "run"], how="left")
+    exclude["final_exclude"] = exclude["exclude_startAligned"] | exclude["exclude"]
+
+    # Query the trial_betas_names that contains "target"
+    target_betas = results_df[results_df['trial_betas_names'].str.contains("target")]
+    target_betas.loc[:, "trial"] = target_betas.loc[:, "target_trial"]
+    target_betas = target_betas.drop(columns=["target_trial", "trial_betas_names"])
+    target_betas = target_betas.reset_index(drop=True)
+    target_betas = target_betas.rename(columns={"trial_betas_estimates": "pupil"})
+
+    # zscore within subject
+    target_betas["pupil"] = target_betas.groupby("sub")["pupil"].transform(lambda x: (x - x.mean()) / x.std())
+
+    target_betas = target_betas.merge(exclude[["dataset", "sub", "trial", "final_exclude"]], on=["dataset", "sub", "trial"], how="left")
+
+    # Save target betas to preprocessed data folder
+    preprocessed_data_pth.mkdir(parents=True, exist_ok=True)
+    target_betas.to_csv(preprocessed_data_pth / "pupilbetas_lss_preprocessed.csv", index=False)
+
 
 def main():
     participants = get_all_participants()
@@ -49,8 +81,13 @@ def main():
     
     # Combine results across participants into a single dataframe
     results_df = pd.concat(results, ignore_index=True)
-    results_df.to_csv("pupilbetas_lss_results.csv", index=False)
-        
-        
+
+    # Load exclusions and behavioral data for saving
+    exclusions = pd.read_csv(results_pth / "setup_pupildata" / "pupil_data_statistics_with_exclusions.csv")
+    behavioral_data = get_behavioral_data()
+
+    save_betas_to_csv(results_df, exclusions, behavioral_data)
+
+
 if __name__ == "__main__":
     main()

@@ -16,9 +16,11 @@ def fit_model(
     model_id: str,
     dataset_name: str,
     data_pth: str,
+    pupil_pth: str,
     results_pth: str,
     subj_IDs: list = None,
     idx_save: str = "",
+    pupil: bool = False,
     burnin: int = 2000,
     sampling_iters: int = 10000,
 ) -> None:
@@ -32,6 +34,8 @@ def fit_model(
         Name of the dataset ('equalIndifference', 'sheng2020', 'equalRange').
     data_pth : str
         Path to the behavioral CSV file.
+    pupil_pth : str
+        Path to the pupil betas CSV file.
     results_pth : str
         Path to save results.
     subj_IDs : list, optional
@@ -47,8 +51,10 @@ def fit_model(
 
     data = load_data(
         data_pth=data_pth,
+        pupil_pth=pupil_pth,
         dataset_name=dataset_name,
         subj_IDs=subj_IDs,
+        pupil=pupil
     )
 
     config = get_model_config(model_id)
@@ -107,6 +113,12 @@ def main():
         help="Path to behavioral CSV file",
     )
     parser.add_argument(
+        "--pupil_pth",
+        type=str,
+        required=True,
+        help="Path to pupil betas CSV file",
+    )
+    parser.add_argument(
         "--results_pth",
         type=str,
         required=True,
@@ -131,14 +143,17 @@ def main():
         sampling_iters = 10000
 
     print(f"Fitting model {args.model_id} to dataset {args.dataset_name}...", flush=True)
-
+    pupil = "Pupil" in args.model_id
+    
     fit_model(
         model_id=args.model_id,
         dataset_name=args.dataset_name,
         data_pth=args.data_pth,
+        pupil_pth=args.pupil_pth,
         results_pth=args.results_pth,
         subj_IDs=subj_IDs,
         idx_save=idx_save,
+        pupil=pupil,
         burnin=burnin,
         sampling_iters=sampling_iters,
     )
