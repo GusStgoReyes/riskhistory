@@ -80,6 +80,6 @@ EOF
 # ======================
 # Submit and clean up
 # ======================
-export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE
+export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV PUPIL_CSV RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE
 echo "Submitting array job..."
 sbatch --export=ALL "$TEMP_SBATCH"

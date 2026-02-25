@@ -16,8 +16,8 @@ for (ds in datasets) {
 
   # Fit GLME model with continuous pupil size
   m <- glmer(
-    accept ~ gain_centered * pupil_size_wc + loss_centered * pupil_size_wc +
-      choice_prev1 * pupil_size_wc + rt +
+    accept ~ gain_centered + loss_centered +
+      choice_prev1 * pupil +
       (1 + loss_centered | sub),
     data = df_sub,
     family = binomial,
@@ -25,20 +25,23 @@ for (ds in datasets) {
                            optCtrl = list(maxfun = 100000))
   )
 
-  # Fit GLME model with pupil bins (low, medium, high)
-  m_bin <- glmer(
-    accept ~ gain_centered + loss_centered +
-      choice_prev1 * pupil_bin + rt +
-      (1 + loss_centered | sub) + (0 + choice_prev1 | sub) + (0 + pupil_bin | sub),
-    data = df_sub,
-    family = binomial,
-    control = glmerControl(optimizer = "bobyqa",
-                           optCtrl = list(maxfun = 100000))
-  )
+  # Fit separate GLME models per pupil bin (low, medium, high)
+  bins <- unique(df_sub$pupil_bin)
+  for (bin in bins) {
+    df_bin <- df_sub[df_sub$pupil_bin == bin, ]
+    m_bin <- glmer(
+      accept ~ gain_centered + loss_centered + choice_prev1 +
+        (1 + loss_centered | sub),
+      data = df_bin,
+      family = binomial,
+      control = glmerControl(optimizer = "bobyqa",
+                             optCtrl = list(maxfun = 100000))
+    )
+    models_list[[ds]][[paste0("ModelPupilBehavior_Bin_", bin)]] <- m_bin
+  }
 
   # Store model
   models_list[[ds]][["ModelPupilBehavior"]] <- m
-  models_list[[ds]][["ModelPupilBehavior_Bin"]] <- m_bin
 
   message(sprintf("    Model fitted for %s", ds))
 }

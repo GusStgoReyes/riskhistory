@@ -9,12 +9,6 @@ process_data <- function(pupil_beta_path, behavioral_data_path) {
   message("Loading pupil betas...")
   pupil_betas <- read.csv(pupil_beta_path)
 
-  pupil_per_trial_df <- pupil_betas[grepl("target", pupil_betas$trial_betas_names), ]
-  pupil_per_trial_df$trial <- pupil_per_trial_df$target_trial
-  pupil_per_trial_df <- pupil_per_trial_df[, !(names(pupil_per_trial_df) %in%
-                                                 c("target_trial", "trial_betas_names"))]
-  names(pupil_per_trial_df)[names(pupil_per_trial_df) == "trial_betas_estimates"] <- "pupil_size"
-
   # ---------------------------------------------------------------------------
   # Load behavioral data
   # ---------------------------------------------------------------------------
@@ -26,7 +20,7 @@ process_data <- function(pupil_beta_path, behavioral_data_path) {
   # Merge pupil and behavioral data
   # ---------------------------------------------------------------------------
   message("Merging pupil and behavioral data...")
-  merged_data <- merge(behavioral_data, pupil_per_trial_df,
+  merged_data <- merge(behavioral_data, pupil_betas,
                        by = c("sub", "trial", "dataset", "run"),
                        all.x = FALSE)
   message(sprintf("Merged data: %d trials", nrow(merged_data)))
@@ -35,7 +29,7 @@ process_data <- function(pupil_beta_path, behavioral_data_path) {
   # Apply exclusion criteria
   # ---------------------------------------------------------------------------
   message("Applying exclusion criteria...")
-  merged_data$combined_exclude <- (merged_data$exclude == "True")
+  merged_data$combined_exclude <- (merged_data$final_exclude == "True")
 
   n_behavioral_exclude <- sum(merged_data$exclude == "True")
   n_combined_exclude <- sum(merged_data$combined_exclude)
@@ -63,21 +57,10 @@ process_data <- function(pupil_beta_path, behavioral_data_path) {
     decay_rate = list(equalIndifference = 0.5, equalRange = 0.5, sheng2020 = 0.5)
   )
 
-  # ---------------------------------------------------------------------------
-  # Within-subject center pupil size and create tertile bins
-  # ---------------------------------------------------------------------------
   data_clean <- data_clean %>%
     group_by(sub, dataset) %>%
     mutate(
-      pupil_mean = mean(pupil_size, na.rm = TRUE),
-      pupil_size_wc = pupil_size - pupil_mean
-    ) %>%
-    ungroup()
-
-  data_clean <- data_clean %>%
-    group_by(sub, dataset) %>%
-    mutate(
-      pupil_bin = ntile(pupil_size_wc, 3)
+      pupil_bin = ntile(pupil, 3)
     ) %>%
     ungroup()
 

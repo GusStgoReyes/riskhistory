@@ -36,6 +36,7 @@ library(lmerTest)
 source(file.path(utils_path, "utils_pupilpertrial.R"))
 source(file.path(utils_path, "utils_scalestimuli.R"))
 source(file.path(utils_path, "utils_savefixedeffects.R"))
+source(file.path(utils_path, "utils_checkmodelconverge.R"))
 source(file.path(utils_path, "utils_processdata.R"))
 source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils_getchoicehistory.R"))
 
@@ -53,13 +54,12 @@ p_method <- "BH"  # Benjamini-Hochberg
 # =============================================================================
 # Load and process data
 # =============================================================================
-pupil_beta_path <- file.path(results_path,
-                             "setup_pupilbetas",
-                             "pupilbetas_lss_results.csv")
+pupil_beta_path <- file.path(analysis_data_path,
+                             "preprocessed",
+                             "pupilbetas_lss_preprocessed.csv")
 behavioral_data_path <- file.path(analysis_data_path,
                                   "preprocessed",
                                   "behavioral_data.csv")
-
 data_clean <- process_data(pupil_beta_path, behavioral_data_path)
 
 # =============================================================================

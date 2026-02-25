@@ -48,3 +48,20 @@ extract_fixed_effects <- function(
 
   bind_rows(fixed_effects_all)
 }
+
+# Extract fixed effects for all models present in model_list
+extract_all_fixed_effects <- function(model_list, datasets, p_method = "BH") {
+
+  model_names <- unique(unlist(lapply(datasets, function(ds) names(model_list[[ds]]))))
+
+  results <- lapply(model_names, function(mn) {
+    extract_fixed_effects(
+      model_list = model_list,
+      datasets   = datasets,
+      model_name = mn,
+      p_method   = p_method
+    )
+  })
+
+  bind_rows(results)
+}
