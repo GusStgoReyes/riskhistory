@@ -20,3 +20,6 @@ results/analysis_ddm/db/*
 results/analysis_ddm/hddm/*
 sections/*
 scripts/*
+
+hddm.sif
+*/slurm*
