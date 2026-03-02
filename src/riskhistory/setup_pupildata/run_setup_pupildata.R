@@ -26,12 +26,14 @@ run_narps <- TRUE
 run_sheng2020 <- TRUE
 run_combine <- TRUE
 run_exclusions <- TRUE
+run_summary <- TRUE
 
 if (length(args) > 0) {
   run_narps <- "narps" %in% args || "all" %in% args
   run_sheng2020 <- "sheng2020" %in% args || "all" %in% args
   run_combine <- "combine" %in% args || "all" %in% args
   run_exclusions <- "exclusions" %in% args || "all" %in% args
+  run_summary <- "summary" %in% args || "all" %in% args
 
   # If only specific steps requested, adjust defaults
   if (!("all" %in% args)) {
@@ -39,6 +41,7 @@ if (length(args) > 0) {
     if (!("sheng2020" %in% args)) run_sheng2020 <- FALSE
     if (!("combine" %in% args)) run_combine <- FALSE
     if (!("exclusions" %in% args)) run_exclusions <- FALSE
+    if (!("summary" %in% args)) run_summary <- FALSE
   }
 }
 
@@ -123,6 +126,25 @@ if (run_exclusions) {
 }
 
 # =============================================================================
+# Step 5: Summary Statistics
+# =============================================================================
+
+if (run_summary) {
+  cat(">>> Step 5: Summary Statistics\n")
+  cat("-----------------------------------------------------\n")
+  tryCatch({
+    source(file.path(script_dir, "4_summary_statistics.R"))
+  }, error = function(e) {
+    cat("ERROR in summary statistics:\n")
+    cat(conditionMessage(e), "\n")
+    if (!interactive()) quit(status = 1)
+  })
+  cat("\n")
+} else {
+  cat(">>> Step 5: Summary Statistics [SKIPPED]\n\n")
+}
+
+# =============================================================================
 # Done
 # =============================================================================
 
@@ -136,5 +158,8 @@ cat("Output files:\n")
 cat("  - ", output_start_aligned, "\n")
 cat("  - ", output_response_aligned, "\n")
 cat("  - ", output_statistics, "\n")
-cat("  - ", file.path(results_path, "setup_pupildata", "pupil_data_statistics_with_exclusions.csv"), "\n")
-cat("  - ", file.path(results_path, "setup_pupildata", "pupil_subject_exclusions.csv"), "\n")
+cat("  - ", file.path(results_path, "setup_pupildata",
+                      "pupil_data_statistics_with_exclusions.csv"), "\n")
+cat("  - ", file.path(results_path, "setup_pupildata",
+                      "pupil_subject_exclusions.csv"), "\n")
+cat("  - ", output_summary_statistics, "\n")

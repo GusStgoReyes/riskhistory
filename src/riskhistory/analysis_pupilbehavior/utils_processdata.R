@@ -57,6 +57,16 @@ process_data <- function(pupil_beta_path, behavioral_data_path) {
     decay_rate = list(equalIndifference = 0.5, equalRange = 0.5, sheng2020 = 0.5)
   )
 
+  data_clean$ev_centered <- 0.5 * data_clean$gain_centered - 0.5 * data_clean$loss_centered
+
+  data_clean <- data_clean %>%
+    group_by(sub) %>%
+    mutate(
+      pupil_rescale = (pupil - min(pupil, na.rm = TRUE)) /
+        (max(pupil, na.rm = TRUE) - min(pupil, na.rm = TRUE))
+    ) %>%
+    ungroup()
+
   data_clean <- data_clean %>%
     group_by(sub, dataset) %>%
     mutate(

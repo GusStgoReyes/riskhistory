@@ -26,47 +26,78 @@ DEFAULT_MODEL_PARAMS = {
 
 
 # =============================================================================
+# VARIABLE CODING CONVENTIONS
+# =============================================================================
+#
+#   gain       : gain magnitude, mean-centered within each dataset.
+#                  Intercept reflects drift at the average gamble, not at
+#                  a zero-gain gamble that never occurs in the design.
+#
+#   loss       : loss magnitude, mean-centered within each dataset.
+#                  Same rationale as gain.
+#
+#   choice_prev1 : previous choice, coded −1 (reject) or +1 (accept).
+#                  Symmetric coding preserves the accept/reject symmetry
+#                  of the design. The coefficient reflects the signed
+#                  drift/z shift toward repeating the previous response.
+#
+#   pupil        : trial-level LSS pupil beta, z-scored within subject,
+#                  then min-max scaled to [0, 1] within subject.
+#                  0 = minimum observed arousal (weakest modulation),
+#                  1 = maximum observed arousal (strongest modulation).
+#                  [0, 1] scaling ensures pupil only ever adds to or
+#                  scales a baseline effect — never reverses it, which
+#                  would be theoretically incoherent.
+#                  Used in z0 and v0 model families.
+#
+# =============================================================================
 # MODEL REGISTRY
 # =============================================================================
 #
 # NAMING CONVENTION:
-#   HDDM_Collapse                        → baseline (no history)
-#   HDDM_Collapse_Lag1-[mechanism]       → previous choice only
-#   HDDM_Collapse_Lag1-[mech]_Pupil      → best prev-choice model + pupil
+#   HDDM_Collapse                         → Tier 0 baseline
+#   HDDM_Collapse_Lag1-[mech]             → Tier 1/2 history models
+#   HDDM_Collapse_Pupil_Lag1              → Tier 3 pupil baseline
+#   HDDM_Collapse_Pupil_Lag1-[mech]       → Tier 4 single-mechanism pupil
+#   HDDM_Collapse_Pupil_Lag1-[m1]_[m2].. → Tier 5 all-mechanism pupil
 #
 # MECHANISM CODES:
-#   x0   → starting point z
-#   c0   → drift bias (additive v term)
-#   stim → stimulus coding (gain:prev, loss:prev interactions)
-#   ndt  → non-decision time t
+#   z0   → previous choice (and/or pupil) enters starting point z
+#   v0   → previous choice (and/or pupil:prev_choice) enters drift v
+#   stim → pupil rescales gain and loss weights in drift v
 #
 # MODEL TIERS:
-#   Tier 0: Baseline
-#   Tier 1: Previous choice mechanisms (model comparison to find winning mechanism)
-#   Tier 2: Combined previous choice (z + best drift model)
-#   Tier 3: Pupil models (build on winning Tier 1/2 model — z is expected winner)
+#   Tier 0 : Baseline — no history, full sample
+#   Tier 1 : Single-mechanism history — full sample
+#   Tier 2 : All-mechanism history — full sample
+#   Tier 3 : Pupil baseline — pupil subsample, history included,
+#             no pupil regressors (BIC reference for Tiers 4–5)
+#   Tier 4 : Single-mechanism pupil — pupil subsample
+#   Tier 5 : All-mechanism pupil — pupil subsample
 #
 # group_only_nodes:
-#   Any regressor you want estimated at the group level only (no per-subject
-#   posterior). Use for the effect of interest (previous choice, pupil) so that
-#   a single coefficient captures the population-level mechanism.
-#   Per-subject random effects for intercept and loss are handled by
-#   group_only_regressors=False (default), meaning v_1, v_gain, v_loss, z_1
-#   etc. get subject-level posteriors automatically.
+#   Regressors listed here are estimated at the group level only (single
+#   posterior for the population effect). This applies to all history and
+#   pupil effect-of-interest terms.
+#   Per-subject posteriors for v_1, v_gain, v_loss, z_1, a, t, theta
+#   are estimated automatically because group_only_regressors=False.
 #
 # =============================================================================
 
 MODEL_REGISTRY = {
 
-    # -------------------------------------------------------------------------
+    # =========================================================================
     # TIER 0: BASELINE
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # No history terms. Drift is a linear function of gain and loss only.
+    # BIC reference for Tier 1 and Tier 2.
+    # =========================================================================
 
     "HDDM_Collapse": {
         "description": (
-            "Baseline model. Drift rate is a linear function of gain and loss "
-            "magnitude. No history terms. All other DDM parameters (a, t, z, "
-            "theta) are free per subject."
+            "Tier 0 baseline. Drift rate is a linear function of centered "
+            "gain and loss. No history or pupil terms. Starting point z is "
+            "free per subject but unregressed. BIC reference for Tiers 1–2."
         ),
         "tier": 0,
         "reg_descr": [
@@ -76,202 +107,258 @@ MODEL_REGISTRY = {
         **DEFAULT_MODEL_PARAMS,
     },
 
-    # -------------------------------------------------------------------------
-    # TIER 1: PREVIOUS CHOICE — SINGLE MECHANISM
-    # Four competing hypotheses about where previous choice acts.
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # TIER 1: SINGLE-MECHANISM CHOICE HISTORY
+    # =========================================================================
+    # Two competing hypotheses: previous choice acts on z OR on v.
+    # Δk = 1 vs HDDM_Collapse for each model.
+    # =========================================================================
 
-    "HDDM_Collapse_Lag1-x0": {
+    "HDDM_Collapse_Lag1-z0": {
         "description": (
-            "Starting point hypothesis. Previous choice shifts z before "
-            "evidence accumulation begins, reflecting a pre-decisional bias "
-            "toward repeating the prior response. Drift is unchanged."
+            "Tier 1 — starting point hypothesis. Previous choice shifts z "
+            "before evidence accumulation begins (pre-decisional bias toward "
+            "repeating the prior response). Drift depends only on gain and "
+            "loss. "
         ),
         "tier": 1,
         "reg_descr": [
-            {"model": "v ~ 1 + gain + loss",       "link_func": lambda x: x},
-            {"model": "z ~ 1 + choice_prev1",       "link_func": z_link_func},
+            {"model": "v ~ 1 + gain + loss",  "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1",      "link_func": z_link_func},
         ],
         "group_only_nodes": ["z_choice_prev1"],
         **DEFAULT_MODEL_PARAMS,
     },
 
-    "HDDM_Collapse_Lag1-c0": {
+    "HDDM_Collapse_Lag1-v0": {
         "description": (
-            "Drift bias hypothesis. Previous choice adds a signed constant to "
-            "the drift rate, biasing evidence accumulation toward repeating "
-            "the prior response. Starting point is free but unregressed."
+            "Tier 1 — drift bias hypothesis. Previous choice adds a signed "
+            "constant to the drift rate, biasing evidence accumulation toward "
+            "repeating the prior response. Starting point z is free per "
+            "subject but unregressed. "
         ),
         "tier": 1,
         "reg_descr": [
-            {"model": "v ~ 1 + gain + loss + choice_prev1", "link_func": lambda x: x},
+            {
+                "model": "v ~ 1 + gain + loss + choice_prev1",
+                "link_func": lambda x: x,
+            },
         ],
         "group_only_nodes": ["v_choice_prev1"],
         **DEFAULT_MODEL_PARAMS,
     },
 
-    "HDDM_Collapse_Lag1-stim": {
-        "description": (
-            "Stimulus sensitivity hypothesis. Previous choice modulates how "
-            "gain and loss magnitudes are weighted during accumulation via "
-            "gain:choice_prev1 and loss:choice_prev1 interactions. Tests "
-            "whether history asymmetrically rescales gain vs. loss processing "
-            "rather than adding a uniform drift bias."
-        ),
-        "tier": 1,
-        "reg_descr": [
-            {
-                "model": "v ~ 1 + gain + loss + gain:choice_prev1 + loss:choice_prev1",
-                "link_func": lambda x: x,
-            },
-        ],
-        "group_only_nodes": ["v_gain:choice_prev1", "v_loss:choice_prev1"],
-        **DEFAULT_MODEL_PARAMS,
-    },
+    # =========================================================================
+    # TIER 2: ALL-MECHANISM CHOICE HISTORY
+    # =========================================================================
+    # Previous choice enters both z and v simultaneously.
+    # Tests whether the two mechanisms account for independent variance.
+    # Δk = 2 vs HDDM_Collapse.
+    # =========================================================================
 
-    "HDDM_Collapse_Lag1-ndt": {
+    "HDDM_Collapse_Lag1-z0_v0": {
         "description": (
-            "Non-decision time hypothesis (control model). Previous choice "
-            "affects t (motor preparation / encoding time) rather than the "
-            "accumulation process itself. Uses 'repeat' (binary: did the "
-            "participant repeat their previous choice?) as the predictor "
-            "because NDT should be faster for prepared/repeated responses. "
-            "If this model wins it would suggest a purely motor account."
-        ),
-        "tier": 1,
-        "reg_descr": [
-            {"model": "v ~ 1 + gain + loss", "link_func": lambda x: x},
-            {"model": "t ~ 1 + repeat",      "link_func": lambda x: x},
-        ],
-        "group_only_nodes": ["t_repeat"],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    # -------------------------------------------------------------------------
-    # TIER 2: COMBINED PREVIOUS CHOICE
-    # Tests whether z and drift bias account for independent variance.
-    # Only z+c0 combination is theoretically motivated here — z+stim is also
-    # included to check if stimulus sensitivity adds on top of z shift.
-    # -------------------------------------------------------------------------
-
-    "HDDM_Collapse_Lag1-x0_c0": {
-        "description": (
-            "Combined starting point + drift bias. Previous choice shifts z "
-            "(pre-decisional) AND adds a signed drift constant (during "
-            "accumulation). Tests whether both mechanisms co-occur or whether "
-            "one fully explains the other."
+            "Tier 2 — combined starting point + drift bias. Previous choice "
+            "shifts z (pre-decisional) AND adds a signed drift constant "
+            "(during accumulation). Tests whether both mechanisms co-occur "
+            "or whether one fully accounts for the history effect. "
         ),
         "tier": 2,
         "reg_descr": [
-            {"model": "v ~ 1 + gain + loss + choice_prev1", "link_func": lambda x: x},
-            {"model": "z ~ 1 + choice_prev1",               "link_func": z_link_func},
+            {
+                "model": "v ~ 1 + gain + loss + choice_prev1",
+                "link_func": lambda x: x,
+            },
+            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
         ],
         "group_only_nodes": ["v_choice_prev1", "z_choice_prev1"],
         **DEFAULT_MODEL_PARAMS,
     },
 
-    "HDDM_Collapse_Lag1-x0_stim": {
+    # =========================================================================
+    # TIER 3: PUPIL BASELINE
+    # =========================================================================
+    # Fit on the PUPIL SUBSAMPLE ONLY.
+    # Retains both history terms (z and v) as the established mechanism.
+    # No pupil regressors. BIC reference for all Tier 4 and Tier 5 models.
+    # =========================================================================
+
+    "HDDM_Collapse_Pupil_Lag1": {
         "description": (
-            "Combined starting point + stimulus sensitivity. Previous choice "
-            "shifts z AND modulates gain/loss weights in the drift. Asks "
-            "whether pre-decisional bias and evidence-weighting bias are "
-            "separable or redundant."
+            "Tier 3 — pupil subsample baseline. Previous choice enters both "
+            "z and v (matching Tier 2 specification). No pupil regressors. "
+            "Estimated on the pupil subsample only. "
+            "BIC reference for all Tier 4 and Tier 5 pupil models."
         ),
-        "tier": 2,
+        "tier": 3,
         "reg_descr": [
             {
-                "model": "v ~ 1 + gain + loss + gain:choice_prev1 + loss:choice_prev1",
+                "model": "v ~ 1 + gain + loss + choice_prev1",
                 "link_func": lambda x: x,
             },
             {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
+        ],
+        "group_only_nodes": ["v_choice_prev1", "z_choice_prev1"],
+        **DEFAULT_MODEL_PARAMS,
+    },
+
+    # =========================================================================
+    # TIER 4: SINGLE-MECHANISM PUPIL
+    # =========================================================================
+    # Fit on the PUPIL SUBSAMPLE ONLY.
+    # All models retain both history terms from Tier 3 so that pupil terms
+    # explain variance beyond the established history effect.
+    # Δk = 2 vs HDDM_Collapse_Pupil_Lag1 for each model.
+    # =========================================================================
+
+    "HDDM_Collapse_Pupil_Lag1-z0": {
+        "description": (
+            "Tier 4 — starting point pupil model. pupil and pupil:choice_prev1 "
+            "enter z alongside the baseline history term. Tests whether arousal "
+            "shifts the pre-decisional bias and whether that shift depends on "
+            "the previous choice. Drift retains the history term but has no "
+            "pupil terms. "
+            "pupil: z-scored "
+            "z_pupil:choice_prev1 = change in bias from min to max arousal. "
+            "(z_pupil + z_pupil:choice_prev1)."
+        ),
+        "tier": 4,
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain + loss + choice_prev1",
+                "link_func": lambda x: x,
+            },
+            {
+                "model": "z ~ 1 + choice_prev1 + pupil + pupil:choice_prev1",
+                "link_func": z_link_func,
+            },
         ],
         "group_only_nodes": [
-            "v_gain:choice_prev1",
-            "v_loss:choice_prev1",
+            "v_choice_prev1",
             "z_choice_prev1",
+            "z_pupil",
+            "z_pupil:choice_prev1",
         ],
         **DEFAULT_MODEL_PARAMS,
     },
 
-    # -------------------------------------------------------------------------
-    # TIER 3: PUPIL MODELS
-    #
-    # Logic: previous choice mechanism is settled by Tier 1/2 comparison
-    # (z is expected winner based on your existing results). Pupil enters
-    # exclusively in the drift as pupil:choice_prev1, motivated by:
-    #   (a) pupil is measured post-stimulus (during accumulation, not before)
-    #   (b) logistic regression shows pupil:choice_prev1 significant, not pupil alone
-    #
-    # All pupil models keep z ~ 1 + choice_prev1 for the pre-decisional bias.
-    # The pupil term tests whether arousal during accumulation modulates the
-    # STRENGTH of the history-driven drift — i.e., whether high arousal
-    # amplifies or attenuates the repetition bias in evidence accumulation.
-    #
-    # Three pupil models of increasing complexity:
-    #   Pupil-v    : overall drift modulation by pupil:prev_choice
-    #   Pupil-v0   : pupil as additive drift term WITHOUT interaction (null for pupil)
-    #   Pupil-v_x0 : full model — z shift + pupil:prev_choice in drift
-    # -------------------------------------------------------------------------
-
-    "HDDM_Collapse_Lag1-x0_Pupil-v0": {
+    "HDDM_Collapse_Pupil_Lag1-stim": {
         "description": (
-            "Pupil null model. Previous choice shifts z. Pupil enters drift "
-            "as a main effect only (no interaction with previous choice). "
-            "This is a null/control model for pupil — if pupil:prev_choice "
-            "models beat this, it confirms the interaction is necessary. "
-            "Expected to lose based on logistic regression showing pupil "
-            "alone is non-significant."
+            "Tier 4 — stimulus sensitivity pupil model. pupil_c rescales how "
+            "gain and loss are weighted during evidence accumulation via "
+            "pupil_c:gain and pupil_c:loss. History terms are retained in "
+            "both v and z. Tests whether arousal modulates valuation sensitivity "
+            "independent of the history bias. "
+            "pupil ∈ [0, 1]: v_gain and v_loss are interpretable "
+            "at average arousal (pupil_c = 0), reducing collinearity. "
+            "Δk = 2 vs HDDM_Collapse_Pupil_Lag1 "
+            "(v_pupil_c:gain + v_pupil_c:loss)."
         ),
-        "tier": 3,
-        "reg_descr": [
-            {"model": "v ~ 1 + gain + loss + pupil",  "link_func": lambda x: x},
-            {"model": "z ~ 1 + choice_prev1",          "link_func": z_link_func},
-        ],
-        "group_only_nodes": ["v_pupil", "z_choice_prev1"],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    "HDDM_Collapse_Lag1-x0_Pupil-v": {
-        "description": (
-            "Primary pupil model. Previous choice shifts z (pre-decisional). "
-            "Pupil modulates drift via pupil:choice_prev1 interaction — "
-            "testing whether arousal during accumulation amplifies or "
-            "attenuates the repetition bias in the drift. No main effect of "
-            "pupil in drift (consistent with logistic regression)."
-        ),
-        "tier": 3,
+        "tier": 4,
         "reg_descr": [
             {
-                "model": "v ~ 1 + gain + loss + pupil:choice_prev1",
-                "link_func": lambda x: x,
-            },
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
-        ],
-        "group_only_nodes": ["v_pupil:choice_prev1", "z_choice_prev1"],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    "HDDM_Collapse_Lag1-x0_Pupil-v_c0": {
-        "description": (
-            "Pupil model with additional drift bias term. Previous choice "
-            "shifts z AND adds a drift constant (c0) AND pupil:choice_prev1 "
-            "modulates drift. Tests whether pupil explains residual drift "
-            "history effects beyond the additive choice bias. More complex "
-            "than the primary pupil model — include to check if c0 and "
-            "pupil:choice_prev1 are redundant."
-        ),
-        "tier": 3,
-        "reg_descr": [
-            {
-                "model": "v ~ 1 + gain + loss + choice_prev1 + pupil:choice_prev1",
+                "model": (
+                    "v ~ 1 + gain + loss + choice_prev1 "
+                    "+ pupil:gain + pupil:loss"
+                ),
                 "link_func": lambda x: x,
             },
             {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
         ],
         "group_only_nodes": [
             "v_choice_prev1",
-            "v_pupil:choice_prev1",
             "z_choice_prev1",
+            "v_pupil:gain",
+            "v_pupil:loss",
+        ],
+        **DEFAULT_MODEL_PARAMS,
+    },
+
+    "HDDM_Collapse_Pupil_Lag1-v0": {
+        "description": (
+            "Tier 4 — drift bias pupil model. pupil and pupil:choice_prev1 "
+            "enter the drift rate alongside the baseline history term. Tests "
+            "whether arousal modulates the drift-level repetition bias during "
+            "evidence accumulation. Starting point z retains only the history "
+            "term. "
+            "pupil ∈ [0, 1]: v_choice_prev1 = drift history bias at minimum "
+            "arousal; v_pupil:choice_prev1 = change in bias from min to max "
+            "arousal. "
+            "Δk = 2 vs HDDM_Collapse_Pupil_Lag1 "
+            "(v_pupil + v_pupil:choice_prev1)."
+        ),
+        "tier": 4,
+        "reg_descr": [
+            {
+                "model": (
+                    "v ~ 1 + gain + loss + choice_prev1 "
+                    "+ pupil + pupil:choice_prev1"
+                ),
+                "link_func": lambda x: x,
+            },
+            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
+        ],
+        "group_only_nodes": [
+            "v_choice_prev1",
+            "z_choice_prev1",
+            "v_pupil",
+            "v_pupil:choice_prev1",
+        ],
+        **DEFAULT_MODEL_PARAMS,
+    },
+
+    # =========================================================================
+    # TIER 5: ALL-MECHANISM PUPIL
+    # =========================================================================
+    # All three pupil mechanisms active simultaneously.
+    # Fit on the PUPIL SUBSAMPLE ONLY.
+    # Expected to be over-parametrized relative to Tier 4 single-mechanism
+    # models under BIC. Included to verify that no important variance is
+    # missed by the simpler models.
+    #
+    # Requires TWO pupil columns in the dataframe:
+    #   pupil   ∈ [0, 1]       for z0 and v0 terms
+    #   pupil_c ∈ [−0.5,+0.5]  for stim terms
+    # Both are derived from the same z-scored LSS beta; only the shift differs.
+    # =========================================================================
+
+    "HDDM_Collapse_Pupil_Lag1-z0_v0_stim": {
+        "description": (
+            "Tier 5 — full pupil model. All three pupil mechanisms active: "
+            "(1) z: pupil and pupil:choice_prev1 shift the pre-decisional bias "
+            "(pupil ∈ [0,1]); "
+            "(2) v: pupil and pupil:choice_prev1 modulate the drift-level "
+            "repetition bias (pupil ∈ [0,1]); "
+            "(3) v: pupil:gain and pupil:loss rescale valuation "
+            "sensitivity (pupil ∈ [0,1]). "
+            "Δk = 6 vs HDDM_Collapse_Pupil_Lag1 "
+            "(z_pupil, z_pupil:prev, v_pupil, v_pupil:prev, "
+            "v_pupil:gain, v_pupil:loss)."
+        ),
+        "tier": 5,
+        "reg_descr": [
+            {
+                "model": (
+                    "v ~ 1 + gain + loss + choice_prev1 "
+                    "+ pupil + pupil:choice_prev1 "
+                    "+ pupil:gain + pupil:loss"
+                ),
+                "link_func": lambda x: x,
+            },
+            {
+                "model": "z ~ 1 + choice_prev1 + pupil + pupil:choice_prev1",
+                "link_func": z_link_func,
+            },
+        ],
+        "group_only_nodes": [
+            "v_choice_prev1",
+            "z_choice_prev1",
+            "z_pupil",
+            "z_pupil:choice_prev1",
+            "v_pupil",
+            "v_pupil:choice_prev1",
+            "v_pupil:gain",
+            "v_pupil:loss",
         ],
         **DEFAULT_MODEL_PARAMS,
     },
@@ -283,48 +370,42 @@ MODEL_REGISTRY = {
 # MODEL COMPARISON ORDER
 # =============================================================================
 #
-# Run in this order to preserve the nesting argument for BIC:
+# STEP 1 — Tier 0 vs Tier 1 (full sample)
+#   Establishes whether previous choice improves fit and which single
+#   mechanism (z or v) carries the history effect.
+#   BIC reference: HDDM_Collapse.
 #
-# Step 1 — Identify previous choice mechanism (Tier 0 vs Tier 1)
-#   HDDM_Collapse
-#   HDDM_Collapse_Lag1-x0       ← expected winner
-#   HDDM_Collapse_Lag1-c0
-#   HDDM_Collapse_Lag1-stim
-#   HDDM_Collapse_Lag1-ndt
+# STEP 2 — Tier 2 (full sample)
+#   Tests whether both mechanisms together outperform either alone.
+#   Run only if Tier 1 is not decisive (ΔBIC < 2 between z0 and v0).
+#   BIC reference: HDDM_Collapse.
 #
-# Step 2 — Test whether mechanisms combine (Tier 2, only if needed)
-#   HDDM_Collapse_Lag1-x0_c0
-#   HDDM_Collapse_Lag1-x0_stim
+# STEP 3 — Tier 3 vs Tier 4 (pupil subsample)
+#   Single-mechanism pupil models compared against HDDM_Collapse_Pupil_Lag1.
+#   BIC reference: HDDM_Collapse_Pupil_Lag1.
 #
-# Step 3 — Add pupil to winning model (Tier 3)
-#   HDDM_Collapse_Lag1-x0_Pupil-v0   ← pupil null (main effect only)
-#   HDDM_Collapse_Lag1-x0_Pupil-v    ← primary pupil model
-#   HDDM_Collapse_Lag1-x0_Pupil-v_c0 ← pupil + drift bias (complexity check)
-#
-# BIC NOTE:
-#   Because pupil models are built ON TOP of the winning Tier 1 model,
-#   BIC is comparing a model with k parameters vs k+1 parameters. If
-#   Pupil-v beats the z-only model under BIC, the improvement is genuine
-#   (BIC penalizes the extra pupil:choice_prev1 term). The logistic
-#   regression finding pre-registers the direction of the effect.
+# STEP 4 — Tier 5 (pupil subsample)
+#   Full model checked last; expected to lose under BIC.
+#   BIC reference: HDDM_Collapse_Pupil_Lag1.
 #
 # =============================================================================
 
 MODEL_COMPARISON_ORDER = [
-    # Tier 0
+    # ── Tier 0 ───────────────────────────────────────────────────────────────
     "HDDM_Collapse",
-    # Tier 1
-    "HDDM_Collapse_Lag1-x0",
-    "HDDM_Collapse_Lag1-c0",
-    "HDDM_Collapse_Lag1-stim",
-    "HDDM_Collapse_Lag1-ndt",
-    # Tier 2
-    "HDDM_Collapse_Lag1-x0_c0",
-    "HDDM_Collapse_Lag1-x0_stim",
-    # Tier 3
-    "HDDM_Collapse_Lag1-x0_Pupil-v0",
-    "HDDM_Collapse_Lag1-x0_Pupil-v",
-    "HDDM_Collapse_Lag1-x0_Pupil-v_c0",
+    # ── Tier 1 ───────────────────────────────────────────────────────────────
+    "HDDM_Collapse_Lag1-z0",
+    "HDDM_Collapse_Lag1-v0",
+    # ── Tier 2 ───────────────────────────────────────────────────────────────
+    "HDDM_Collapse_Lag1-z0_v0",
+    # ── Tier 3: pupil subsample BIC reference ────────────────────────────────
+    "HDDM_Collapse_Pupil_Lag1",
+    # ── Tier 4: single-mechanism pupil ───────────────────────────────────────
+    "HDDM_Collapse_Pupil_Lag1-z0",
+    "HDDM_Collapse_Pupil_Lag1-stim",
+    "HDDM_Collapse_Pupil_Lag1-v0",
+    # ── Tier 5: all-mechanism pupil ──────────────────────────────────────────
+    "HDDM_Collapse_Pupil_Lag1-z0_v0_stim",
 ]
 
 
@@ -332,22 +413,50 @@ MODEL_COMPARISON_ORDER = [
 # PARAMETER COUNT TABLE (for BIC penalty accounting)
 # =============================================================================
 #
-# Each row: (model_name, n_group_params_added_over_baseline)
-# Baseline has: v_1, v_gain, v_loss, a, t, z, theta  →  7 group-level params
-# Each regressor added to group_only_nodes adds 1 group param (mean + variance
-# if hierarchical, but group_only means only the mean is estimated).
+# Δk = group-level parameters added vs. the appropriate tier reference.
 #
-# Use this to verify your BIC penalty is proportionate and to respond to
-# reviewer questions about parameter count.
+# Tier 0–2 reference : HDDM_Collapse            (Δk = 0)
+# Tier 3–5 reference : HDDM_Collapse_Pupil_Lag1 (Δk = 0, pupil subsample)
 #
+# group_only_nodes contribute exactly 1 param each (group mean only).
+# Per-subject v_1, v_gain, v_loss, z_1, a, t, theta posteriors are
+# free in all models and are not counted here (they do not differ across
+# models within a tier).
+#
+# BIC penalty per param = ln(N_trials).
+# For N ≈ 10k–50k trials: ≈ 9–11 log-likelihood units per parameter.
+#
+PARAM_DELTA_FROM_BASELINE = {
+    # Tier 0
+    "HDDM_Collapse":                         0,
+    # Tier 1 — Δk vs HDDM_Collapse
+    "HDDM_Collapse_Lag1-z0":                1,   # z_choice_prev1
+    "HDDM_Collapse_Lag1-v0":                1,   # v_choice_prev1
+    # Tier 2 — Δk vs HDDM_Collapse
+    "HDDM_Collapse_Lag1-z0_v0":             2,   # z_choice_prev1 + v_choice_prev1
+    # Tier 3 — reference for pupil subsample (Δk = 0 by definition)
+    "HDDM_Collapse_Pupil_Lag1":             0,
+    # Tier 4 — Δk vs HDDM_Collapse_Pupil_Lag1
+    "HDDM_Collapse_Pupil_Lag1-z0":          2,   # z_pupil + z_pupil:choice_prev1
+    "HDDM_Collapse_Pupil_Lag1-stim":        2,   # v_pupil:gain + v_pupil:loss
+    "HDDM_Collapse_Pupil_Lag1-v0":          2,   # v_pupil + v_pupil:choice_prev1
+    # Tier 5 — Δk vs HDDM_Collapse_Pupil_Lag1
+    "HDDM_Collapse_Pupil_Lag1-z0_v0_stim":  6,   # z0(2) + v0(2) + stim(2)
+}
+
+
 # =============================================================================
 # MODEL ACCESSOR FUNCTIONS
 # =============================================================================
 
-
-def get_available_models():
+def get_available_models() -> list:
     """Return list of all registered model IDs."""
     return list(MODEL_REGISTRY.keys())
+
+
+def get_model_tier(tier: int) -> list:
+    """Return all model IDs belonging to a given tier."""
+    return [k for k, v in MODEL_REGISTRY.items() if v.get("tier") == tier]
 
 
 def get_model_description(model_id: str) -> str:
@@ -358,7 +467,10 @@ def get_model_description(model_id: str) -> str:
 
 
 def get_model_config(model_id: str) -> dict:
-    """Return the HDDM config dict for a model (without metadata keys)."""
+    """
+    Return the HDDM config dict for a model, stripping metadata keys
+    (description, tier) that are not passed to HDDMnnRegressor.
+    """
     if model_id not in MODEL_REGISTRY:
         raise ValueError(f"Unknown model: {model_id}")
     config = MODEL_REGISTRY[model_id].copy()
@@ -367,15 +479,8 @@ def get_model_config(model_id: str) -> dict:
     return config
 
 
-PARAM_DELTA_FROM_BASELINE = {
-    "HDDM_Collapse":                        0,
-    "HDDM_Collapse_Lag1-x0":               1,   # z_choice_prev1
-    "HDDM_Collapse_Lag1-c0":               1,   # v_choice_prev1
-    "HDDM_Collapse_Lag1-stim":             2,   # v_gain:prev, v_loss:prev
-    "HDDM_Collapse_Lag1-ndt":              1,   # t_repeat
-    "HDDM_Collapse_Lag1-x0_c0":           2,   # z_prev, v_prev
-    "HDDM_Collapse_Lag1-x0_stim":         3,   # z_prev, v_gain:prev, v_loss:prev
-    "HDDM_Collapse_Lag1-x0_Pupil-v0":     2,   # z_prev, v_pupil
-    "HDDM_Collapse_Lag1-x0_Pupil-v":      2,   # z_prev, v_pupil:prev
-    "HDDM_Collapse_Lag1-x0_Pupil-v_c0":   3,   # z_prev, v_prev, v_pupil:prev
-}
+def get_param_delta(model_id: str) -> int:
+    """Return the number of extra group-level parameters vs. the tier reference."""
+    if model_id not in PARAM_DELTA_FROM_BASELINE:
+        raise ValueError(f"No param delta registered for: {model_id}")
+    return PARAM_DELTA_FROM_BASELINE[model_id]

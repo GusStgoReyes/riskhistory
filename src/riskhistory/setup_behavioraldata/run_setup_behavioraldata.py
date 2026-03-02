@@ -158,6 +158,7 @@ if __name__ == "__main__":
     for dataset in subject_stats_df['dataset'].unique():
         ds_stats = subject_stats_df[subject_stats_df['dataset'] == dataset]
         ds_included = ds_stats[~ds_stats['excluded']]
+        ds_included["num_valid_trials"] = ds_included["n_trials"] - ds_included["n_excluded_trials"]
 
         n_total = len(ds_stats)
         n_excluded = ds_stats['excluded'].sum()
@@ -180,6 +181,9 @@ if __name__ == "__main__":
             summary_lines.append(f"Response time: M={ds_included['mean_rt'].mean():.3f}s, "
                                f"SD={ds_included['mean_rt'].std():.3f}s, "
                                f"range=[{ds_included['mean_rt'].min():.3f}, {ds_included['mean_rt'].max():.3f}]s")
+            summary_lines.append(f"Trials: M={ds_included['num_valid_trials'].mean():.3f}, "
+                               f"SD={ds_included['num_valid_trials'].std():.3f}, "
+                               f"range=[{ds_included['num_valid_trials'].min():.3f}, {ds_included['num_valid_trials'].max():.3f}]")
 
     # List excluded participants with reasons
     excluded_subs = subject_stats_df[subject_stats_df['excluded']]

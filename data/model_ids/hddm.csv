@@ -1,10 +1,6 @@
 model_id
-HDDM_Collapse_Lag1-x0
-HDDM_Collapse_Lag1-c0
-HDDM_Collapse_Lag1-stim
-HDDM_Collapse_Lag1-ndt
-HDDM_Collapse_Lag1-x0_c0
-HDDM_Collapse_Lag1-x0_stim
-HDDM_Collapse_Lag1-x0_Pupil-v0
-HDDM_Collapse_Lag1-x0_Pupil-v
-HDDM_Collapse_Lag1-x0_Pupil-v_c0
+HDDM_Collapse_Pupil_Lag1
+HDDM_Collapse_Pupil_Lag1-z0
+HDDM_Collapse_Pupil_Lag1-stim
+HDDM_Collapse_Pupil_Lag1-v0
+HDDM_Collapse_Pupil_Lag1-z0_v0_stim
