@@ -274,6 +274,35 @@ MODEL_REGISTRY = {
         **DEFAULT_MODEL_PARAMS,
     },
 
+    "HDDM_Collapse_Pupil_Lag1-stimEV": {
+        "description": (
+            "Tier 4 — expected-value sensitivity pupil model. pupil:ev rescales "
+            "how the net expected value (ev) drives evidence accumulation. History "
+            "terms are retained in both v and z. Tests whether arousal modulates "
+            "overall valuation sensitivity via a single EV term rather than "
+            "separate gain/loss terms. "
+            "Δk = 1 vs HDDM_Collapse_Pupil_Lag1 "
+            "(v_pupil:ev)."
+        ),
+        "tier": 4,
+        "reg_descr": [
+            {
+                "model": (
+                    "v ~ 1 + gain + loss + choice_prev1 "
+                    "+ pupil:ev"
+                ),
+                "link_func": lambda x: x,
+            },
+            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
+        ],
+        "group_only_nodes": [
+            "v_choice_prev1",
+            "z_choice_prev1",
+            "v_pupil:ev",
+        ],
+        **DEFAULT_MODEL_PARAMS,
+    },
+
     "HDDM_Collapse_Pupil_Lag1-v0": {
         "description": (
             "Tier 4 — drift bias pupil model. pupil and pupil:choice_prev1 "
@@ -363,6 +392,45 @@ MODEL_REGISTRY = {
         **DEFAULT_MODEL_PARAMS,
     },
 
+    "HDDM_Collapse_Pupil_Lag1-z0_v0_stimEV": {
+        "description": (
+            "Tier 5 — full pupil model with EV sensitivity. All three pupil "
+            "mechanisms active: "
+            "(1) z: pupil and pupil:choice_prev1 shift the pre-decisional bias "
+            "(pupil ∈ [0,1]); "
+            "(2) v: pupil and pupil:choice_prev1 modulate the drift-level "
+            "repetition bias (pupil ∈ [0,1]); "
+            "(3) v: pupil:ev rescales overall valuation sensitivity. "
+            "Δk = 5 vs HDDM_Collapse_Pupil_Lag1 "
+            "(z_pupil, z_pupil:prev, v_pupil, v_pupil:prev, v_pupil:ev)."
+        ),
+        "tier": 5,
+        "reg_descr": [
+            {
+                "model": (
+                    "v ~ 1 + gain + loss + choice_prev1 "
+                    "+ pupil + pupil:choice_prev1 "
+                    "+ pupil:ev"
+                ),
+                "link_func": lambda x: x,
+            },
+            {
+                "model": "z ~ 1 + choice_prev1 + pupil + pupil:choice_prev1",
+                "link_func": z_link_func,
+            },
+        ],
+        "group_only_nodes": [
+            "v_choice_prev1",
+            "z_choice_prev1",
+            "z_pupil",
+            "z_pupil:choice_prev1",
+            "v_pupil",
+            "v_pupil:choice_prev1",
+            "v_pupil:ev",
+        ],
+        **DEFAULT_MODEL_PARAMS,
+    },
+
 }
 
 
@@ -403,9 +471,11 @@ MODEL_COMPARISON_ORDER = [
     # ── Tier 4: single-mechanism pupil ───────────────────────────────────────
     "HDDM_Collapse_Pupil_Lag1-z0",
     "HDDM_Collapse_Pupil_Lag1-stim",
+    "HDDM_Collapse_Pupil_Lag1-stimEV",
     "HDDM_Collapse_Pupil_Lag1-v0",
     # ── Tier 5: all-mechanism pupil ──────────────────────────────────────────
     "HDDM_Collapse_Pupil_Lag1-z0_v0_stim",
+    "HDDM_Collapse_Pupil_Lag1-z0_v0_stimEV",
 ]
 
 
@@ -439,9 +509,11 @@ PARAM_DELTA_FROM_BASELINE = {
     # Tier 4 — Δk vs HDDM_Collapse_Pupil_Lag1
     "HDDM_Collapse_Pupil_Lag1-z0":          2,   # z_pupil + z_pupil:choice_prev1
     "HDDM_Collapse_Pupil_Lag1-stim":        2,   # v_pupil:gain + v_pupil:loss
+    "HDDM_Collapse_Pupil_Lag1-stimEV":      1,   # v_pupil:ev
     "HDDM_Collapse_Pupil_Lag1-v0":          2,   # v_pupil + v_pupil:choice_prev1
     # Tier 5 — Δk vs HDDM_Collapse_Pupil_Lag1
-    "HDDM_Collapse_Pupil_Lag1-z0_v0_stim":  6,   # z0(2) + v0(2) + stim(2)
+    "HDDM_Collapse_Pupil_Lag1-z0_v0_stim":    6,   # z0(2) + v0(2) + stim(2)
+    "HDDM_Collapse_Pupil_Lag1-z0_v0_stimEV":  5,   # z0(2) + v0(2) + stimEV(1)
 }
 
 

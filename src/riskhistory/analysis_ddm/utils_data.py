@@ -31,6 +31,7 @@ def load_data(
         Preprocessed data ready for HDDM fitting.
     """
     data = hddm.load_csv(data_pth)
+    data['ev'] = 1/2 * data['gain'] - 1/2 * data['loss']
 
     if pupil:
         pupil_data = hddm.load_csv(pupil_pth)

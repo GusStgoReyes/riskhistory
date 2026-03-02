@@ -78,6 +78,19 @@ behavioral_data <- merge(behavioral_data, betas_sub,
 message("Creating pupil regressors...")
 behavioral_data <- create_pupil_regressors(behavioral_data)
 
+# Create two-back choice history indicator columns
+# choice_prev1 is already numeric (-1/+1) from create_pupil_regressors
+# Convert choice_prev2 to numeric and create history pair indicators
+message("Creating two-back choice history indicators...")
+behavioral_data <- behavioral_data %>%
+  mutate(
+    choice_prev2 = as.numeric(choice_prev2),
+    reject_reject = ifelse(!is.na(choice_prev2) & choice_prev1 == -1 & choice_prev2 == -1, 1, 0),
+    accept_accept = ifelse(!is.na(choice_prev2) & choice_prev1 ==  1 & choice_prev2 ==  1, 1, 0),
+    reject_accept = ifelse(!is.na(choice_prev2) & choice_prev1 ==  1 & choice_prev2 == -1, 1, 0),
+    accept_reject = ifelse(!is.na(choice_prev2) & choice_prev1 == -1 & choice_prev2 ==  1, 1, 0)
+  )
+
 # =============================================================================
 # Load pupil data
 # =============================================================================
@@ -112,7 +125,8 @@ message("Merging behavioral and pupil data...")
 
 # Select relevant behavioral columns for merge
 behavioral_cols <- c("sub", "trial", "dataset", "sv", "entropy", "logRT",
-                     "choice_prev1", "switch", "choice", "exclude")
+                     "choice_prev1", "switch", "choice", "exclude",
+                     "reject_reject", "accept_accept", "reject_accept", "accept_reject")
 behavioral_subset <- behavioral_data[, behavioral_cols]
 
 # Merge with pupil data
