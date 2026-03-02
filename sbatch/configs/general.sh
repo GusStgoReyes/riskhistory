@@ -15,6 +15,6 @@ MEM="4G"
 N_CPUS=8
 
 # Sbatch setting hddm
-TIME_HDDM="20:00:00"
+TIME_HDDM="24:00:00"
 MEM_HDDM="16G"
 N_CPUS_HDDM=1
