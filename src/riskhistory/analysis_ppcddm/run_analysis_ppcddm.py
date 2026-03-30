@@ -94,7 +94,7 @@ def run_subject(dataset_name: str, sub: int, behavioral_data: pd.DataFrame) -> N
         sub_params   = pd.read_csv(sub_params_pth)
         group_params = pd.read_csv(group_params_pth)
 
-        model_instance = setup_model_parameters(model_name, sub_params, group_params,
+        model_instance = setup_model_parameters(model_id, sub_params, group_params,
                                                 dataset_name, sub)
         trials_df = generate_simulated_data(model_instance, dataset_name, sub,
                                             dataset_behavioral_data)
