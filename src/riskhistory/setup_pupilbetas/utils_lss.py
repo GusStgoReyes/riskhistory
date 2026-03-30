@@ -3,10 +3,9 @@ from riskhistory.setup_pupilbetas.utils_create_regressors import (create_timings
                                                                     create_fixation_matrix,
                                                                     convolve_with_prf)
 
-from riskhistory.setup_pupilbetas.utils_models import gls
+from riskhistory.setup_pupilbetas.utils_models import ridge
 
 import pandas as pd
-import matplotlib.pyplot as plt
 
 def build_shared_design_matrix_run(all_pupil_data,
                                     chosen_prf,
@@ -103,8 +102,8 @@ def lss_single_trial(all_pupil_data,
     full_betas_name = trial_betas_names + trial_betas_name
 
     # Fit the GLM to get the beta estimates for this trial
-    y = all_pupil_data[run]["pupil_filtered"].values
-    betas_estimates, _ = gls(full_design_matrix, y)
+    y = all_pupil_data[run]["pupil"].values
+    betas_estimates, _ = ridge(full_design_matrix, y)
     
     return betas_estimates, full_betas_name
 

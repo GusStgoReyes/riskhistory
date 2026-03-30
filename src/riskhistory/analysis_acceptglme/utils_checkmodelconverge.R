@@ -41,35 +41,41 @@ check_convergence_all_models <- function(
   datasets,
   models
 ) {
-  # Create empty dataframe to store convergence status
+
   convergence_df <- data.frame(
     dataset = character(),
     model = character(),
     converged = logical(),
+    singular = logical(),
     stringsAsFactors = FALSE
   )
 
   for (ds in datasets) {
     for (m_name in models) {
-      # Check if model exists for this dataset
-      if (ds %in% names(model_list) && m_name %in% names(model_list[[ds]])) {
+
+      if (ds %in% names(model_list) &&
+            m_name %in% names(model_list[[ds]])) {
+
         m <- model_list[[ds]][[m_name]]
 
-        # Check convergence (lme4-style models)
         converged <- TRUE
+        singular <- FALSE
+
         if (inherits(m, "merMod")) {
-          if (!is.null(m@optinfo$conv$lme4$messages)) {
-            converged <- FALSE
-          }
+
+          conv_messages <- m@optinfo$conv$lme4$messages
+          converged <- is.null(conv_messages) || length(conv_messages) == 0
+
+          singular <- lme4::isSingular(m, tol = 1e-4)
         }
 
-        # Add to dataframe
         convergence_df <- rbind(
           convergence_df,
           data.frame(
             dataset = ds,
             model = m_name,
             converged = converged,
+            singular = singular,
             stringsAsFactors = FALSE
           )
         )

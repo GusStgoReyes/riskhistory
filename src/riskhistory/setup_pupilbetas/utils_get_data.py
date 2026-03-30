@@ -2,10 +2,10 @@ from riskhistory.config import results_pth, derivatives_pth, behavioral_data_pth
 import pandas as pd
 
 def get_participants(dataset):
-    exclusion_pth = results_pth / "setup_pupildata" / "pupil_subject_exclusions.csv"
+    exclusion_pth = results_pth / "setup_pupildata" / "pupil_data_statistics_with_exclusions.csv"
     exclusions = pd.read_csv(exclusion_pth)
     exclusions = exclusions.query(f"dataset == '{dataset}'")
-    valid_participants = exclusions.query("exclude_subject_responseAligned == False and exclude_subject_startAligned == False")["sub"].tolist()
+    valid_participants = exclusions.query("exclude_startAligned == False")["sub"].unique().tolist()
     print(f"Num of valid participants for {dataset}: {len(valid_participants)}")
     return valid_participants
 

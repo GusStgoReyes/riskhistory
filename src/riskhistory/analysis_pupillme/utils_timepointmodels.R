@@ -5,42 +5,6 @@
 # and collecting results with proper error handling.
 # =============================================================================
 
-#' Extract random effects for switch per subject
-#'
-#' @param model A fitted lmer model
-#' @param timebin Numeric timebin value (for metadata)
-#' @param dataset Character dataset name (for metadata)
-#' @param converged Logical indicating if model converged
-#' @return Data frame with random effects, or NULL if extraction fails
-extract_switch_random_effects <- function(model, timebin, dataset, converged) {
-  # Extract fixed effects to check for 'switch' term
-  fe <- fixef(model)
-  if (!"switch" %in% names(fe)) {
-    return(NULL)
-  }
-  # Extract random effects for subjects
-  re <- ranef(model)$sub
-
-  # Check if switch is in the random effects
-  if (!"switch" %in% colnames(re)) {
-    return(NULL)
-  }
-
-  # Create dataframe with random effects
-  re_df <- data.frame(
-    sub = rownames(re),
-    dataset = dataset,
-    beta_switch = re$switch + fe["switch"],  # add fixed effect to random effect
-    timebin = timebin,
-    converged = converged,
-    stringsAsFactors = FALSE
-  )
-
-  return(re_df)
-
-}
-
-
 #' Fit a single timepoint LME model
 #'
 #' @param data Data frame containing pupil data for a single timebin
@@ -70,8 +34,8 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50) {
 
   if (is.null(model)) return(NULL)
 
-  # Check convergence
-  converged <- check_model_convergence(model)
+  # Check convergence/singularity
+  diagnostics <- check_model_diagnostics(model)
 
   # Extract fixed effects with confidence intervals
   model_results <- tryCatch({
@@ -87,15 +51,11 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50) {
   # Add metadata
   model_results$timebin <- timebin
   model_results$dataset <- dataset
-  model_results$converged <- converged
-
-  # Extract random effects for switch
-  random_effects <- extract_switch_random_effects(model, timebin, dataset, converged)
+  model_results$converged <- diagnostics$converged
+  model_results$singular <- diagnostics$singular
 
   return(list(
-    fixed_effects = model_results,
-    random_effects = random_effects
-  ))
+    fixed_effects = model_results))
 }
 
 
@@ -129,9 +89,6 @@ run_models_for_dataset <- function(data, formula, dataset, min_obs = 50) {
     if (!is.null(tb_results)) {
       if (!is.null(tb_results$fixed_effects)) {
         fixed_effects_list[[length(fixed_effects_list) + 1]] <- tb_results$fixed_effects
-      }
-      if (!is.null(tb_results$random_effects)) {
-        random_effects_list[[length(random_effects_list) + 1]] <- tb_results$random_effects
       }
     }
   }
@@ -243,29 +200,5 @@ print_results_summary <- function(results, datasets) {
     n_converged <- sum(ds_results$converged) / n_terms
     message(sprintf("  %s: %d timebins, %.0f%% converged",
                     ds, n_timebins, 100 * n_converged / n_timebins))
-  }
-}
-
-
-#' Print significant effects for a specific term
-#'
-#' @param results Data frame with fixed effects results (or list with fixed_effects element)
-#' @param term_name Name of the term to check
-#' @param alpha Significance threshold (default: 0.05)
-print_significant_effects <- function(results, term_name, alpha = 0.05) {
-  # Handle both old (data frame) and new (list) return formats
-  if (is.list(results) && "fixed_effects" %in% names(results)) {
-    results <- results$fixed_effects
-  }
-
-  message(sprintf("\n=== Significant %s effects (p_adj_bh < %.2f) ===", term_name, alpha))
-
-  sig_effects <- results %>%
-    filter(term == term_name & p_adj_bh < alpha)
-
-  if (nrow(sig_effects) > 0) {
-    print(sig_effects)
-  } else {
-    message("No significant effects found.")
   }
 }

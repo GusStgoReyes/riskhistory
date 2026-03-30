@@ -33,9 +33,6 @@ library(tibble)
 library(lmerTest)
 
 # Source utility functions
-source(file.path(utils_path, "utils_addsubjectivevalues.R"))
-source(file.path(utils_path, "utils_scalestimuli.R"))
-source(file.path(utils_path, "utils_addentropy.R"))
 source(file.path(utils_path, "utils_modelanalytics.R"))
 source(file.path(utils_path, "utils_createpupilregressors.R"))
 source(file.path(utils_path, "utils_timepointmodels.R"))
@@ -60,11 +57,7 @@ behavioral_data <- read.csv(file.path(analysis_data_path,
                                       "preprocessed",
                                       "behavioral_data.csv"))
 
-# Scale stimuli (creates gain_centered, loss_centered)
-message("Scaling stimuli...")
-behavioral_data <- scale_stimuli(behavioral_data)
-
-# Load betas from baseline behavior model
+# Load betas from baseline behavior model for gain + loss subjective value
 message("Loading subject-specific betas...")
 betas_path <- file.path(results_path, "analysis_acceptglme",
                         "1_baselinebehavior_betas.csv")
@@ -74,22 +67,8 @@ betas_sub <- read.csv(betas_path)
 behavioral_data <- merge(behavioral_data, betas_sub,
                          by = c("sub", "dataset"))
 
-# Create pupil regressors (sv, entropy, logRT, switch, choice_prev1)
-message("Creating pupil regressors...")
-behavioral_data <- create_pupil_regressors(behavioral_data)
-
-# Create two-back choice history indicator columns
-# choice_prev1 is already numeric (-1/+1) from create_pupil_regressors
-# Convert choice_prev2 to numeric and create history pair indicators
-message("Creating two-back choice history indicators...")
-behavioral_data <- behavioral_data %>%
-  mutate(
-    choice_prev2 = as.numeric(choice_prev2),
-    reject_reject = ifelse(!is.na(choice_prev2) & choice_prev1 == -1 & choice_prev2 == -1, 1, 0),
-    accept_accept = ifelse(!is.na(choice_prev2) & choice_prev1 ==  1 & choice_prev2 ==  1, 1, 0),
-    reject_accept = ifelse(!is.na(choice_prev2) & choice_prev1 ==  1 & choice_prev2 == -1, 1, 0),
-    accept_reject = ifelse(!is.na(choice_prev2) & choice_prev1 == -1 & choice_prev2 ==  1, 1, 0)
-  )
+# Add the subjective value to the behavioral data
+behavioral_data <- add_sv(behavioral_data)
 
 # =============================================================================
 # Load pupil data
@@ -122,38 +101,27 @@ pupil_data_response <- pupil_data_response %>%
 # Merge behavioral and pupil data
 # =============================================================================
 message("Merging behavioral and pupil data...")
-
-# Select relevant behavioral columns for merge
-behavioral_cols <- c("sub", "trial", "dataset", "sv", "entropy", "logRT",
-                     "choice_prev1", "switch", "choice", "exclude",
-                     "reject_reject", "accept_accept", "reject_accept", "accept_reject")
-behavioral_subset <- behavioral_data[, behavioral_cols]
-
 # Merge with pupil data
-data_start <- merge(pupil_data_start, behavioral_subset,
+data_start <- merge(pupil_data_start, behavioral_data,
                     by = c("sub", "trial", "dataset"))
 
-data_response <- merge(pupil_data_response, behavioral_subset,
+data_response <- merge(pupil_data_response, behavioral_data,
                        by = c("sub", "trial", "dataset"))
 
 # =============================================================================
 # Apply exclusion criteria
 # =============================================================================
 message("Applying exclusion criteria...")
-
-# Combined exclusion: exclude if either behavioral or pupil exclusion flag is TRUE
-data_start <- data_start %>%
-  mutate(combined_exclude = (exclude == "True") | (pupil_exclude == TRUE))
-
-data_response <- data_response %>%
-  mutate(combined_exclude = (exclude == "True") | (pupil_exclude == TRUE))
-
 # Filter to non-excluded trials
 data_start_clean <- data_start %>%
-  filter(!combined_exclude)
-
+  filter(!pupil_exclude)
 data_response_clean <- data_response %>%
-  filter(!combined_exclude)
+  filter(!pupil_exclude)
+
+# Add regressors of interest
+message("Creating pupil regressors...")
+data_start_clean <- create_pupil_regressors(data_start_clean)
+data_response_clean <- create_pupil_regressors(data_response_clean)
 
 message(sprintf("Start-aligned data: %d rows total, %d rows after exclusion",
                 nrow(data_start), nrow(data_start_clean)))

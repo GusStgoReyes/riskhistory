@@ -15,31 +15,46 @@ source("4_rthistorymodels.R")
 # 5. Supplementary Models
 source("5_supplementarymodels.R")
 
-print("Extracting fixed effects for subjective value model...")
-models <- c("M1_sv")
-fixed_effects <- extract_fixed_effects(
-  model_list = behavioral_models_list,
-  datasets   = datasets,
-  models     = models,
-  p_method   = p_method
-)
-# Save fixed effects results
-write.csv(fixed_effects, file.path(analysis_results_path,
-                                   "1_baselinebehavior_fixed_effects.csv"),
-          row.names = FALSE)
-
 print("Extracting model comparison and fixed effects for behavior models...")
-models <- c("M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8")
+models <- c("M1_part1", "M2_part1", "M3_part1", "M4_part1", "M5_part1", "M6_part1", "M7_part1", "M8_part1")
+
 behavior_comparison_df <- compare_models(
   model_list      = behavioral_models_list,
   datasets        = datasets,
   models          = models,
-  reference_model = "M2"
+  reference_model = "M2_part1"
 )
 # Save model comparison results
 write.csv(behavior_comparison_df, file.path(analysis_results_path,
-                                            "2_behavior_model_comparison.csv"),
+                                            "2_behavior_model_comparison_2.csv"),
           row.names = FALSE)
+
+print("Extracting model comparison and fixed effects for behavior models...")
+models <- c("M1_part1", "M2_part1_rnd")
+behavior_comparison_df <- compare_models(
+  model_list      = behavioral_models_list,
+  datasets        = datasets,
+  models          = models,
+  reference_model = "M1_part1"
+)
+# Save model comparison results
+write.csv(behavior_comparison_df, file.path(analysis_results_path,
+                                            "2_behavior_model_comparison_1.csv"),
+          row.names = FALSE)
+          
+print("Extracting model comparison and fixed effects for behavior models...")
+models <- c("M2_part1", "M2_part1_rnd")
+behavior_comparison_df <- compare_models(
+  model_list      = behavioral_models_list,
+  datasets        = datasets,
+  models          = models,
+  reference_model = "M2_part1"
+)
+# Save model comparison results
+write.csv(behavior_comparison_df, file.path(analysis_results_path,
+                                            "2_behavior_model_comparison_3.csv"),
+          row.names = FALSE)
+models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1", "M4_part1", "M5_part1", "M6_part1", "M7_part1", "M8_part1")
 fixed_effects <- extract_fixed_effects(
   model_list = behavioral_models_list,
   datasets   = datasets,
@@ -55,12 +70,12 @@ write.csv(fixed_effects, file.path(analysis_results_path,
 
 print(paste0("Extracting model comparison and fixed",
              "effects for lag choice history models..."))
-models <- c("M1", "M9", "M10", "M11", "M12", "M13", "M14")
+models <- c("M1_part1", "M9_part1", "M10_part1", "M11_part1", "M12_part1", "M13_part1", "M14_part1")
 lagchoice_comparison_df <- compare_models(
   model_list      = behavioral_models_list,
   datasets        = datasets,
   models          = models,
-  reference_model = "M1"
+  reference_model = "M1_part1"
 )
 # Save model comparison results
 write.csv(lagchoice_comparison_df,
@@ -70,7 +85,7 @@ write.csv(lagchoice_comparison_df,
 lagchoice_fixed_effects <- extract_fixed_effects(
   model_list = behavioral_models_list,
   datasets   = datasets,
-  models     = c("M9", "M10", "M11", "M12", "M13", "M14"),
+  models     = c("M9_part1", "M10_part1", "M11_part1", "M12_part1", "M13_part1", "M14_part1"),
   p_method   = p_method
 )
 # Save fixed effects results
@@ -80,7 +95,7 @@ write.csv(lagchoice_fixed_effects,
           row.names = FALSE)
 
 print("Extracting fixed effects for RT models...")
-models <- c("M_RT")
+models <- c("M_part1_RT")
 fixed_effects <- extract_fixed_effects(
   model_list = rt_models_list,
   datasets   = datasets,
@@ -95,12 +110,12 @@ write.csv(fixed_effects,
 
 print(paste0("Extracting model comparison and",
              "fixed effects for supplementary models..."))
-models <- c("M2", "M_Sup1")
+models <- c("M2_part1", "M_part1_Sup1")
 supplementary_comparison_df <- compare_models(
   model_list      = behavioral_models_list,
   datasets        = datasets,
   models          = models,
-  reference_model = "M2"
+  reference_model = "M2_part1"
 )
 # Save model comparison results
 write.csv(supplementary_comparison_df,
@@ -110,7 +125,7 @@ write.csv(supplementary_comparison_df,
 supplementary_fixed_effects <- extract_fixed_effects(
   model_list = behavioral_models_list,
   datasets   = datasets,
-  models     = c("M_Sup1"),
+  models     = c("M_part1_Sup1"),
   p_method   = p_method
 )
 # Save fixed effects results
@@ -121,8 +136,9 @@ write.csv(supplementary_fixed_effects,
 
 print("Checking convergence for all behavioral models...")
 # Check convergence for all behavioral models
-behavioral_models <- c("M1_sv", "M1", "M2", "M3", "M4", "M5", "M6", "M7",
-                       "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M_Sup1")
+behavioral_models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1", "M4_part1", 
+                      "M5_part1", "M6_part1", "M7_part1", "M8_part1", "M9_part1", "M10_part1", 
+                      "M11_part1", "M12_part1", "M13_part1", "M14_part1", "M_part1_Sup1")
 convergence_behavioral <- check_convergence_all_models(
   model_list = behavioral_models_list,
   datasets   = datasets,
@@ -130,7 +146,7 @@ convergence_behavioral <- check_convergence_all_models(
 )
 
 # Check convergence for RT reject models
-rt_models <- c("M_RT")
+rt_models <- c("M_part1_RT")
 convergence_rt <- check_convergence_all_models(
   model_list = rt_models_list,
   datasets   = datasets,

@@ -1,5 +1,5 @@
 # =============================================================================
-# Pupil Data Preprocessing Pipeline v2: Apply Exclusion Criteria
+# Pupil Data Preprocessing Pipeline: Apply Exclusion Criteria
 # =============================================================================
 # Applies thresholds to trial-level statistics and marks trials/subjects
 # for exclusion based on data quality.
@@ -26,7 +26,7 @@ source(file.path(script_dir, "0_config.R"))
 # Define thresholds per dataset
 thresholds <- list(
   equalIndifference = list(
-    pct_nan_baseline = 75,
+    pct_nan_baseline = 100,
     pct_nan_start_aligned = 40,
     pct_nan_response_aligned = 40,
     longest_nan_sec_start = 2,
@@ -35,7 +35,7 @@ thresholds <- list(
     num_runs = 4
   ),
   equalRange = list(
-    pct_nan_baseline = 75,
+    pct_nan_baseline = 100,
     pct_nan_start_aligned = 40,
     pct_nan_response_aligned = 40,
     longest_nan_sec_start = 2,
@@ -44,7 +44,7 @@ thresholds <- list(
     num_runs = 4
   ),
   sheng2020 = list(
-    pct_nan_baseline = 75,
+    pct_nan_baseline = 100,
     pct_nan_start_aligned = 40,
     pct_nan_response_aligned = 40,
     longest_nan_sec_start = 2,
@@ -80,6 +80,17 @@ cat("\n\nLoading statistics data...\n")
 statistics <- read.csv(output_statistics)
 cat("  Loaded", nrow(statistics), "trial records\n\n")
 
+cat("Loading behavioral exclusion flags...\n")
+behavioral_exclusions <- read.csv(behavioral_data_path) %>%
+  select(sub, trial, dataset, exclude_behavioral = exclude)
+behavioral_exclusions <- behavioral_exclusions %>%
+  mutate(exclude_behavioral = as.logical(exclude_behavioral))
+cat("  Loaded", nrow(behavioral_exclusions), "behavioral records\n\n")
+
+# Merge behavioral exclusions into statistics
+statistics <- statistics %>%
+  left_join(behavioral_exclusions, by = c("sub", "trial", "dataset"))
+
 # =============================================================================
 # Apply Trial-Level Exclusions (Dataset-Specific)
 # =============================================================================
@@ -102,9 +113,12 @@ apply_trial_exclusions <- function(data, ds_thresholds) {
       exclude_response_pct = is.na(pct_nan_trial_responseAligned) | pct_nan_trial_responseAligned > ds_thresholds$pct_nan_response_aligned,
       exclude_response_longest = is.na(longest_nan_sec_responseAligned) | longest_nan_sec_responseAligned > ds_thresholds$longest_nan_sec_response,
 
+      # Behavioral exclusion (from behavioral preprocessing)
+      exclude_behavioral = exclude_behavioral,
+
       # Separate exclusion flags for each alignment type
-      exclude_trial_startAligned = exclude_baseline | exclude_start_pct | exclude_start_longest,
-      exclude_trial_responseAligned = exclude_baseline | exclude_response_pct | exclude_response_longest
+      exclude_trial_startAligned = exclude_baseline | exclude_start_pct | exclude_start_longest | exclude_behavioral,
+      exclude_trial_responseAligned = exclude_baseline | exclude_response_pct | exclude_response_longest | exclude_behavioral
     )
 }
 

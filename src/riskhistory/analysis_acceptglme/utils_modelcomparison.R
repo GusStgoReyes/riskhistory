@@ -40,7 +40,7 @@ compare_models <- function(
         BF_vs_reference =
           if (mdl == reference_model) 1
           else as.numeric(
-            bayesfactor_models(mod, ref_mod)$log_BF[2]
+            bayesfactor_models(mod, denominator = ref_mod)$log_BF[1]
           )
       )
       i <- i + 1

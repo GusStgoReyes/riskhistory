@@ -1,5 +1,5 @@
 # =============================================================================
-# Pupil Data Preprocessing Pipeline v2: Combine Datasets
+# Pupil Data Preprocessing Pipeline: Combine Datasets
 # =============================================================================
 # Combines NARPS and Sheng2020 preprocessed pupil data into final output files:
 # - pupil_data_alignedStartTime.csv

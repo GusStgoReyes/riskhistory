@@ -1,7 +1,18 @@
-# Check model convergence
-check_model_convergence <- function(model) {
+check_model_diagnostics <- function(model) {
+
+  converged <- TRUE
+  singular <- FALSE
+
   if (inherits(model, "merMod")) {
-    return(is.null(model@optinfo$conv$lme4$messages))
+
+    conv_messages <- model@optinfo$conv$lme4$messages
+
+    converged <- is.null(conv_messages) || length(conv_messages) == 0
+    singular <- lme4::isSingular(model, tol = 1e-4)
   }
-  return(TRUE)
+
+  list(
+    converged = converged,
+    singular = singular
+  )
 }

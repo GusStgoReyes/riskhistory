@@ -1,5 +1,5 @@
 # =============================================================================
-# Pupil Data Preprocessing Pipeline v2: Configuration
+# Pupil Data Preprocessing Pipeline: Configuration
 # =============================================================================
 # This file contains all paths and settings for pupil data preprocessing.
 # =============================================================================
@@ -26,12 +26,15 @@ output_response_aligned <- file.path(preprocessed_data_path, "pupil_data_aligned
 output_statistics <- file.path(results_path, "setup_pupildata", "pupil_data_statistics.csv")
 output_summary_statistics <- file.path(results_path, "setup_pupildata", "4_summary_statistics.csv")
 
+# Behavioral data (source of behavioral exclusion flags)
+behavioral_data_path <- file.path(preprocessed_data_path, "behavioral_data.csv")
+
 # =============================================================================
 # Processing Parameters
 # =============================================================================
 # Sampling rates
-NARPS_SAMPLING_RATE <- 500  # Hz (will be read from ASC files)
-SHENG2020_SAMPLING_RATE <- 125  # Hz
+NARPS_SAMPLING_RATE <- c(500, 1000)  # Hz (will be read from ASC files)
+SHENG2020_SAMPLING_RATE <- 120  # Hz
 
 # Final output sampling rate (after binning)
 OUTPUT_SAMPLING_RATE <- 8  # Hz

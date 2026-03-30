@@ -94,9 +94,6 @@ preprocess_eyeris <- function(
     all_of(columns_selected)
   )
 
-  # Bin the data
-  data <- bin(data, bins_per_second = bins_per_second, method = "mean")
-
   # Detrend if requested
   if (apply_detrend) {
     data <- detrend(data)
@@ -105,6 +102,9 @@ preprocess_eyeris <- function(
   # Z-score normalize
   data <- zscore(data)
   data$info$sample.rate <- bins_per_second
+
+  # Bin the data
+  data <- bin(data, bins_per_second = bins_per_second, method = "mean")
 
   # Rename the final column to a standard name
   final_col <- data$latest$block_1

@@ -1,24 +1,23 @@
 # =============================================================================
-# Choice History Under Risk: Config for Pupil-Behavior GLME Analysis
+# Choice History Under Risk: Config for Pupil-Behavior Analysis
 # =============================================================================
-# This file loads pupil and behavioral data, computes per-trial pupil mean,
-# merges datasets, applies exclusions, and rescales stimuli.
+# Analysis-specific settings for pupil-behavior GLME models.
+# Tests whether pupil betas (trial-by-trial decision period amplitude) predict
+# choice, interact with stimulus values, or moderate choice history bias.
+# Paths are imported from the base config.
 # =============================================================================
 
-# Source the base config to get repo_path and standard paths
 source(file.path(dirname(sys.frame(1)$ofile), "..", "config.R"))
 
 # =============================================================================
 # Analysis-specific paths
 # =============================================================================
-analysis_name <- "analysis_pupilbehavior"
-analysis_data_path <- file.path(repo_path, "data")
+analysis_name         <- "analysis_pupilbehavior"
+analysis_data_path    <- file.path(repo_path, "data")
 analysis_results_path <- file.path(results_path, analysis_name)
 
-# Path to utility functions (in this directory)
 utils_path <- dirname(sys.frame(1)$ofile)
 
-# Create results directory if it doesn't exist
 if (!dir.exists(analysis_results_path)) {
   dir.create(analysis_results_path, recursive = TRUE)
 }
@@ -27,53 +26,82 @@ if (!dir.exists(analysis_results_path)) {
 # Load required packages
 # =============================================================================
 library(lme4)
+library(lmerTest)
 library(broom.mixed)
 library(dplyr)
 library(tibble)
-library(lmerTest)
+library(bayestestR)
 
 # Source utility functions
-source(file.path(utils_path, "utils_pupilpertrial.R"))
-source(file.path(utils_path, "utils_scalestimuli.R"))
-source(file.path(utils_path, "utils_savefixedeffects.R"))
-source(file.path(utils_path, "utils_checkmodelconverge.R"))
-source(file.path(utils_path, "utils_processdata.R"))
-source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils_getchoicehistory.R"))
+acceptglme_path <- file.path(repo_path, "src", "riskhistory", "analysis_acceptglme")
+source(file.path(acceptglme_path, "utils_modelcomparison.R"))
+source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
+source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
+
+# check_model_diagnostics is defined in analysis_pupillme
+pupillme_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_pupillme")
+source(file.path(pupillme_utils_path, "utils_modelanalytics.R"))
+
+source(file.path(utils_path, "utils_createregressors.R"))
 
 # =============================================================================
 # Analysis settings
 # =============================================================================
 set.seed(42)
-
-# Define datasets to analyze
 datasets <- c("equalIndifference", "equalRange", "sheng2020")
-
-# Multiple comparisons method
-p_method <- "BH"  # Benjamini-Hochberg
+p_method <- "BH"
 
 # =============================================================================
-# Load and process data
+# Load behavioral data
 # =============================================================================
-pupil_beta_path <- file.path(analysis_data_path,
-                             "preprocessed",
-                             "pupilbetas_lss_preprocessed.csv")
-behavioral_data_path <- file.path(analysis_data_path,
-                                  "preprocessed",
-                                  "behavioral_data.csv")
-data_clean <- process_data(pupil_beta_path, behavioral_data_path)
+message("Loading behavioral data...")
+behavioral_data <- read.csv(file.path(analysis_data_path,
+                                      "preprocessed",
+                                      "behavioral_data.csv"))
+
+message("Loading subject-specific betas...")
+betas_path <- file.path(results_path, "analysis_acceptglme",
+                        "1_baselinebehavior_betas.csv")
+betas_sub <- read.csv(betas_path)
+behavioral_data <- merge(behavioral_data, betas_sub, by = c("sub", "dataset"))
+
+# Source sv/entropy helpers from pupillme
+pupillme_path <- file.path(repo_path, "src", "riskhistory", "analysis_pupillme")
+source(file.path(pupillme_path, "utils_createpupilregressors.R"))
+behavioral_data <- add_sv(behavioral_data)
 
 # =============================================================================
-# Initialize model storage
+# Adding the pupil betas
 # =============================================================================
-models_list <- list()
+message("Pupil betas including...")
+# Use the same exclude flag written by setup_pupilbetas
+pupilbetas_preprocessed <- read.csv(
+  file.path(analysis_data_path, "preprocessed", "pupilbetas_glm_preprocessed.csv")
+)
+pupilbetas_preprocessed <- pupilbetas_preprocessed %>%
+  mutate(exclude_startAligned = as.logical(exclude_startAligned)) %>%
+  select(sub, run, trial, dataset, exclude_startAligned, pupil)
+
+# Add pupil_prev to pupilbetas_preprocessed
+pupilbetas_preprocessed <- pupilbetas_preprocessed %>%
+  group_by(sub, run, dataset) %>%
+  arrange(trial, .by_group = TRUE) %>%
+  mutate(pupil_prev = lag(pupil)) %>%
+  ungroup()
+
+data_merged <- merge(behavioral_data, pupilbetas_preprocessed,
+                     by = c("sub", "run", "trial", "dataset"))
+
+data_clean <- data_merged %>%
+  filter(!exclude_startAligned)
+
+message("Creating regressors...")
+data_clean <- create_pupilbehavior_regressors(data_clean)
+
+message(sprintf("Data after exclusion: %d trials", nrow(data_clean)))
 for (ds in datasets) {
-  models_list[[ds]] <- list()
+  n <- nrow(data_clean[data_clean$dataset == ds, ])
+  message(sprintf("  %s: %d trials", ds, n))
 }
 
 message("Config loaded successfully.")
-message(sprintf("Datasets: %s", paste(datasets, collapse = ", ")))
-for (ds in datasets) {
-  n_trials <- sum(data_clean$dataset == ds)
-  n_subs <- length(unique(data_clean$sub[data_clean$dataset == ds]))
-  message(sprintf("  %s: %d trials from %d subjects", ds, n_trials, n_subs))
-}

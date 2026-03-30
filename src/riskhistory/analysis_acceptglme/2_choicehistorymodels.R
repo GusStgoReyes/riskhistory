@@ -8,6 +8,7 @@ data <- add_subjectivevalues(
   df = behavioral_data_full,
   pth_betas = pth_betas
 )
+data <- create_behavioral_regressors(data)
 
 betas_model2 <- list()
 
@@ -20,11 +21,11 @@ for (ds in datasets) {
                     (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
   # PREVIOUS SUBJECTIVE VALUE MODEL
-  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_sv +
+  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_sv_z +
                     (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
   # DELTA SUBJECTIVE VALUE MODEL
-  model4 <- glmer(accept ~ gain_centered + loss_centered + delta_sv +
+  model4 <- glmer(accept ~ gain_centered + loss_centered + delta_sv_z +
                     (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
   # PREVIOUS STIMULI MODEL
@@ -32,11 +33,11 @@ for (ds in datasets) {
                     prev_loss_centered + (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
   # PREVIOUS SUBJECTIVE VALUE MODEL + CHOICE HISTORY
-  model6 <- glmer(accept ~ gain_centered + loss_centered + prev_sv +
+  model6 <- glmer(accept ~ gain_centered + loss_centered + prev_sv_z +
                     choice_prev1 + (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
   # DELTA SUBJECTIVE VALUE MODEL + CHOICE HISTORY
-  model7 <- glmer(accept ~ gain_centered + loss_centered + delta_sv +
+  model7 <- glmer(accept ~ gain_centered + loss_centered + delta_sv_z +
                     choice_prev1 + (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
   # PREVIOUS STIMULI MODEL + CHOICE HISTORY
@@ -47,18 +48,18 @@ for (ds in datasets) {
 
   # CHOICE HISTORY MODEL + RND EFFECT OF CHOICE HISTORY
   model2_rnd <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
-                        (1 + loss_centered | sub) +
-                        (0 + choice_prev1 | sub),
+                        (1 + loss_centered | sub) + (0 + choice_prev1 | sub),
                       data = df_sub, family = binomial)
   models <- list(
-    M2 = model2,
-    M2_rnd = model2_rnd,
-    M3 = model3,
-    M4 = model4,
-    M5 = model5,
-    M6 = model6,
-    M7 = model7,
-    M8 = model8
+    M2_part1 = model2,
+    M2_part1_rnd = model2_rnd,
+    M2_part1_rnd_accept_reject = model2_part1_rnd,
+    M3_part1 = model3,
+    M4_part1 = model4,
+    M5_part1 = model5,
+    M6_part1 = model6,
+    M7_part1 = model7,
+    M8_part1 = model8
   )
   behavioral_models_list <- add_models_to_list(
     models_list = behavioral_models_list,

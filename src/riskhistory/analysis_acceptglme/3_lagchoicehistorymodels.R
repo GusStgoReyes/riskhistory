@@ -40,12 +40,12 @@ for (ds in datasets) {
                    data = df_sub, family = binomial)
 
   models <- list(
-    M9  = model9,
-    M10 = model10,
-    M11 = model11,
-    M12 = model12,
-    M13 = model13,
-    M14 = model14
+    M9_part1  = model9,
+    M10_part1 = model10,
+    M11_part1 = model11,
+    M12_part1 = model12,
+    M13_part1 = model13,
+    M14_part1 = model14
   )
 
   behavioral_models_list <- add_models_to_list(

@@ -21,20 +21,26 @@ add_subjectivevalues <- function(
     mutate(
       prev_sv  = lag(sv),
       delta_sv = sv - prev_sv,
-      abs_sv   = abs(sv),
-    ) %>%
-    ungroup()
-
-  # Scale abs(sv) within subjects
-  data <- data %>%
-    group_by(dataset, sub) %>%
-    mutate(
-      abs_sv_scaled = as.numeric(scale(abs_sv))
+      abs_sv   = abs(sv)
     ) %>%
     ungroup()
 
   # Exclude trials
-  data <- subset(data, exclude == "False")
+  data <- subset(data, !exclude)
 
-  data
+  return(data)
+}
+
+# Standardize the regressors
+create_behavioral_regressors <- function(df) {
+  df <- df %>%
+    group_by(dataset, sub) %>%
+    mutate(
+      prev_sv_z  = as.numeric(scale(prev_sv, center = TRUE, scale = TRUE)),
+      delta_sv_z = as.numeric(scale(delta_sv, center = TRUE, scale = TRUE)),
+      abs_sv_z   = as.numeric(scale(abs_sv, center = TRUE, scale = TRUE))
+    ) %>%
+    ungroup()
+
+  return(df)
 }

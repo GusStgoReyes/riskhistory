@@ -13,6 +13,7 @@ src/riskhistory/*/*delete*
 src/riskhistory/trash/*
 
 figures/*
+figures_draft/*
 results/*
 !results/analysis_ddm
 !results/analysis_ddm/*
@@ -23,3 +24,5 @@ scripts/*
 
 hddm.sif
 */slurm*
+
+br_questions/*

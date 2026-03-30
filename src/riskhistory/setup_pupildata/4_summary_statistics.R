@@ -1,15 +1,14 @@
 # =============================================================================
-# Pupil Data Preprocessing Pipeline v2: Summary Statistics
+# Pupil Data Preprocessing Pipeline: Summary Statistics
 # =============================================================================
 # Computes summary statistics for participants included in the start-aligned
 # pupil analysis: mean acceptance rate, number of valid trials, and mean RT.
 #
-# Subjects are included only if they pass BOTH:
-#   1. Behavioral exclusion criteria (present in behavioral_data)
-#   2. Pupil quality criteria (exclude_subject_startAligned == FALSE)
+# Trial-level exclusions (including behavioral) are captured in exclude_startAligned
+# from 3_exclusions.R.
 #
 # Outputs:
-#   results/setup_pupildata/4_summary_statistics.txt  (printed summary text)
+#   results/setup_pupildata/behavioral_summary.txt  (printed summary text)
 # =============================================================================
 
 library(dplyr)
@@ -27,15 +26,6 @@ cat("=== Computing Summary Statistics for Included Participants ===\n\n")
 cat("Loading behavioral data...\n")
 behavioral_data <- read.csv(behavioral_data_path)
 cat("  Loaded", nrow(behavioral_data), "rows\n")
-# Exclude trials in behavioral data
-behavioral_data <- behavioral_data %>%
-  filter(exclude != "True")
-
-cat("Loading subject-level exclusions...\n")
-subject_exclusions <- read.csv(
-  file.path(results_path, "setup_pupildata", "pupil_subject_exclusions.csv")
-)
-cat("  Loaded", nrow(subject_exclusions), "subjects\n")
 
 cat("Loading trial-level start-aligned exclusions...\n")
 trial_exclusions_start <- read.csv(
@@ -49,7 +39,6 @@ cat("  Loaded", nrow(trial_exclusions_start), "trials\n\n")
 # Filter to Included Participants (Both Criteria)
 # =============================================================================
 
-# Criterion 1: subjects present in behavioral_data (passed behavioral exclusion)
 behavioral_subjects <- behavioral_data %>%
   select(sub, dataset) %>%
   distinct()
@@ -61,38 +50,14 @@ for (ds in unique(behavioral_subjects$dataset)) {
 }
 cat("\n")
 
-# Criterion 2: subjects passing pupil quality filter (start-aligned)
-pupil_included_subjects <- subject_exclusions %>%
-  filter(!exclude_subject_startAligned) %>%
-  select(sub, dataset)
-
-cat("Subjects passing pupil quality filter (start-aligned):\n")
-for (ds in unique(pupil_included_subjects$dataset)) {
-  n <- sum(pupil_included_subjects$dataset == ds)
-  cat("  ", ds, ":", n, "subjects\n")
-}
-cat("\n")
-
-# Included = intersection of both criteria
-included_subjects <- inner_join(behavioral_subjects, pupil_included_subjects,
-                                by = c("sub", "dataset"))
-
-cat("Included participants (behavioral AND start-aligned pupil):\n")
-for (ds in unique(included_subjects$dataset)) {
-  n <- sum(included_subjects$dataset == ds)
-  cat("  ", ds, ":", n, "subjects\n")
-}
-cat("\n")
 
 # =============================================================================
 # Compute Per-Subject Statistics
 # =============================================================================
 
-# Keep only included subjects, non-excluded behavioral trials,
-# and non-excluded start-aligned pupil trials
+# Keep only included subjects and non-excluded start-aligned trials
+# (exclude_startAligned already incorporates behavioral exclusions)
 data_included <- behavioral_data %>%
-  inner_join(included_subjects, by = c("sub", "dataset")) %>%
-  filter(exclude != "True") %>%
   left_join(trial_exclusions_start, by = c("sub", "trial", "dataset")) %>%
   filter(!exclude_startAligned)
 

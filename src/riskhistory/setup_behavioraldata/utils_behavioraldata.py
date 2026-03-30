@@ -10,6 +10,10 @@
 # 'loss': loss amount for the trial
 # 'prev_gain' : gain amount from the previous trial
 # 'prev_loss' : loss amount from the previous trial
+# 'gain_centered' : gain amount centered within each dataset
+# 'loss_centered' : loss amount centered within each dataset
+# 'prev_gain_centered' : previous gain amount centered within each dataset
+# 'prev_loss_centered' : previous loss amount centered within each dataset
 # 'rt': reaction time for the trial
 # 'dataset': dataset identifier (equalIndifference, equalRange, sheng2020)
 # 'choice': choice made on the current trial (1 or -1)
@@ -17,10 +21,19 @@
 # 'switch_button' : whether the subject switched their button press from the previous trial (1 for switch, 0 for stay, NAN)
 # 'repeat' : whether the subject repeated their response from the previous trial (1 for repeat, 0 for switch, NAN)
 # 'switch' : whether the subject switched their choice from the previous trial (1 for switch, 0 for stay, NAN)
+# 'streak' : how many trials back to find a different choice (0 for first trial, 1 if previous trial is different, 2 if previous two trials are the same and the third trial back is different, etc.)
+# 'logstreak_on_switch' : log(streak) when switch==1, 0 otherwise
+# 'logstreak_on_repeat' : log(streak) when repeat==1, 0 otherwise
 # 'exclude' : whether the trial should be excluded based on some criteria (True for exclude, False for include)
 
 import pandas as pd
 import numpy as np
+
+STIMULI_CENTER = { 
+    "equalIndifference" : {"gain": 25, "loss": 12.5},
+    "equalRange" : {"gain": 12.5, "loss": 12.5},
+    "sheng2020" : {"gain": 5.5, "loss": 5.5}
+}
 
 def fix_sub_56(df):
     """
@@ -165,6 +178,61 @@ def create_choice_columns(df,
     
     return df
 
+def calculate_streak(group):
+    """Calculate streak: how many trials back to find the same choice."""
+    streak = [0]
+    accept = group['accept'].values
+    prev_streak = 0
+    for i in range(1, len(accept)):
+        if pd.isna(accept[i]) or pd.isna(accept[i-1]):
+            streak.append(np.nan)
+            prev_streak = 0
+        elif i == 1:
+            streak.append(1)
+            prev_streak = 1
+        else:
+            if accept[i-1] == accept[i-2]:
+                prev_streak += 1
+                streak.append(prev_streak)
+            else:
+                prev_streak = 1
+                streak.append(prev_streak)
+    
+    return pd.Series(streak, index=group.index)
+
+def add_logstreak_columns(df):
+    """
+    Add log streak columns to the dataframe.
+    """
+    # streak_on_switch: log(streak) when switch==1, 0 otherwise
+    # streak_on_repeat: log(streak) when repeat==1, 0 otherwise
+    streaks = df.groupby(['sub', 'run'], group_keys=False).apply(calculate_streak)
+    df["streak"] = streaks
+    
+    df['logstreak_on_switch'] = np.where(df['switch'] == 1, 
+                                       np.log(df['streak'] +10e-10), 
+                                       0)
+    
+    df['logstreak_on_repeat'] = np.where(df['repeat'] == 1, 
+                                       np.log(df['streak'] +10e-10), 
+                                       0)
+    
+    return df
+
+def add_centered_columns(df, dataset_column='dataset'):
+    """
+    Add gain_centered and loss_centered columns based on dataset.
+    """
+    df['gain_centered'] = df['gain'].copy()
+    df['loss_centered'] = df['loss'].copy()
+    
+    for dataset_name, centers in STIMULI_CENTER.items():
+        mask = df[dataset_column] == dataset_name
+        df.loc[mask, 'gain_centered'] = df.loc[mask, 'gain'] - centers['gain']
+        df.loc[mask, 'loss_centered'] = df.loc[mask, 'loss'] - centers['loss']
+    
+    return df
+
 def prepare_narps_behavioral_data(df, 
                                   min_rt = 0.2, 
                                   max_rt = 3.8,
@@ -194,6 +262,7 @@ def prepare_narps_behavioral_data(df,
                                                                                 max_rt,
                                                                                 ordinal=False), 
                                                                                 axis=1)
+    
     # Fix the response_int column to have correct NaN for too fast or too slow responses
     df['response_int'] = df[['response_int', 'rt']].apply(lambda row: response_to_int(row['response_int'], 
                                                                                       row['rt'], 
@@ -207,15 +276,25 @@ def prepare_narps_behavioral_data(df,
                                button_column='response_int', 
                                N_max = N_max)
 
+    # Add centered gain and loss columns
+    df = add_centered_columns(df, dataset_column='dataset')
+
     # Add the prev_gain and prev_loss columns
     df['prev_gain'] = df.groupby(['sub', 'run'])['gain'].shift(1)
     df['prev_loss'] = df.groupby(['sub', 'run'])['loss'].shift(1)
+    df['prev_gain_centered'] = df.groupby(['sub', 'run'])['gain_centered'].shift(1)
+    df['prev_loss_centered'] = df.groupby(['sub', 'run'])['loss_centered'].shift(1)
+
+    # Add log streak columns
+    df = add_logstreak_columns(df)
     
     # Select and order final columns
     df = df[['sub', 'trial', 'trial_run', 'run', 'accept', 'gain', 'loss', 
+            'gain_centered', 'loss_centered', 'prev_gain_centered', 'prev_loss_centered',
              'rt', 'dataset', 'choice'] +
             [f'choice_prev{N}' for N in range(1, 7)] +
-            ['switch_button', 'repeat', 'switch', 'prev_gain', 'prev_loss']]
+            ['switch_button', 'repeat', 'switch', 'prev_gain', 'prev_loss',
+             'streak', 'logstreak_on_switch', 'logstreak_on_repeat']]
     
     return df
         
@@ -272,21 +351,31 @@ def prepare_sheng2020_behavioral_data(df_response,
                                                                           max_rt, 
                                                                           ordinal=True), 
                                                                           axis=1)
-
+    
     # Create choice and history columns
     df = create_choice_columns(df, 
                                button_column='accept',
                                N_max = N_max)
 
+     # Add centered gain and loss columns
+    df = add_centered_columns(df, dataset_column='dataset')
+
     # Add the prev_gain and prev_loss columns
     df['prev_gain'] = df.groupby(['sub', 'run'])['gain'].shift(1)
     df['prev_loss'] = df.groupby(['sub', 'run'])['loss'].shift(1)
+    df['prev_gain_centered'] = df.groupby(['sub', 'run'])['gain_centered'].shift(1)
+    df['prev_loss_centered'] = df.groupby(['sub', 'run'])['loss_centered'].shift(1)
+
+    # Add log streak columns
+    df = add_logstreak_columns(df)
 
     # Select and order final columns
     df = df[['sub', 'trial', 'trial_run', 'run', 'accept', 'gain', 'loss', 
+             'gain_centered', 'loss_centered', 'prev_gain_centered', 'prev_loss_centered',
              'rt', 'dataset', 'choice'] +
             [f'choice_prev{N}' for N in range(1, 7)] +
-            ['switch_button', 'repeat', 'switch', 'prev_gain', 'prev_loss']]
+            ['switch_button', 'repeat', 'switch', 'prev_gain', 'prev_loss',
+             'streak', 'logstreak_on_switch', 'logstreak_on_repeat']]
     
     return df
 

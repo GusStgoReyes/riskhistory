@@ -29,12 +29,11 @@ library(lmerTest)
 library(bayestestR)
 
 # Source utility functions
-source(file.path(utils_path, "utils_addsubjectivevalues.R"))
+source(file.path(utils_path, "utils_createregressors.R"))
 source(file.path(utils_path, "utils_checkmodelconverge.R"))
 source(file.path(utils_path, "utils_saverandomeffectsub.R"))
 source(file.path(utils_path, "utils_savefixedeffects.R"))
 source(file.path(utils_path, "utils_modelcomparison.R"))
-source(file.path(utils_path, "utils_scalestimuli.R"))
 source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils_getchoicehistory.R"))
 
 # =============================================================================
@@ -48,7 +47,7 @@ datasets <- c("equalIndifference", "equalRange", "sheng2020")
 # Multiple comparisons method
 p_method <- "BH"  # Benjamini-Hochberg
 
-DECAY_RATES <- list(equalIndifference = 0.5, equalRange = 0.5, sheng2020 = 0.5)
+DECAY_RATES <- list(equalIndifference = 0.7, equalRange = 0.7, sheng2020 = 0.7)
 # =============================================================================
 # Load and prepare data
 # =============================================================================
@@ -56,15 +55,14 @@ DECAY_RATES <- list(equalIndifference = 0.5, equalRange = 0.5, sheng2020 = 0.5)
 behavioral_data_full <- read.csv(file.path(analysis_data_path,
                                            "preprocessed",
                                            "behavioral_data.csv"))
+behavioral_data_full <- behavioral_data_full %>%
+  mutate(exclude = as.logical(exclude))
 
 # Add log RT column
 behavioral_data_full$log_rt <- log(behavioral_data_full$rt)
 
-# Apply scaling function to the behavioral data
-behavioral_data_full <- scale_stimuli(behavioral_data_full)
-
 # Filter out excluded trials for behavioral analyses
-behavioral_data <- subset(behavioral_data_full, exclude == "False")
+behavioral_data <- subset(behavioral_data_full, !exclude)
 
 # Add choice history variables
 for (n in 1:6) {

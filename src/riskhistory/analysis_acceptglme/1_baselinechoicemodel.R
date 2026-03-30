@@ -15,15 +15,9 @@ for (ds in datasets) {
                     (1 + loss_centered | sub),
                   data = df_sub, family = binomial)
 
-  # 2. RUN THE MODEL FOR SUBJECTIVE VALUES (In this case, same as model1)
-  model1_sv <- glmer(accept ~ gain_centered + loss_centered +
-                       (1 + loss_centered | sub),
-                     data = df_sub, family = binomial)
-
   # 3. Add models to list
   models <- list(
-    M1 = model1,
-    M1_sv = model1_sv
+    M1_part1 = model1
   )
 
   behavioral_models_list <- add_models_to_list(
@@ -34,7 +28,7 @@ for (ds in datasets) {
 
   # 4. COMPUTE SUBJECTIVE VALUES FROM BASELINE MODEL
   betas_model1[[ds]] <- extract_random_effects_sv(
-    model = model1_sv,
+    model = model1,
     ds = ds
   )
 }

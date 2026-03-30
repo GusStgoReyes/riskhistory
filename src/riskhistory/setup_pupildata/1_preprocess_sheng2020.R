@@ -1,5 +1,5 @@
 # =============================================================================
-# Pupil Data Preprocessing Pipeline v2: Sheng2020 Dataset
+# Pupil Data Preprocessing Pipeline: Sheng2020 Dataset
 # =============================================================================
 # Preprocesses Sheng2020 pupil data (CSV format) and saves intermediate outputs.
 # This dataset requires conversion to eyeris format before processing.

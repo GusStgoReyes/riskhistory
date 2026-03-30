@@ -1,5 +1,5 @@
 # =============================================================================
-# Pupil Data Preprocessing Pipeline v2: NARPS Dataset
+# Pupil Data Preprocessing Pipeline: NARPS Dataset
 # =============================================================================
 # Preprocesses NARPS pupil data (.asc files) and saves intermediate outputs.
 # =============================================================================

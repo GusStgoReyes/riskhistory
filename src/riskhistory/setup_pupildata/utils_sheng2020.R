@@ -90,7 +90,7 @@ fill_missing_samples_grid <- function(
 #' @param sub_data Data frame containing one subject's run data
 #' @param sampling_rate Sampling rate in Hz
 #' @return An eyeris object ready for processing
-convert_sheng2020_to_eyeris <- function(sub_data, sampling_rate = 125) {
+convert_sheng2020_to_eyeris <- function(sub_data, sampling_rate = 120) {
   run_id <- as.integer(sub_data$Run[1])
   sub_id <- as.integer(sub_data$Subject[1])
 

@@ -4,6 +4,5 @@
 
 source("0_config.R")
 source("1_checktrialsstatistics.R")
-source("2_pupilmodel_startAligned.R")
-source("2_pupilmodel_responseAligned.R")
-source("3_pupilmodel_switch.R")
+source("2_pupiltimeseries_model.R")
+source("3_pupilbetas_model.R")

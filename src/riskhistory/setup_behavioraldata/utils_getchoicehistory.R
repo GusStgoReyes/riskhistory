@@ -30,9 +30,10 @@ compute_choice_history <- function(df, num_prev_trials = 3, decay_rate = NULL) {
   df[[paste0("choice_history", num_prev_trials)]] <- 0.0
   for (ds in names(decay_rate)) {
     rate <- decay_rate[[ds]]
+    max_choice_history <- rate / (1 - rate)
     mask <- df$dataset == ds
     weights <- (rate)^seq_len(num_prev_trials)
-    df[[paste0("choice_history", num_prev_trials)]][mask] <- as.matrix(df[mask, prev_cols]) %*% weights
+    df[[paste0("choice_history", num_prev_trials)]][mask] <- as.matrix(df[mask, prev_cols]) %*% weights / max_choice_history
   }
 
   df

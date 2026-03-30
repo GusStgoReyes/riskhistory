@@ -15,9 +15,8 @@ for (ds in datasets) {
                         loss_centered * choice_prev1 +
                         (1 + loss_centered | sub),
                       data = df_sub, family = binomial)
-
   models <- list(
-    M_Sup1 = model_sup1
+    M_part1_Sup1 = model_sup1
   )
 
   behavioral_models_list <- add_models_to_list(
