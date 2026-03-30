@@ -82,6 +82,32 @@ def startingposition(z,
     s += z_choice_prev6 * choice_prev6
 
     # Ensure starting position is within bounds [-1, 1]
+    s = s * 2 - 1
+
+    return s
+
+def startingposition_sigmoid(z,
+                            choice_prev1, z_choice_prev1,
+                            choice_prev2, z_choice_prev2,
+                            choice_prev3, z_choice_prev3,
+                            choice_prev4, z_choice_prev4,
+                            choice_prev5, z_choice_prev5,
+                            choice_prev6, z_choice_prev6):
+    """
+    Starting position function for the DDM model with lagged choice effects.
+     - z lies between -1 and 1
+    """
+    s = z
+
+    # Add the lagged choice effect if it accepted
+    s += z_choice_prev1 * choice_prev1
+    s += z_choice_prev2 * choice_prev2
+    s += z_choice_prev3 * choice_prev3
+    s += z_choice_prev4 * choice_prev4
+    s += z_choice_prev5 * choice_prev5
+    s += z_choice_prev6 * choice_prev6
+
+    # Ensure starting position is within bounds [-1, 1]
     s = 1/(1 + np.exp(-s)) * 2 - 1
 
     return s

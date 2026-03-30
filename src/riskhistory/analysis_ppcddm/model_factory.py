@@ -2,7 +2,7 @@ from riskhistory.analysis_ppcddm.ddm_model import PTDDM
 from riskhistory.analysis_ppcddm.functions_ddm import (
     drift_linear,
     bound,
-    startingposition,
+    startingposition, startingposition_sigmoid,
     nondecision,
     noise
 )
@@ -88,11 +88,16 @@ def get_model(model_id):
         pass
     else:
         drift = drift_linear
+    
+    if "x0" in model_id:
+        startingposition_fn = startingposition_sigmoid
+    else:
+        startingposition_fn = startingposition
 
     return PTDDM(model_id,
                 drift,
                 bound,
-                startingposition,
+                startingposition_fn,
                 nondecision,
                 noise,
                 parameters = parameters,
