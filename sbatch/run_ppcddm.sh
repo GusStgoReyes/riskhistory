@@ -27,19 +27,16 @@ sbatch <<EOF
 #SBATCH --job-name=ppcddm
 #SBATCH --time=00:15:00
 #SBATCH --partition=russpold
-#SBATCH --qos=russpold
+#SBATCH --qos=normal
 #SBATCH --account=russpold
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1G
 #SBATCH --output=${LOG_DIR}/ppcddm_%A_%a.out
 #SBATCH --error=${LOG_DIR}/ppcddm_%A_%a.err
 #SBATCH --array=0-$((N_JOBS - 1))%20
-#SBATCH --export=NONE
+#SBATCH --export=ALL
 
-cd ${REPO_PTH}
-
-module use /share/PI/russpold/modules
-module load singularity
+cd /scratch/users/gustxsr/riskhistory
 
 uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm \\
     --job_index \$SLURM_ARRAY_TASK_ID

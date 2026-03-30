@@ -124,6 +124,10 @@ if __name__ == "__main__":
 
     jobs = _build_job_manifest(behavioral_data)
 
+    if args.print_njobs:
+        print(len(jobs))
+        raise SystemExit(0)
+
     if args.job_index is not None:
         if args.job_index >= len(jobs):
             print(f"job_index {args.job_index} >= n_jobs {len(jobs)}, nothing to do.")
