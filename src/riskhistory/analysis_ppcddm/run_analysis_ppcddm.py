@@ -46,7 +46,13 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
 
     combined = (pd.concat([group_params, sub_params])
                 .drop_duplicates(subset=["param_name"], keep="last"))
-    model.set_parameters(dict(zip(combined["param_name"], combined["param_value"])))
+    
+    param_dict = dict(zip(combined["param_name"], combined["param_value"]))
+    # Convert boundary from HDDM (0-B) to PyDDM (-B/2 to B/2)
+    param_dict["a"] = param_dict["a"] / 2 
+    # Convert starting point from HDDM (0-1) to PyDDM (-1 to 1)
+    param_dict["z"] = param_dict["z"] * 2 - 1
+    model.set_parameters(param_dict)
     return model
 
 
@@ -117,7 +123,7 @@ if __name__ == "__main__":
     )
 
     jobs = _build_job_manifest(behavioral_data)
-    
+
     if args.job_index is not None:
         if args.job_index >= len(jobs):
             print(f"job_index {args.job_index} >= n_jobs {len(jobs)}, nothing to do.")
