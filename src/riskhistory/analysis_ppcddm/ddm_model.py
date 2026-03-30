@@ -218,12 +218,11 @@ class PTDDM(Model):
             reject_rts = sample.choice_lower
             mean_accept = len(accept_rts) / (len(accept_rts) + len(reject_rts))
             mean_rt = (np.sum(accept_rts) + np.sum(reject_rts)) / (len(accept_rts) + len(reject_rts))
-            if mean_accept > 0.5 and row["choice_prev1"] == 1:
-                pred_repeat = mean_accept
-            elif mean_accept <= 0.5 and row["choice_prev1"] == -1:
-                pred_repeat = mean_accept
+            if row["choice_prev1"] == 1:
+                pred_repeat =  len(accept_rts) / (len(accept_rts) + len(reject_rts))
             else:
-                pred_repeat = 1 - mean_accept
+                pred_repeat = len(reject_rts) / (len(accept_rts) + len(reject_rts))
+
 
             artificial_data["gain"].extend([row["gain"]])
             artificial_data["loss"].extend([row["loss"]])
