@@ -48,8 +48,6 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
                 .drop_duplicates(subset=["param_name"], keep="last"))
     
     param_dict = dict(zip(combined["param_name"], combined["param_value"]))
-    # Convert boundary from HDDM (0-B) to PyDDM (-B/2 to B/2)
-    param_dict["a"] = param_dict["a"] / 2 
     model.set_parameters(param_dict)
     return model
 

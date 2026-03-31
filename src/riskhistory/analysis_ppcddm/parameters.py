@@ -61,8 +61,8 @@ class FullDDMParameters(DDMParameters):
         self.num_parameters = len(self.parameters_names)
 
         self.parameters_bounds = {"v_scale" : (0.1, 5),
-                                  "v_gain" : (0, 4), 
-                                  "v_loss" : (0, 8), 
+                                  "v_gain" : (0, 4),
+                                  "v_loss" : (-8, 0),
                                   "alpha" : (0, 1.2), 
                                   "v_Intercept" : (-4, 4), 
                                   "z" : (-2, 2), 
@@ -77,7 +77,7 @@ class FullDDMParameters(DDMParameters):
 
         self.parameters_constant = {"v_scale" : 1,
                                     "v_gain" : 1,
-                                    "v_loss" : 1, 
+                                    "v_loss" : -1,
                                     "alpha" : 1, 
                                     "v_Intercept" : 0, 
                                     "z" : 0,
