@@ -137,11 +137,13 @@ def main():
         idx_save = "_test"
         burnin = 2
         sampling_iters = 10
+        chains = 1
     else:
         subj_IDs = None
         idx_save = ""
         burnin = 2000
         sampling_iters = 10000
+        chains = 4
 
     print(f"Fitting model {args.model_id} to dataset {args.dataset_name}...", flush=True)
     pupil = "Pupil" in args.model_id
@@ -157,6 +159,7 @@ def main():
         pupil=pupil,
         burnin=burnin,
         sampling_iters=sampling_iters,
+        chains=chains
     )
 
 
