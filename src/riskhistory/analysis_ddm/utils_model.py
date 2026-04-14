@@ -219,3 +219,9 @@ MODEL_REGISTRY = {
 def get_available_models() -> list:
     """Return list of all registered model IDs."""
     return list(MODEL_REGISTRY.keys())
+
+def get_model_config(model_id: str) -> dict:
+    """Return the configuration dictionary for a given model ID."""
+    if model_id not in MODEL_REGISTRY:
+        raise ValueError(f"Model ID '{model_id}' not found in registry.")
+    return MODEL_REGISTRY[model_id]
