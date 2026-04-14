@@ -7,8 +7,8 @@ from riskhistory.setup_pupilbetas.utils_models import ridge
 import pandas as pd
 
 
-def compute_decision_vif(design_matrix, betas_name, sub, run, dataset):
-    """Compute VIF for decision regressors within the full design matrix.
+def compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type = "decision"):
+    """Compute VIF for regressors of interest within the full design matrix.
 
     Uses the correlation-matrix formula: VIF_j = (R^{-1})_{jj}, where R is
     the correlation matrix of all design-matrix columns. This accounts for
@@ -26,29 +26,30 @@ def compute_decision_vif(design_matrix, betas_name, sub, run, dataset):
     -------
     dict with keys: sub, run, dataset, mean_vif, sd_vif, n_regressors
     """
-    decision_mask = np.array(["decision" in name for name in betas_name])
-    n_decision = int(decision_mask.sum())
-    base = {"sub": sub, "run": run, "dataset": dataset, "n_regressors": n_decision}
+    regressor_mask = np.array([regressor_type in name for name in betas_name])
+    n_regressors = int(regressor_mask.sum())
+    base = {"sub": sub, "run": run, "dataset": dataset, f"n_regressors_{regressor_type}": n_regressors}
 
-    if n_decision < 2:
-        return {**base, "mean_vif": float("nan"), "sd_vif": float("nan")}
+    if n_regressors < 2:
+        return {**base, f"mean_vif_{regressor_type}": float("nan"), f"sd_vif_{regressor_type}": float("nan")}
 
     X = design_matrix.astype(float)
     X = X - X.mean(axis=0)
     col_std = X.std(axis=0, ddof=1)
-    col_std[col_std == 0] = 1.0
-    X_std = X / col_std
+    non_constant_mask = col_std > 1e-12
+    X_std = X[:, non_constant_mask] / col_std[non_constant_mask]
+    R = (X_std.T @ X_std) / (X_std.shape[0] - 1)
+    R_inv = np.linalg.inv(R) #np.linalg.pinv(R)
 
-    R = (X_std.T @ X_std) / (X_std.shape[0] - 1)   # sample correlation
-    try:
-        R_inv = np.linalg.pinv(R)
-        vif_decision = np.diag(R_inv)[decision_mask]
-        return {**base,
-                "mean_vif": float(np.mean(vif_decision)),
-                "sd_vif":   float(np.std(vif_decision))}
-    except np.linalg.LinAlgError:
-        return {**base, "mean_vif": float("nan"), "sd_vif": float("nan")}
-
+    # map back
+    full_vif = np.full(len(col_std), np.nan)
+    full_vif[non_constant_mask] = np.diag(R_inv)
+    vif_decision = full_vif[regressor_mask]
+    
+    return {**base,
+            f"mean_vif_{regressor_type}": float(np.mean(vif_decision)),
+            f"sd_vif_{regressor_type}":   float(np.std(vif_decision))}
+    
 def build_design_matrix_run(all_pupil_data,
                             chosen_prf,
                             start_timings, 
@@ -74,11 +75,11 @@ def build_design_matrix_run(all_pupil_data,
                                                                 regressor_name = "onset")
     onset_regressors = convolve_with_prf(onset_regressors, chosen_prf)
     
-    # Response regressors (1 beta estimated per run for response)
+    # Response regressors (num trials beta estimated per run for response)
     response_regressors, response_betas_name = create_timings_matrix(run_response_timings, 
                                                                     time_vector, 
                                                                     trial_durations = None, 
-                                                                    option = "all", 
+                                                                    option = "ls-a", 
                                                                     trial_of_interest = None, 
                                                                     sub = sub, 
                                                                     run = run, 
@@ -144,10 +145,14 @@ def glm_single_run(all_pupil_data,
         "r2": [r2] * len(betas_name),
     }
 
-    vif_stats = compute_decision_vif(design_matrix, betas_name, sub, run, dataset)
-    print(f"  Decision VIF — mean: {vif_stats['mean_vif']:.2f}, "
-          f"sd: {vif_stats['sd_vif']:.2f} (n={vif_stats['n_regressors']})")
-
+    vif_stats_decision = compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type="decision")
+    print(f"  Decision VIF — mean: {vif_stats_decision['mean_vif_decision']:.2f}, "
+          f"sd: {vif_stats_decision['sd_vif_decision']:.2f} (n={vif_stats_decision['n_regressors_decision']})")
+    
+    vif_stats_response = compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type="response")
+    print(f"  Response VIF — mean: {vif_stats_response['mean_vif_response']:.2f}, "
+          f"sd: {vif_stats_response['sd_vif_response']:.2f} (n={vif_stats_response['n_regressors_response']})")
+    vif_stats = {**vif_stats_decision, **vif_stats_response}
     return pd.DataFrame(results_run), vif_stats
 
 

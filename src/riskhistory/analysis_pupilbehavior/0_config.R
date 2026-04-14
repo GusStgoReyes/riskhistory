@@ -80,7 +80,7 @@ pupilbetas_preprocessed <- read.csv(
 )
 pupilbetas_preprocessed <- pupilbetas_preprocessed %>%
   mutate(exclude_startAligned = as.logical(exclude_startAligned)) %>%
-  select(sub, run, trial, dataset, exclude_startAligned, pupil)
+  select(sub, run, trial, dataset, exclude_startAligned, pupil, pupil_v2)
 
 # Add pupil_prev to pupilbetas_preprocessed
 pupilbetas_preprocessed <- pupilbetas_preprocessed %>%

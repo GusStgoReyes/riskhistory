@@ -23,6 +23,7 @@ def fit_model(
     pupil: bool = False,
     burnin: int = 2000,
     sampling_iters: int = 10000,
+    chains: int = 4,
 ) -> None:
     """Fit an HDDM model to behavioral data.
 
@@ -73,9 +74,10 @@ def fit_model(
     m_reg.sample(
         sampling_iters,
         burn=burnin,
-        loglike=True,
-        dbname=f"{results_pth}/db/{model_id}_{dataset_name}{idx_save}.db",
-        db="pickle",
+        chains=chains,
+        loglike = True,
+        return_infdata = True,
+        save_name = f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}",
     )
 
     stats = m_reg.gen_stats()
@@ -84,7 +86,6 @@ def fit_model(
 
     save_model_statistics(m_reg, stats, model_id, dataset_name, results_pth, idx_save)
     save_subj_statistics(stats, model_id, dataset_name, results_pth, idx_save)
-    m_reg.save(f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}.hddm")
 
 
 def main():

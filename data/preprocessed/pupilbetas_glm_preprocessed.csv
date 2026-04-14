@@ -1,4 +1,4 @@
-betas_estimates,run,sub,dataset,trial,pupil,pupil_v2,exclude_startAligned
+betas_estimates,run,sub,dataset,trial,pupil_v2,pupil,exclude_startAligned
 -0.006510983117721297,1,3,equalIndifference,1,-0.1348381470422068,-0.2965055289727583,True
 0.0113167037140006,1,3,equalIndifference,2,-0.09845959541368546,0.18904461392699334,True
 -0.01668174402716383,1,3,equalIndifference,3,-0.1555922445500867,-0.5735136713971476,False

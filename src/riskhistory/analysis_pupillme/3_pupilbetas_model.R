@@ -63,13 +63,14 @@ for (ds in datasets) {
 
   # M1: baseline — value, entropy, RT, accept (no streak)
   m1 <- lmer(pupil_v2 ~ sv_z + log_abs_delta_sv_z + entropy_c + logRT_z + accept +
-               (1 | sub),
+               + logstreak_on_repeat_z +
+               (1 + sub) + (0 + accept | sub),
              data = df_sub, control = ctrl)
 
   # M2: + switch streak
   m2 <- lmer(pupil_v2 ~ sv_z + log_abs_delta_sv_z + entropy_c + logRT_z + accept +
-               logstreak_on_switch_z +
-               (1 | sub) + (0 + logstreak_on_switch_z | sub),
+               + logstreak_on_repeat_z + logstreak_on_switch_z +
+               (1 | sub) + (0 + accept | sub) + (0 + logstreak_on_switch_z | sub),
              data = df_sub, control = ctrl)
 
   diag <- lapply(list(M1_pupilbetas = m1, M2_pupilbetas = m2),
@@ -131,11 +132,13 @@ randef_df <- lapply(names(pupilbeta_models_list), function(ds) {
   re <- ranef(m2)$sub %>%
     as.data.frame() %>%
     tibble::rownames_to_column("sub")
-  fe <- fixef(m2)["logstreak_on_switch_z"]
+  fe_switch <- fixef(m2)["logstreak_on_switch_z"]
+  fe_accept <- fixef(m2)["accept"]
   re %>%
     transmute(
       sub,
-      slope_logstreak = logstreak_on_switch_z + fe,
+      slope_logstreak = logstreak_on_switch_z + fe_switch,
+      slope_accept = accept + fe_accept,
       dataset = ds
     )
 }) %>%

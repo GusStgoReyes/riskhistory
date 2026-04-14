@@ -66,8 +66,8 @@ def main():
 
     # Summary: mean and SD of VIF across all runs, by dataset
     vif_summary = (
-        vif_df.groupby("dataset")[["mean_vif", "sd_vif"]]
-        .agg(["mean", "std"])
+        vif_df.groupby("dataset")[["mean_vif_decision", "mean_vif_response"]]
+        .agg(["mean", "mean"])
         .round(3)
     )
     print("\nVIF summary (mean_vif across runs):")
