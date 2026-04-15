@@ -137,7 +137,7 @@ def main():
         idx_save = "_test"
         burnin = 2
         sampling_iters = 10
-        chains = 1
+        chains = 4
     else:
         subj_IDs = None
         idx_save = ""

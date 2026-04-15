@@ -15,15 +15,14 @@ source "$REPO_PTH/sbatch/configs/general.sh"
 mapfile -t models   < <(tail -n +2 "$HDDM_MODEL_CSV")
 
 N_MODELS=${#models[@]}
+ARRAY_RANGE="1-${N_MODELS}"
 
 if [[ "$TEST_MODE" -eq 1 ]]; then
-  ARRAY_RANGE="1-1"
-  TIME_HDDM="00:10:00"
-  MEM_HDDM="2G"
-  N_CPUS_HDDM=1
+  TIME_HDDM="00:30:00"
+  MEM_HDDM="10G"
+  N_CPUS_HDDM=4
   TEST_FLAG="--test"
 else
-  ARRAY_RANGE="1-${N_MODELS}"
   TEST_FLAG=""
 fi
 
