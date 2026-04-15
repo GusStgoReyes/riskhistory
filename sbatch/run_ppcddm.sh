@@ -36,6 +36,7 @@ sbatch <<EOF
 #SBATCH --array=0-$((N_JOBS - 1))%20
 #SBATCH --export=ALL
 
+ml openblas/0.3.28
 cd /scratch/users/gustxsr/riskhistory
 
 uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm \\
