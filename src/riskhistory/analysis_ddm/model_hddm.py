@@ -1,6 +1,5 @@
 """HDDM model fitting for choice history analysis."""
 import argparse
-
 import hddm
 
 from .utils_data import load_data
@@ -9,6 +8,7 @@ from .utils_stats import (
     save_model_statistics,
     save_subj_statistics,
     ensure_output_dirs,
+    _patch_infdata_loglik
 )
 
 
@@ -75,10 +75,16 @@ def fit_model(
         sampling_iters,
         burn=burnin,
         chains=chains,
-        loglike = True,
-        return_infdata = True,
-        save_name = f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}",
+        loglike=True,
+        return_infdata=True,
+        save_name=f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}",
     )
+
+    # HDDM computes lppd successfully but fails to serialize it to the .nc file
+    # due to dtype mismatches (float32 vs float64, bool variables).  While lppd
+    # is still in memory we inject it into the InferenceData manually and re-save.
+    nc_path = f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}.nc"
+    _patch_infdata_loglik(nc_path, m_reg, chains)
 
     stats = m_reg.gen_stats()
     stats = stats.reset_index().rename(columns={"index": "param_name"})
