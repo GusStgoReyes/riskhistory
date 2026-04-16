@@ -76,6 +76,7 @@ def fit_model(
         burn=burnin,
         chains=chains,
         loglike = True,
+        sample_prior = True,
         return_infdata = True,
         save_name = f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}",
     )
