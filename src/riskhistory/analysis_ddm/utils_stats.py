@@ -134,6 +134,39 @@ def ensure_output_dirs(results_pth: str) -> None:
     for subdir in ["db", "hddm", "hddm_stats", "hddm_params"]:
         (base / subdir).mkdir(parents=True, exist_ok=True)
 
+def _compute_lppd_from_trace(m_reg, chains):
+    """Compute per-subject log-likelihoods by replaying the MCMC trace.
+
+    HDDM group models have one observed node per subject, so lppd has shape
+    (chains, draws, n_subjects).  Subject-level observations are the correct
+    exchangeable unit for LOO in a hierarchical model.
+
+    At each trace step, all stochastics are restored to their sampled values
+    and node.logp is called — the same pattern already used for AIC/BIC.
+    """
+    obs_nodes = list(m_reg.get_observeds()["node"])
+    n_obs = len(obs_nodes)
+    stochastics = list(m_reg.mc.stochastics)
+    n_total = len(m_reg.mc.db.trace("deviance")[:])
+
+    print(f"  Replaying trace to compute lppd ({n_total} samples × {n_obs} subjects)...")
+    lppd = np.zeros((n_total, n_obs), dtype=np.float64)
+    for s in range(n_total):
+        for stoch in stochastics:
+            try:
+                stoch.value = m_reg.mc.db.trace(stoch.__name__)[s]
+            except Exception:
+                pass
+        for j, node in enumerate(obs_nodes):
+            try:
+                lppd[s, j] = float(node.logp)
+            except Exception:
+                lppd[s, j] = np.nan
+
+    n_draws = n_total // chains
+    return lppd[: chains * n_draws].reshape(chains, n_draws, n_obs)
+
+
 def _patch_infdata_loglik(nc_path, m_reg, chains):
     """Inject log_likelihood into a saved InferenceData if it is missing.
 
@@ -142,44 +175,56 @@ def _patch_infdata_loglik(nc_path, m_reg, chains):
       - lppd is float32; netCDF4 expects float64 ('double')
       - some InferenceData variables are bool, which netCDF4 cannot store
 
-    This function loads the saved .nc, adds the log_likelihood group from the
-    in-memory m_reg.lppd (cast to float64), casts all other groups to float64
-    where applicable, and re-saves.
+    Strategy:
+      1. Try m_reg.lppd directly (fast; works if kabuki set it before failing).
+      2. Fall back to _compute_lppd_from_trace which replays the trace and
+         calls node.logp at each step (slow but always works while the model
+         and trace db are still in memory).
 
     Parameters
     ----------
     nc_path : str
         Path to the saved .nc InferenceData file.
     m_reg : hddm.HDDMnnRegressor
-        Fitted model still in memory (lppd attribute must be present).
+        Fitted model still in memory.
     chains : int
         Number of chains used during sampling.
     """
-    if not hasattr(m_reg, "lppd") or m_reg.lppd is None:
-        print("Warning: m_reg.lppd not available; log_likelihood group will be missing.")
-        return
-
     try:
         idata = az.from_netcdf(nc_path)
     except Exception as e:
         print(f"Warning: could not load InferenceData from {nc_path}: {e}")
         return
 
-    # Cast all existing groups to float64 to avoid dtype issues on reload
+    # Cast all existing groups to avoid dtype issues on reload
     for group_name in idata.groups():
         group = getattr(idata, group_name)
         for var in list(group.data_vars):
-            if group[var].dtype in (np.float32,):
+            if group[var].dtype == np.float32:
                 group[var] = group[var].astype(np.float64)
             elif group[var].dtype == bool:
                 group[var] = group[var].astype(np.int8)
 
-    # Build log_likelihood group from lppd
-    # lppd shape is (n_total_samples, n_observations) — split into (chains, draws, obs)
-    lppd = np.array(m_reg.lppd, dtype=np.float64)
-    n_total, n_obs = lppd.shape
-    n_draws = n_total // chains
-    lppd_reshaped = lppd[: chains * n_draws].reshape(chains, n_draws, n_obs)
+    # Attempt 1: use lppd already on the model object
+    lppd_reshaped = None
+    lppd_raw = getattr(m_reg, "lppd", None)
+    if lppd_raw is not None:
+        try:
+            lppd = np.array(lppd_raw, dtype=np.float64)
+            n_total, n_obs = lppd.shape
+            n_draws = n_total // chains
+            lppd_reshaped = lppd[: chains * n_draws].reshape(chains, n_draws, n_obs)
+            print("  Using m_reg.lppd for log_likelihood group.")
+        except Exception as e:
+            print(f"  m_reg.lppd unusable ({e}); falling back to trace replay.")
+
+    # Attempt 2: replay the trace calling node.logp at each step
+    if lppd_reshaped is None:
+        try:
+            lppd_reshaped = _compute_lppd_from_trace(m_reg, chains)
+        except Exception as e:
+            print(f"Warning: trace replay failed ({e}); log_likelihood will be missing.")
+            return
 
     log_lik_ds = xr.Dataset(
         {"y": xr.DataArray(lppd_reshaped, dims=["chain", "draw", "obs"])}

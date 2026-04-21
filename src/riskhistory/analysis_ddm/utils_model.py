@@ -17,6 +17,7 @@ def z_link_func(x, data=None):
 # =============================================================================
 
 DEFAULT_MODEL_PARAMS = {
+    "backend": "HDDMnnRegressor",
     "model": "angle",
     "informative": False,
     "is_group_model": True,
@@ -24,7 +25,19 @@ DEFAULT_MODEL_PARAMS = {
     "include": ["v", "a", "t", "z", "theta"],
 }
 
+DEFAULT_MODEL_PARAMS_NOCOLLAPSE = {
+    "backend": "HDDMRegressor",
+    "informative": False,
+    "is_group_model": True,
+    "group_only_regressors": False,
+    "include": ["v", "a", "t", "z"],
+}
+
 MODEL_REGISTRY = {
+
+    # -------------------------------------------------------------------------
+    # Collapsing-boundary models (HDDMnnRegressor, angle kernel, theta included)
+    # -------------------------------------------------------------------------
 
     "HDDM_Collapse": {
         "reg_descr": [
@@ -53,6 +66,7 @@ MODEL_REGISTRY = {
         "group_only_nodes": ["v_choice_prev1"],
         **DEFAULT_MODEL_PARAMS,
     },
+
     "HDDM_Collapse_Lag1-z0_v0": {
         "reg_descr": [
             {
@@ -64,7 +78,40 @@ MODEL_REGISTRY = {
         "group_only_nodes": ["v_choice_prev1", "z_choice_prev1"],
         **DEFAULT_MODEL_PARAMS,
     },
-    "HDDM_Collapse_Pupil_Lag1": {
+
+    # -------------------------------------------------------------------------
+    # Non-collapsing models (HDDMRegressor, standard Wiener kernel, no theta)
+    # -------------------------------------------------------------------------
+
+    "HDDM_Base": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered", "link_func": lambda x: x},
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+
+    "HDDM_Lag1-z0": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered", "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1",                  "link_func": z_link_func},
+        ],
+        "group_only_nodes": ["z_choice_prev1"],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+
+    "HDDM_Lag1-v0": {
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1",
+                "link_func": lambda x: x,
+            },
+        ],
+        "group_only_nodes": ["v_choice_prev1"],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+
+    "HDDM_Lag1-z0_v0": {
         "reg_descr": [
             {
                 "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1",
@@ -73,143 +120,8 @@ MODEL_REGISTRY = {
             {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
         ],
         "group_only_nodes": ["v_choice_prev1", "z_choice_prev1"],
-        **DEFAULT_MODEL_PARAMS,
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
-    "HDDM_Collapse_Pupil_Lag1-z0": {
-        "tier": 4,
-        "reg_descr": [
-            {
-                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1",
-                "link_func": lambda x: x,
-            },
-            {
-                "model": "z ~ 1 + choice_prev1 + pupil + pupil:choice_prev1",
-                "link_func": z_link_func,
-            },
-        ],
-        "group_only_nodes": [
-            "v_choice_prev1",
-            "z_choice_prev1",
-            "z_pupil",
-            "z_pupil:choice_prev1",
-        ],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    "HDDM_Collapse_Pupil_Lag1-stim": {
-        "reg_descr": [
-            {
-                "model": (
-                    "v ~ 1 + gain_centered + loss_centered + choice_prev1 "
-                    "+ pupil:gain + pupil:loss"
-                ),
-                "link_func": lambda x: x,
-            },
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
-        ],
-        "group_only_nodes": [
-            "v_choice_prev1",
-            "z_choice_prev1",
-            "v_pupil:gain",
-            "v_pupil:loss",
-        ],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    "HDDM_Collapse_Pupil_Lag1-stimEV": {
-        "reg_descr": [
-            {
-                "model": (
-                    "v ~ 1 + gain_centered + loss_centered + choice_prev1 "
-                    "+ pupil:ev"
-                ),
-                "link_func": lambda x: x,
-            },
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
-        ],
-        "group_only_nodes": [
-            "v_choice_prev1",
-            "z_choice_prev1",
-            "v_pupil:ev",
-        ],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    "HDDM_Collapse_Pupil_Lag1-v0": {
-        "reg_descr": [
-            {
-                "model": (
-                    "v ~ 1 + gain_centered + loss_centered + choice_prev1 "
-                    "+ pupil + pupil:choice_prev1"
-                ),
-                "link_func": lambda x: x,
-            },
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
-        ],
-        "group_only_nodes": [
-            "v_choice_prev1",
-            "z_choice_prev1",
-            "v_pupil",
-            "v_pupil:choice_prev1",
-        ],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    "HDDM_Collapse_Pupil_Lag1-z0_v0_stim": {
-        "reg_descr": [
-            {
-                "model": (
-                    "v ~ 1 + gain_centered + loss_centered + choice_prev1 "
-                    "+ pupil + pupil:choice_prev1 "
-                    "+ pupil:gain + pupil:loss"
-                ),
-                "link_func": lambda x: x,
-            },
-            {
-                "model": "z ~ 1 + choice_prev1 + pupil + pupil:choice_prev1",
-                "link_func": z_link_func,
-            },
-        ],
-        "group_only_nodes": [
-            "v_choice_prev1",
-            "z_choice_prev1",
-            "z_pupil",
-            "z_pupil:choice_prev1",
-            "v_pupil",
-            "v_pupil:choice_prev1",
-            "v_pupil:gain",
-            "v_pupil:loss",
-        ],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
-    "HDDM_Collapse_Pupil_Lag1-z0_v0_stimEV": {
-        "reg_descr": [
-            {
-                "model": (
-                    "v ~ 1 + gain_centered + loss_centered + choice_prev1 "
-                    "+ pupil + pupil:choice_prev1 "
-                    "+ pupil:ev"
-                ),
-                "link_func": lambda x: x,
-            },
-            {
-                "model": "z ~ 1 + choice_prev1 + pupil + pupil:choice_prev1",
-                "link_func": z_link_func,
-            },
-        ],
-        "group_only_nodes": [
-            "v_choice_prev1",
-            "z_choice_prev1",
-            "z_pupil",
-            "z_pupil:choice_prev1",
-            "v_pupil",
-            "v_pupil:choice_prev1",
-            "v_pupil:ev",
-        ],
-        **DEFAULT_MODEL_PARAMS,
-    },
-
 }
 
 # =============================================================================

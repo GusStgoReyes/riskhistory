@@ -8,7 +8,6 @@ from .utils_stats import (
     save_model_statistics,
     save_subj_statistics,
     ensure_output_dirs,
-    _patch_infdata_loglik
 )
 
 
@@ -59,11 +58,9 @@ def fit_model(
     )
 
     config = get_model_config(model_id)
+    backend = config.get("backend", "HDDMnnRegressor")
 
-    m_reg = hddm.HDDMnnRegressor(
-        data,
-        config["reg_descr"],
-        model=config["model"],
+    shared_kwargs = dict(
         informative=config["informative"],
         is_group_model=config["is_group_model"],
         group_only_regressors=config["group_only_regressors"],
@@ -71,20 +68,37 @@ def fit_model(
         include=config["include"],
     )
 
-    m_reg.sample(
-        sampling_iters,
-        burn=burnin,
-        chains=chains,
-        loglike=True,
-        return_infdata=True,
-        save_name=f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}",
-    )
-
-    # HDDM computes lppd successfully but fails to serialize it to the .nc file
-    # due to dtype mismatches (float32 vs float64, bool variables).  While lppd
-    # is still in memory we inject it into the InferenceData manually and re-save.
-    nc_path = f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}.nc"
-    _patch_infdata_loglik(nc_path, m_reg, chains)
+    if backend == "HDDMnnRegressor":
+        m_reg = hddm.HDDMnnRegressor(
+            data,
+            config["reg_descr"],
+            model=config["model"],
+            **shared_kwargs,
+        )
+        m_reg.sample(
+            sampling_iters,
+            burn=burnin,
+            chains=chains,
+            loglike=True,
+            return_infdata=True,
+            save_name=f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}",
+        )
+    elif backend == "HDDMRegressor":
+        m_reg = hddm.HDDMRegressor(
+            data,
+            config["reg_descr"],
+            **shared_kwargs,
+        )
+        m_reg.sample(
+            sampling_iters,
+            burn=burnin,
+            chains=chains,
+            loglike=False,
+            return_infdata=True,
+            save_name=f"{results_pth}/hddm/{model_id}_{dataset_name}{idx_save}",
+        )
+    else:
+        raise ValueError(f"Unknown backend '{backend}'. Expected 'HDDMnnRegressor' or 'HDDMRegressor'.")
 
     stats = m_reg.gen_stats()
     stats = stats.reset_index().rename(columns={"index": "param_name"})
