@@ -91,35 +91,55 @@ MODEL_REGISTRY = {
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
 
-    "HDDM_Lag1-z0": {
+    "HDDM_Base_Lag1-stp": {
         "reg_descr": [
-            {"model": "v ~ 1 + gain_centered + loss_centered", "link_func": lambda x: x},
-            {"model": "z ~ 1 + choice_prev1",                  "link_func": z_link_func},
+            {
+                "model": "v ~ 1 + gain_centered + loss_centered", 
+                "link_func": lambda x: x
+            },
+            {
+                "model": "z ~ 1 + choice_prev1",
+                "link_func": z_link_func
+             },
         ],
-        "group_only_nodes": ["z_choice_prev1"],
+        "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
 
-    "HDDM_Lag1-v0": {
+    "HDDM_Base_Lag1-drift": {
         "reg_descr": [
             {
                 "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1",
                 "link_func": lambda x: x,
             },
         ],
-        "group_only_nodes": ["v_choice_prev1"],
+        "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
 
-    "HDDM_Lag1-z0_v0": {
+    "HDDM_Base_Lag1-stim": {
         "reg_descr": [
             {
-                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1",
+                "model": "v ~ 1 + gain_centered + loss_centered + gain_centered:choice_prev1 + loss_centered:choice_prev1",
                 "link_func": lambda x: x,
             },
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
         ],
-        "group_only_nodes": ["v_choice_prev1", "z_choice_prev1"],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+
+    "HDDM_Base_Lag1-full": {
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain_centered + loss_centered + gain_centered:choice_prev1 + loss_centered:choice_prev1 + choice_prev1",
+                "link_func": lambda x: x,
+            },
+            { 
+                "model": "z ~ 1 + choice_prev1",
+                "link_func": z_link_func,
+            }
+        ],
+        "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
 }
