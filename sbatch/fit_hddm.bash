@@ -32,6 +32,7 @@ echo " N_MODELS:    $N_MODELS"
 echo " Time:        $TIME_HDDM"
 echo " CPUs:        $N_CPUS_HDDM"
 echo " Array range: $ARRAY_RANGE"
+echo " Memory:      $MEM_HDDM"
 echo "-------------------------------------------------"
 
 # ======================
