@@ -10,11 +10,13 @@ from riskhistory.config import behavioral_data_pth, results_pth
 # Models to simulate
 # ---------------------------------------------------------------------------
 MODELS = {
-    "Baseline":            "HDDM_Collapse",
-    "Starting Point Bias": "HDDM_Collapse_Lag1-x0",
-    "Drift Bias":          "HDDM_Collapse_Lag1-c0",
-    "Stimulus Bias":       "HDDM_Collapse_Lag1-stim",
+    "Baseline":            "HDDM_Base",
+    "Starting Point Bias": "HDDM_Base_Lag1-stp",
+    "Drift Bias":          "HDDM_Base_Lag1-drift",
+    "Stimulus Bias":       "HDDM_Base_Lag1-stim",
+    "Full" :               "HDDM_Base_Lag1-full",
 }
+
 DATASET_NAMES = ["equalIndifference", "equalRange", "sheng2020"]
 NUM_SAMPLES_PER_CONDITION = 1000
 
@@ -23,7 +25,7 @@ NUM_SAMPLES_PER_CONDITION = 1000
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _build_job_manifest(behavioral_data: pd.DataFrame) -> list[tuple[str, int]]:
+def _build_job_manifest(behavioral_data):
     """Sorted list of (dataset, sub) pairs — index = SLURM_ARRAY_TASK_ID."""
     jobs = []
     for ds in DATASET_NAMES:
@@ -41,6 +43,7 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
     for df in (sub_params, group_params):
         df["param_name"] = (df["param_name"]
                             .str.replace(":", "_")
+                            .str.replace("_centered", "")
                             .str.replace(r"\bt\b", "ter", regex=True)
                             .str.replace(r"\bz_Intercept\b", "z", regex=True))
 
@@ -97,7 +100,7 @@ def run_subject(dataset_name: str, sub: int, behavioral_data: pd.DataFrame) -> N
 
         out_path = results_pth / "analysis_ppcddm" / f"{model_id}_simulated_data.csv"
         _append_with_lock(out_path, trials_df)
-        print(f"    Saved {len(trials_df)} rows → {out_path.name}")
+        print(f"    Saved {len(trials_df)} rows -> {out_path.name}")
 
 
 # ---------------------------------------------------------------------------
@@ -114,9 +117,12 @@ if __name__ == "__main__":
 
     behavioral_data = (
         pd.read_csv(behavioral_data_pth)
-        [["sub", "dataset", "gain", "loss", "choice_prev1", "accept", "repeat", "rt", "exclude"]]
+        [["sub", "dataset", "gain_centered", "loss_centered", "choice_prev1", "accept", "repeat", "rt", "exclude"]]
         .query("exclude == False")
     )
+    # Rename gain_centered/loss_centered (no _centered)
+    behavioral_data["gain"] = behavioral_data["gain_centered"]
+    behavioral_data["loss"] = behavioral_data["loss_centered"]
 
     jobs = _build_job_manifest(behavioral_data)
 

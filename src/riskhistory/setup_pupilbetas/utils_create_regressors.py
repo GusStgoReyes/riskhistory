@@ -11,7 +11,7 @@ def create_timings_matrix(trial_timings,
                           regressor_name = None):
     timings = [trial_timings[t] for t in sorted(trial_timings.keys())]
     trials = sorted(trial_timings.keys())
-    if trial_durations:
+    if trial_durations is not None:
         durations = [trial_durations[t] if t in trial_durations else 0 for t in sorted(trial_timings.keys())]
     else:
         durations = [0 for t in sorted(trial_timings.keys())]
@@ -68,9 +68,10 @@ def create_fixation_matrix(eye_x,
     eye_x = np.where(np.abs(eye_x) > 3, 0, eye_x)
     eye_y = np.where(np.abs(eye_y) > 3, 0, eye_y)
 
-    # If eye_x or eye_y is 0, then both are 0
-    eye_x = np.where((eye_x == 0) | (eye_y == 0), 0, eye_x)
-    eye_y = np.where((eye_x == 0) | (eye_y == 0), 0, eye_y)
+    # If either coordinate is 0 (outlier), zero both
+    zero_mask = (eye_x == 0) | (eye_y == 0)
+    eye_x = np.where(zero_mask, 0, eye_x)
+    eye_y = np.where(zero_mask, 0, eye_y)
     
     fixation_matrix = np.zeros((len(eye_x), 4))
 

@@ -55,23 +55,21 @@ for (ds in datasets) {
   pupilbeta_models_list[[ds]] <- list()
 }
 
-ctrl <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
-
 for (ds in datasets) {
   message(sprintf("\nFitting pupil beta models for dataset: %s", ds))
   df_sub <- data_betas_clean %>% filter(dataset == ds)
 
   # M1: baseline — value, entropy, RT, accept (no streak)
-  m1 <- lmer(pupil_v2 ~ sv_z + log_abs_delta_sv_z + entropy_c + logRT_z + accept +
-               + logstreak_on_repeat_z +
-               (1 + sub) + (0 + accept | sub),
-             data = df_sub, control = ctrl)
+  m1 <- lmer(pupil ~ sv_z + log_abs_delta_sv_z + entropy_c + logRT_z + accept +
+               logstreak_on_repeat_z +
+               (1 | sub) + (0 + accept | sub),
+             data = df_sub, control = LMER_CONTROL)
 
   # M2: + switch streak
-  m2 <- lmer(pupil_v2 ~ sv_z + log_abs_delta_sv_z + entropy_c + logRT_z + accept +
-               + logstreak_on_repeat_z + logstreak_on_switch_z +
+  m2 <- lmer(pupil ~ sv_z + log_abs_delta_sv_z + entropy_c + logRT_z + accept +
+               logstreak_on_repeat_z + logstreak_on_switch_z +
                (1 | sub) + (0 + accept | sub) + (0 + logstreak_on_switch_z | sub),
-             data = df_sub, control = ctrl)
+             data = df_sub, control = LMER_CONTROL)
 
   diag <- lapply(list(M1_pupilbetas = m1, M2_pupilbetas = m2),
                  check_model_diagnostics)
@@ -84,6 +82,24 @@ for (ds in datasets) {
     M1_pupilbetas = m1, M2_pupilbetas = m2
   )
 }
+
+# =============================================================================
+# Save convergence / singularity report
+# =============================================================================
+convergence_rows <- lapply(datasets, function(ds) {
+  lapply(names(pupilbeta_models_list[[ds]]), function(nm) {
+    d <- check_model_diagnostics(pupilbeta_models_list[[ds]][[nm]])
+    data.frame(dataset = ds, model = nm,
+               converged = d$converged, singular = d$singular,
+               stringsAsFactors = FALSE)
+  })
+})
+convergence_pupilbetas <- do.call(rbind, unlist(convergence_rows, recursive = FALSE))
+
+write.csv(convergence_pupilbetas,
+          file.path(analysis_results_path, "3_pupilbetas_convergence_report.csv"),
+          row.names = FALSE)
+message("Saved: 3_pupilbetas_convergence_report.csv")
 
 # =============================================================================
 # Model comparison

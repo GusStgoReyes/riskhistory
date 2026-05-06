@@ -26,7 +26,7 @@ def run_comparison(models: list[str], dataset: str, results_pth: str) -> None:
         for p in (waic_path, rhat_path, ess_path):
             if not p.exists():
                 raise FileNotFoundError(
-                    f"{p} not found — run compute_diagnostics.bash first"
+                    f"{p} not found — run compute_diagnostics.py first"
                 )
 
         with open(waic_path, "rb") as f:

@@ -19,12 +19,13 @@ entropy_from_sv <- function(sv) {
 
 add_sv <- function(df) {
   df <- df %>%
-    # Compute value-related regressors
+    group_by(dataset, sub, run) %>%
+    arrange(trial) %>%
     mutate(
       sv = beta_intercept + beta_gain * gain_centered +
         beta_loss * loss_centered,
       entropy = entropy_from_sv(sv),
-      log_abs_delta_sv = log(abs(sv - lag(sv)) + 1e-6),
+      log_abs_delta_sv = log(abs(sv - lag(sv)) + 1e-6)
     ) %>%
     ungroup()
 

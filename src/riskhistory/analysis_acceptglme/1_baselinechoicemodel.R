@@ -13,7 +13,7 @@ for (ds in datasets) {
   # 1. RUN THE MODEL FOR MODEL COMPARISON
   model1 <- glmer(accept ~ gain_centered + loss_centered +
                     (1 + loss_centered | sub),
-                  data = df_sub, family = binomial)
+                  data = df_sub, family = binomial, control = GLMER_CONTROL)
 
   # 3. Add models to list
   models <- list(

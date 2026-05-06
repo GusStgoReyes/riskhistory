@@ -47,7 +47,7 @@ datasets <- c("equalIndifference", "equalRange", "sheng2020")
 # Multiple comparisons method
 p_method <- "BH"  # Benjamini-Hochberg
 
-DECAY_RATES <- list(equalIndifference = 0.7, equalRange = 0.7, sheng2020 = 0.7)
+GLMER_CONTROL <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
 # =============================================================================
 # Load and prepare data
 # =============================================================================
@@ -64,17 +64,8 @@ behavioral_data_full$log_rt <- log(behavioral_data_full$rt)
 # Filter out excluded trials for behavioral analyses
 behavioral_data <- subset(behavioral_data_full, !exclude)
 
-# Add choice history variables
-for (n in 1:6) {
-  # Fill choice_prev{n} 0 if NA
-  prev_col <- paste0("choice_prev", n)
-  behavioral_data[[prev_col]][is.na(behavioral_data[[prev_col]])] <- 0
-  behavioral_data <- compute_choice_history(
-    behavioral_data,
-    num_prev_trials = n,
-    decay_rate = DECAY_RATES
-  )
-}
+# Fill any residual NAs in choice_prev1 (first trial of each run) with 0
+behavioral_data[["choice_prev1"]][is.na(behavioral_data[["choice_prev1"]])] <- 0
 
 # =============================================================================
 # Initialize model storage lists
@@ -82,9 +73,4 @@ for (n in 1:6) {
 behavioral_models_list <- list()
 for (ds in datasets) {
   behavioral_models_list[[ds]] <- list()
-}
-
-rt_models_list <- list()
-for (ds in datasets) {
-  rt_models_list[[ds]] <- list()
 }

@@ -7,7 +7,7 @@
 # =============================================================================
 message("Training M1 (switching + streak)...")
 formula_m1 <- pupil_size ~ sv_z + log_abs_delta_sv_z + entropy_c + logRT_z +
-  + accept + logstreak_on_switch_z + logstreak_on_repeat_z +
+  accept + logstreak_on_switch_z + logstreak_on_repeat_z +
   (1 + logstreak_on_switch_z + accept || sub)
 
 # Start-aligned model M1

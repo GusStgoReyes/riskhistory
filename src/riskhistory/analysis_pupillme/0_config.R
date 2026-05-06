@@ -49,6 +49,8 @@ datasets <- c("equalIndifference", "equalRange", "sheng2020")
 # Multiple comparisons method
 p_method <- "BH"  # Benjamini-Hochberg
 
+LMER_CONTROL <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
+
 # =============================================================================
 # Load and prepare behavioral data
 # =============================================================================

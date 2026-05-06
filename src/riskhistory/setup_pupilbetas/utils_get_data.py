@@ -1,39 +1,32 @@
 from riskhistory.config import results_pth, derivatives_pth, behavioral_data_pth
 import pandas as pd
 
-def get_participants(dataset):
+def get_all_participants():
     exclusion_pth = results_pth / "setup_pupildata" / "pupil_data_statistics_with_exclusions.csv"
     exclusions = pd.read_csv(exclusion_pth)
-    exclusions = exclusions.query(f"dataset == '{dataset}'")
-    valid_participants = exclusions.query("exclude_startAligned == False")["sub"].unique().tolist()
-    print(f"Num of valid participants for {dataset}: {len(valid_participants)}")
-    return valid_participants
-
-def get_all_participants():
     datasets = ["equalIndifference", "equalRange", "sheng2020"]
-    all_participants = {}
+    rows = []
     for dataset in datasets:
-        all_participants[dataset] = get_participants(dataset)
-    
-    # Make into pandas dataframe
-    all_participants_df = pd.DataFrame([(dataset, sub) for dataset, subs in all_participants.items() for sub in subs], columns=["dataset", "sub"])
-    
-    return all_participants_df
+        valid = (exclusions
+                 .query(f"dataset == '{dataset}' and exclude_startAligned == False")["sub"]
+                 .unique()
+                 .tolist())
+        print(f"Num of valid participants for {dataset}: {len(valid)}")
+        rows.extend({"dataset": dataset, "sub": sub} for sub in valid)
+    return pd.DataFrame(rows), exclusions
 
 def dataset_subs_timings(timings_df, dataset):
-    # TODO: this is a bit hacky but the way the data was collected, the odd numbered participants in the 
-    # equalIndifference dataset are the same as the even numbered participants in the equalRange dataset. 
-    # So we need to filter the timings dfs accordingly.
-
+    # NARPS contains both conditions in one file; split by subject parity
     if dataset == "equalIndifference":
-        timings_df = timings_df.query("sub_id % 2 == 1")  # Keep only odd-numbered participants
+        timings_df = timings_df.query("sub_id % 2 == 1")
     elif dataset == "equalRange":
-        timings_df = timings_df.query("sub_id % 2 == 0")  # Keep only even-numbered participants
-    
-    # Fix trial column (bug in the code i wrote initially woops)
+        timings_df = timings_df.query("sub_id % 2 == 0")
+
+    # Trial numbers in the timing files are run-local; convert to global trial index
     num_trials = 64 if dataset in ["equalIndifference", "equalRange"] else 100 if dataset == "sheng2020" else None
-    timings_df.loc[:, "trial"] = timings_df.loc[:, "trial"] + (timings_df.loc[:, "run_id"]-1) * num_trials
-    timings_df = timings_df.rename(columns={"sub_id": "sub", "run_id": "run"}, inplace=False)
+    timings_df = timings_df.copy()
+    timings_df["trial"] = timings_df["trial"] + (timings_df["run_id"] - 1) * num_trials
+    timings_df = timings_df.rename(columns={"sub_id": "sub", "run_id": "run"})
 
     return timings_df
 

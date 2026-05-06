@@ -29,4 +29,6 @@ sheng2020_pupil_data_pth = raw_data_pth / "sheng2020" / "pupil" / "eye.csv"
 # =============================================================================
 behavioral_data_pth = preprocessed_data_pth / "behavioral_data.csv"
 subject_statistics_pth = results_pth / "setup_behavioraldata" / "subject_statistics.csv"
+trial_exclusion_counts_pth = results_pth / "setup_behavioraldata" / "trial_exclusion_counts.csv"
+trial_exclusion_summary_pth = results_pth / "setup_behavioraldata" / "trial_exclusion_summary.csv"
 behavioral_summary_pth = results_pth / "setup_behavioraldata" / "behavioral_summary.txt"

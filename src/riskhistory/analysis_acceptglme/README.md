@@ -36,15 +36,6 @@ This model includes random intercepts and random slopes for loss sensitivity. Ra
 
 These models allow us to distinguish whether choice history effects reflect: (1) perseveration/switching independent of stimuli (M2), (2) carry-over of previous trial's subjective value (M3), (3) contrast effects from value changes (M4), or (4) stimulus-specific priming (M5).
 
-**Lag Choice History Models (M9-M12)**: To examine the temporal extent of choice history effects, we tested models with increasing numbers of lagged choices:
-
-- **M9**: M1 + choice_prev1 + choice_prev2
-- **M10**: M1 + choice_prev1 + choice_prev2 + choice_prev3
-- **M11**: M1 + choice_prev1 through choice_prev4
-- **M12**: M1 + choice_prev1 through choice_prev5
-
-These models test whether choices made 2-5 trials back independently influence current decisions beyond the immediate previous choice.
-
 **Supplementary Interaction Model (M_Sup1)**: To test whether choice history moderates sensitivity to current stimuli, we fit an interaction model:
 
 ```
@@ -53,17 +44,9 @@ accept ~ gain_centered * choice_prev1 + loss_centered * choice_prev1 + (1 | subj
 
 This model tests whether gain and loss sensitivity differ following accept versus reject decisions, which would suggest that previous choices alter how decision-makers weight current options.
 
-**Response Time Models (M_RT)**: For trials where participants accepted or rejected the gamble, we tested whether choice history influenced response times using linear mixed-effects models with log-transformed RTs as the dependent variable. Separate models were fit for accept and reject trials:
-
-```
-log(RT) ~ |SV|_scaled + choice_prev1 + (1 | subject) + (-1 + |SV|_scaled | subject)
-```
-
-where |SV|_scaled is the within-subject standardized absolute subjective value. These models test whether repeating a previous choice (accept or reject) leads to faster response times.
-
 ### Model Comparison and Inference
 
-Model comparison was performed using Akaike Information Criterion (AIC), Bayesian Information Criterion (BIC), and Bayes Factors (BF). For the primary choice history models (M1-M8), M2 was used as the reference model to test whether alternative explanations (value history, stimulus history) provided better fits than pure choice history. For lag choice history models (M9-M12), M1 served as the reference to test whether adding lagged choices improved model fit. For supplementary models, M2 served as the reference to test whether interactions improved fit beyond main effects.
+Model comparison was performed using Akaike Information Criterion (AIC), Bayesian Information Criterion (BIC), and Bayes Factors (BF). For the primary choice history models (M1-M8), M2 was used as the reference model to test whether alternative explanations (value history, stimulus history) provided better fits than pure choice history. For supplementary models, M2 served as the reference to test whether interactions improved fit beyond main effects.
 
 Fixed effects were extracted using the lmerTest package, which provides Satterthwaite approximations for degrees of freedom. P-values were adjusted for multiple comparisons within each model family using the Benjamini-Hochberg false discovery rate (FDR) correction. Effects were considered statistically significant at FDR-corrected α = 0.05.
 

@@ -52,7 +52,7 @@ MODEL_REGISTRY = {
             {"model": "v ~ 1 + gain_centered + loss_centered",  "link_func": lambda x: x},
             {"model": "z ~ 1 + choice_prev1",      "link_func": z_link_func},
         ],
-        "group_only_nodes": ["z_choice_prev1"],
+        "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS,
     },
 
@@ -63,7 +63,7 @@ MODEL_REGISTRY = {
                 "link_func": lambda x: x,
             },
         ],
-        "group_only_nodes": ["v_choice_prev1"],
+        "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS,
     },
 
@@ -75,7 +75,7 @@ MODEL_REGISTRY = {
             },
             {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
         ],
-        "group_only_nodes": ["v_choice_prev1", "z_choice_prev1"],
+        "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS,
     },
 

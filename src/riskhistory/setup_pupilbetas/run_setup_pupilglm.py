@@ -9,7 +9,7 @@ from riskhistory.setup_pupilbetas.utils_savedata import save_glm_to_csv
 from riskhistory.config import results_pth
 
 # Parameters for highpass filtering of pupil data
-CUTOFF = 0.05
+HIGHPASS_CUTOFF = 0.05
 FS = 25
 ORDER = 3
 
@@ -26,13 +26,9 @@ DATASET_RUNS = {
 }
 
 def main():
-    participants = get_all_participants()
+    participants, exclusions = get_all_participants()
     start_timings_df = get_all_timings_df(name="start")
-    response_timings_df = get_all_timings_df(name="response")
-
     start_timings_df = start_timings_df.merge(participants[["dataset", "sub"]], on=["dataset", "sub"], how="inner")
-    response_timings_df = response_timings_df.merge(participants[["dataset", "sub"]], on=["dataset", "sub"], how="inner")
-
     chosen_prf = get_prf(max_secs=PRF_MAX_SECS, width=PRF_WIDTH, time_to_peak=PRF_TIME_TO_PEAK)
 
     glm_results = []
@@ -44,18 +40,16 @@ def main():
         print(f"Processing participant {sub} from dataset {dataset}...")
 
         start_timings = start_timings_df.query("sub == @sub and dataset == @dataset")
-        response_timings = response_timings_df.query("sub == @sub and dataset == @dataset")
-
         all_pupil_data = {}
         for run in runs:
             pupil_data = get_participant_pupil_data(sub, run, dataset)
             pupil_data["pupil"] = highpass_filter(pupil_data["pupil_filtered"].values,
-                                                  cutoff=CUTOFF, fs=FS, order=ORDER)
+                                                  cutoff=HIGHPASS_CUTOFF, fs=FS, order=ORDER)
             all_pupil_data[run] = pupil_data
 
         glm_results_sub, vif_results_sub = glm_single_sub(
             all_pupil_data, chosen_prf,
-            start_timings, response_timings,
+            start_timings,
             sub, runs, dataset
         )
         glm_results.append(glm_results_sub)
@@ -64,17 +58,34 @@ def main():
     glm_results_df = pd.concat(glm_results, ignore_index=True)
     vif_df = pd.concat(vif_results, ignore_index=True)
 
-    # Summary: mean and SD of VIF across all runs, by dataset
+    # Summary: R², alpha, and decision betas by dataset
+    r2_per_run = glm_results_df[["sub", "run", "dataset", "r2", "alpha"]].drop_duplicates()
+    decision_betas = glm_results_df[glm_results_df["betas_names"].str.contains("decision")]
+    summary = (
+        r2_per_run.groupby("dataset")[["r2", "alpha"]]
+        .agg(["mean", "std"])
+        .round(4)
+    )
+    beta_summary = (
+        decision_betas.groupby("dataset")["betas_estimates"]
+        .agg(["mean", "std"])
+        .round(4)
+    )
+    n_subs = participants.groupby("dataset")["sub"].nunique()
+    print("\nGLM summary by dataset:")
+    print(f"  Included subjects: {n_subs.to_dict()}")
+    print(f"  R² (mean ± SD):\n{summary['r2'].to_string()}")
+    print(f"  Alpha (mean ± SD):\n{summary['alpha'].to_string()}")
+    print(f"  Decision beta (mean ± SD):\n{beta_summary.to_string()}")
+
+    # VIF summary
     vif_summary = (
-        vif_df.groupby("dataset")[["mean_vif_decision", "mean_vif_response"]]
+        vif_df.groupby("dataset")[["mean_vif_decision"]]
         .agg("mean")
         .round(3)
     )
     print("\nVIF summary (mean_vif across runs):")
     print(vif_summary.to_string())
-
-    # Load exclusions and behavioral data for saving
-    exclusions = pd.read_csv(results_pth / "setup_pupildata" / "pupil_data_statistics_with_exclusions.csv")
 
     # Save GLM results
     save_glm_to_csv(glm_results_df, exclusions)

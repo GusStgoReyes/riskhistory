@@ -59,17 +59,6 @@ behavioral_data <- read.csv(file.path(analysis_data_path,
                                       "preprocessed",
                                       "behavioral_data.csv"))
 
-message("Loading subject-specific betas...")
-betas_path <- file.path(results_path, "analysis_acceptglme",
-                        "1_baselinebehavior_betas.csv")
-betas_sub <- read.csv(betas_path)
-behavioral_data <- merge(behavioral_data, betas_sub, by = c("sub", "dataset"))
-
-# Source sv/entropy helpers from pupillme
-pupillme_path <- file.path(repo_path, "src", "riskhistory", "analysis_pupillme")
-source(file.path(pupillme_path, "utils_createpupilregressors.R"))
-behavioral_data <- add_sv(behavioral_data)
-
 # =============================================================================
 # Adding the pupil betas
 # =============================================================================
@@ -80,7 +69,7 @@ pupilbetas_preprocessed <- read.csv(
 )
 pupilbetas_preprocessed <- pupilbetas_preprocessed %>%
   mutate(exclude_startAligned = as.logical(exclude_startAligned)) %>%
-  select(sub, run, trial, dataset, exclude_startAligned, pupil, pupil_v2)
+  select(sub, run, trial, dataset, exclude_startAligned, pupil)
 
 # Add pupil_prev to pupilbetas_preprocessed
 pupilbetas_preprocessed <- pupilbetas_preprocessed %>%

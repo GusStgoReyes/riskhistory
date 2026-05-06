@@ -31,13 +31,12 @@ def load_data(
         Preprocessed data ready for HDDM fitting.
     """
     data = hddm.load_csv(data_pth)
-    data['ev'] = data['gain'] - data['loss']
 
     if pupil:
         pupil_data = hddm.load_csv(pupil_pth)
         data = data.drop(columns=["exclude"])
         data = pd.merge(data, pupil_data, on=["sub", "trial", "run", "dataset"], how="inner")
-        data = data.rename(columns={"final_exclude": "exclude"})
+        data = data.rename(columns={"exclude_startAligned": "exclude"})
     
     data = data[data["dataset"] == dataset_name]
 

@@ -37,7 +37,8 @@ def compute_choice_history(df, num_prev_trials=3, decay_rate=None):
     df['choice_history'] = 0.0
     for dataset, rate in decay_rate.items():
         mask = df['dataset'] == dataset
-        weights = np.array([np.power(rate, k) for k in range(1, num_prev_trials + 1)])
+        # EWMA weights: (1-rate) * rate^(k-1) for k=1,...,N; sum to 1 - rate^N ≈ 1
+        weights = np.array([(1 - rate) * np.power(rate, k - 1) for k in range(1, num_prev_trials + 1)])
         df.loc[mask, 'choice_history'] = df.loc[mask, prev_cols].values @ weights
 
     return df

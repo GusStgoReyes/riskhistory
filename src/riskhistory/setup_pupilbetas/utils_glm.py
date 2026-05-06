@@ -2,7 +2,7 @@ import numpy as np
 from riskhistory.setup_pupilbetas.utils_create_regressors import (create_timings_matrix,
                                                                     create_fixation_matrix,
                                                                     convolve_with_prf)
-
+from riskhistory.setup_pupilbetas.utils_get_data import get_response_timings_df
 from riskhistory.setup_pupilbetas.utils_models import ridge
 import pandas as pd
 
@@ -44,134 +44,129 @@ def compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type = "
     # map back
     full_vif = np.full(len(col_std), np.nan)
     full_vif[non_constant_mask] = np.diag(R_inv)
-    vif_decision = full_vif[regressor_mask]
+    vif = full_vif[regressor_mask]
     
     return {**base,
-            f"mean_vif_{regressor_type}": float(np.mean(vif_decision)),
-            f"sd_vif_{regressor_type}":   float(np.std(vif_decision))}
+            f"mean_vif_{regressor_type}": float(np.mean(vif)),
+            f"sd_vif_{regressor_type}":   float(np.std(vif))}
     
 def build_design_matrix_run(all_pupil_data,
                             chosen_prf,
-                            start_timings, 
-                            response_timings,
+                            start_timings,
                             sub,
                             run,
                             dataset):
 
     time_vector = all_pupil_data[run]["time_secs"].values
     run_start_timings = start_timings.query("run == @run").set_index("trial")["time_secs"].to_dict()
-    run_response_timings = response_timings.query("run == @run").set_index("trial")["time_secs"].to_dict()
     durations = start_timings.query("run == @run").set_index("trial")["duration"].to_dict()
 
     # Onset regressors (1 beta estimated per run for onset)
-    onset_regressors, onset_betas_name = create_timings_matrix(run_start_timings, 
-                                                                time_vector, 
-                                                                trial_durations = None, 
-                                                                option = "all", 
-                                                                trial_of_interest = None, 
-                                                                sub = sub, 
-                                                                run = run, 
-                                                                dataset = dataset, 
-                                                                regressor_name = "onset")
+    onset_regressors, onset_betas_name = create_timings_matrix(run_start_timings,
+                                                                time_vector,
+                                                                trial_durations=None,
+                                                                option="all",
+                                                                trial_of_interest=None,
+                                                                sub=sub,
+                                                                run=run,
+                                                                dataset=dataset,
+                                                                regressor_name="onset")
     onset_regressors = convolve_with_prf(onset_regressors, chosen_prf)
-    
-    # Response regressors (num trials beta estimated per run for response)
-    response_regressors, response_betas_name = create_timings_matrix(run_response_timings, 
-                                                                    time_vector, 
-                                                                    trial_durations = None, 
-                                                                    option = "ls-a", 
-                                                                    trial_of_interest = None, 
-                                                                    sub = sub, 
-                                                                    run = run, 
-                                                                    dataset = dataset, 
-                                                                    regressor_name = "response")
-    response_regressors = convolve_with_prf(response_regressors, chosen_prf)
 
-    # Decision regressors (num trials beta estimated per run for decision)
+    # Decision regressors (1 beta per trial, spanning stimulus onset to response)
     decision_regressors, decision_betas_name = create_timings_matrix(run_start_timings,
-                                                                    time_vector,
-                                                                    trial_durations = durations,
-                                                                    option = "ls-a",
-                                                                    trial_of_interest = None,
-                                                                    sub = sub,
-                                                                    run = run,
-                                                                    dataset = dataset,
-                                                                    regressor_name = "decision")
+                                                                      time_vector,
+                                                                      trial_durations=durations,
+                                                                      option="ls-a",
+                                                                      trial_of_interest=None,
+                                                                      sub=sub,
+                                                                      run=run,
+                                                                      dataset=dataset,
+                                                                      regressor_name="decision")
     decision_regressors = convolve_with_prf(decision_regressors, chosen_prf)
 
+    # Button press regressors (1 impulse beta per trial at response time)
+    response_timings_run = (get_response_timings_df(dataset)
+                            .query("sub == @sub and run == @run")
+                            .set_index("trial")["time_secs"]
+                            .to_dict())
+    button_regressors, button_betas_name = create_timings_matrix(response_timings_run,
+                                                                  time_vector,
+                                                                  trial_durations=None,
+                                                                  option="ls-a",
+                                                                  trial_of_interest=None,
+                                                                  sub=sub,
+                                                                  run=run,
+                                                                  dataset=dataset,
+                                                                  regressor_name="button")
+    button_regressors = convolve_with_prf(button_regressors, chosen_prf)
+
     # Fixation regressors (4 betas estimated per run)
-    fixation_regressors, fixation_betas_name = create_fixation_matrix(all_pupil_data[run]["eye_x"].values, 
-                                                                        all_pupil_data[run]["eye_y"].values)
-    
+    fixation_regressors, fixation_betas_name = create_fixation_matrix(all_pupil_data[run]["eye_x"].values,
+                                                                       all_pupil_data[run]["eye_y"].values)
+
     # Intercept regressor (1 beta estimated per run)
     intercept_regressor = np.ones((len(time_vector), 1))
     intercept_betas_name = [f"intercept-{dataset}_sub-{sub}_run-{run}"]
 
-    # Combine all regressors into a single design matrix
-    design_matrix = np.hstack((onset_regressors, response_regressors, fixation_regressors, intercept_regressor, decision_regressors))
-    betas_name = onset_betas_name + response_betas_name + fixation_betas_name + intercept_betas_name + decision_betas_name
+    design_matrix = np.hstack((onset_regressors, fixation_regressors, intercept_regressor, decision_regressors, button_regressors))
+    betas_name = onset_betas_name + fixation_betas_name + intercept_betas_name + decision_betas_name + button_betas_name
 
     return design_matrix, betas_name
 
 def glm_single_run(all_pupil_data,
                    chosen_prf,
-                   start_timings, 
-                   response_timings,
+                   start_timings,
                    sub,
                    run,
                    dataset):
     start_timings_run = start_timings.query("run == @run")
-    response_timings_run = response_timings.query("run == @run")
-        
+
     design_matrix, betas_name = build_design_matrix_run(all_pupil_data,
                                                         chosen_prf,
-                                                        start_timings_run, 
-                                                        response_timings_run,
+                                                        start_timings_run,
                                                         sub,
                                                         run,
                                                         dataset)
-    # Fit the GLM to get the beta estimates for this trial
     y = all_pupil_data[run]["pupil"].values
-    betas_estimates, residuals = ridge(design_matrix, y)
+    betas_estimates, residuals, best_alpha = ridge(design_matrix, y)
 
     ss_res = (residuals ** 2).sum()
     ss_tot = ((y - y.mean()) ** 2).sum()
     r2 = 1.0 - ss_res / ss_tot
     print(f"R-squared for sub-{sub} run-{run}: {r2:.4f}")
 
+    n = len(betas_name)
     results_run = {
         "betas_estimates": betas_estimates.tolist(),
         "betas_names": betas_name,
-        "r2": [r2] * len(betas_name),
+        "r2": [r2] * n,
+        "alpha": [best_alpha] * n,
     }
 
-    vif_stats_decision = compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type="decision")
-    print(f"  Decision VIF — mean: {vif_stats_decision['mean_vif_decision']:.2f}, "
-          f"sd: {vif_stats_decision['sd_vif_decision']:.2f} (n={vif_stats_decision['n_regressors_decision']})")
-    
-    vif_stats_response = compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type="response")
-    print(f"  Response VIF — mean: {vif_stats_response['mean_vif_response']:.2f}, "
-          f"sd: {vif_stats_response['sd_vif_response']:.2f} (n={vif_stats_response['n_regressors_response']})")
-    vif_stats = {**vif_stats_decision, **vif_stats_response}
+    vif_stats = compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type="decision")
+    print(f"  Decision VIF — mean: {vif_stats['mean_vif_decision']:.2f}, "
+          f"sd: {vif_stats['sd_vif_decision']:.2f} (n={vif_stats['n_regressors_decision']})")
+
     return pd.DataFrame(results_run), vif_stats
 
 
 def glm_single_sub(all_pupil_data,
                    chosen_prf,
                    start_timings,
-                   response_timings,
                    sub,
                    runs,
                    dataset):
-    results_sub = pd.DataFrame()
+    run_frames = []
     vif_records = []
     for run in runs:
         results_run, vif_stats = glm_single_run(all_pupil_data, chosen_prf,
-                                                start_timings, response_timings,
+                                                start_timings,
                                                 sub, run, dataset)
         results_run["run"] = run
-        results_sub = pd.concat([results_sub, results_run], ignore_index=True)
+        run_frames.append(results_run)
         vif_records.append(vif_stats)
+    results_sub = pd.concat(run_frames, ignore_index=True)
     results_sub["sub"] = sub
     results_sub["dataset"] = dataset
     return results_sub, pd.DataFrame(vif_records)

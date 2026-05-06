@@ -64,7 +64,9 @@ check_convergence_all_models <- function(
         if (inherits(m, "merMod")) {
 
           conv_messages <- m@optinfo$conv$lme4$messages
-          converged <- is.null(conv_messages) || length(conv_messages) == 0
+          opt_code      <- m@optinfo$conv$opt
+          converged <- (is.null(conv_messages) || length(conv_messages) == 0) &&
+                       (is.null(opt_code)      || opt_code == 0)
 
           singular <- lme4::isSingular(m, tol = 1e-4)
         }

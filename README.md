@@ -1,211 +1,329 @@
 # Choice History Effects Under Risk
 
-A neuroscience research project investigating how previous choices influence current decision-making in risky gambles, combining behavioral data, pupillometry, and fMRI analyses.
+This repository contains the analysis code for a study examining how previous choices influence decision-making under risk, using behavioral data, pupillometry (Sheng2020), and fMRI (NARPS).
 
-## Overview
-
-This project analyzes choice history effects across two datasets:
-- **NARPS**: Neuroimaging Analysis Replication and Prediction Study (equalIndifference and equalRange groups)
-- **Sheng2020**: Behavioral and pupillometry dataset
-
-The key research question: Do previous accept/reject decisions influence current risky choices, independent of stimulus and value history?
-
-## Installation
-
-### Requirements
-- Python 3.12+
-- R 4.3+
-- [uv](https://github.com/astral-sh/uv) (Python package manager)
-
-### Setup
+## Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/poldracklab/riskhistory.git
-cd riskhistory
-
-# Install Python dependencies
 uv pip install -e .
-
-# Activate virtual environment
 source .venv/bin/activate
 ```
 
-### R Dependencies
+Requires Python 3.12+ and R 4.3+.
 
-Install required R packages:
+---
 
-```r
-install.packages(c("lme4", "lmerTest", "dplyr", "tidyr", "broom.mixed"))
-```
+## Sections
 
-## Project Structure
+### 1. Behavioral Data Setup (`setup_behavioraldata`)
 
-```
-riskhistory/
-├── src/riskhistory/              # Main package
-│   ├── setup_behavioraldata/     # Behavioral data preprocessing (Python)
-│   ├── setup_pupildata/          # Pupillometry preprocessing (R)
-│   ├── setup_pupilbetas/         # Pupil beta extraction via GLM (Python)
-│   ├── setup_fmridata/           # fMRI data preparation
-│   ├── analysis_acceptglme/      # GLME choice analysis (R)
-│   ├── analysis_pupillme/        # Pupil LME analysis per timepoint (R)
-│   ├── analysis_pupilbehavior/   # Pupil-behavior relationship analysis (R)
-│   ├── analysis_ddm/             # Drift-diffusion modeling (Python/HDDM)
-│   ├── config.py                 # Python configuration
-│   └── config.R                  # R configuration
-├── data/
-│   ├── raw/                      # Raw data (not tracked)
-│   ├── preprocessed/             # Processed behavioral & pupil data
-│   ├── derivatives/              # Derived data products
-│   └── model_ids/                # Model identifier mappings
-├── results/                      # Analysis outputs (gitignored)
-│   ├── analysis_acceptglme/      # Behavioral GLME results
-│   ├── analysis_pupillme/        # Pupil LME results
-│   ├── analysis_pupilbehavior/   # Pupil-behavior results
-│   ├── setup_behavioraldata/     # Behavioral preprocessing logs
-│   ├── setup_pupildata/          # Pupil preprocessing logs
-│   └── setup_pupilbetas/         # Pupil beta extraction results
-├── figures/                      # Figure generation scripts
-├── scripts/                      # Top-level pipeline scripts
-├── sbatch/                       # SLURM job submission scripts
-└── Makefile                      # Build automation
-```
+Loads and preprocesses raw behavioral data from two datasets (NARPS and Sheng2020), computes choice history variables, applies exclusion criteria, and saves a unified behavioral dataset for downstream analyses.
 
-## Usage
+**Inputs** (expected under `data/raw/`):
+| File | Description |
+|------|-------------|
+| `narps/behavioral/behav_data.csv` | NARPS raw behavioral data |
+| `sheng2020/behavioral/decision.csv` | Sheng2020 response data |
+| `sheng2020/pupil/eye.csv` | Sheng2020 pupil data (used for trial ordering) |
 
-### Quick Start
+**Outputs**:
+| File | Description |
+|------|-------------|
+| `data/preprocessed/behavioral_data.csv` | Unified behavioral dataset (all subjects, both datasets) |
+| `results/setup_behavioraldata/subject_statistics.csv` | Per-subject statistics (acceptance rate, RT, exclusion flags) |
+| `results/setup_behavioraldata/trial_exclusion_counts.csv` | Per-subject trial exclusion counts by criterion |
+| `results/setup_behavioraldata/trial_exclusion_summary.csv` | Dataset-level exclusion summary |
+| `results/setup_behavioraldata/behavioral_summary.txt` | Human-readable summary of the full pipeline run |
+
+**Exclusion criteria** (configurable at the top of `run_setup_behavioraldata.py`):
+
+*Trial-level:*
+- RT < 0.2 s or RT > 3.8 s
+- Fewer than 2 valid preceding trials (choice history unavailable)
+- Missing gain/loss pair
+
+*Participant-level:*
+- > 30% of trials excluded
+- Acceptance rate < 10% or > 90%
+- Mean RT < 0.3 s or > 3.5 s
+- Manual exclusion: Sheng2020 subject 29 (missing trial indicator in Run 2)
+
+**How to run:**
 
 ```bash
-# Show available commands
-make help
-
-# Run complete pipeline
-make all_analyses
-```
-
-### Step-by-Step
-
-1. **Prepare behavioral data**
-   ```bash
-   make setup_behavioral
-   ```
-
-2. **Prepare pupil data**
-   ```bash
-   make setup_pupildata
-   ```
-
-3. **Run statistical analyses**
-   ```bash
-   make analysis_acceptglme
-   ```
-
-### Manual Execution
-
-```bash
-# Python scripts
 uv run python src/riskhistory/setup_behavioraldata/run_setup_behavioraldata.py
-uv run python src/riskhistory/setup_pupilbetas/run_setup_pupilbetas.py
-
-# R scripts (run from analysis directory)
-cd src/riskhistory/analysis_acceptglme && Rscript run_analysis_acceptglme.R
-cd src/riskhistory/setup_pupildata && Rscript run_setup_pupildata.R
-cd src/riskhistory/analysis_pupillme && Rscript run_analysispupillme.R
-cd src/riskhistory/analysis_pupilbehavior && Rscript run_analysis_pupilbehavior.R
 ```
 
-## Analysis Pipeline
+The script prints a summary to the console and saves it to `results/setup_behavioraldata/behavioral_summary.txt`.
 
-### Behavioral Analysis (`analysis_acceptglme/`)
+---
 
-Generalized linear mixed-effects models (GLMEMs) testing:
+### 2. Pupil Data Setup (`setup_pupildata`)
 
-1. **Baseline Model (M1)**: Gain and loss effects on accept/reject choices
-2. **Choice History Model (M2)**: Previous choice predicts current choice
-3. **Value History Models (M3-M8)**: Testing alternative explanations (previous subjective value, value change, previous stimuli)
-4. **Lag Models (M9-M12)**: Choices 2-5 trials back influence current decisions
-5. **Supplementary Models**: Interaction and RT effects
+Preprocesses raw pupil data for both datasets, extracts trial-aligned epochs, applies data quality exclusions, and saves a unified pupil dataset for downstream analyses. Requires the behavioral data from step 1.
 
-### Pupil Analysis
+**Dependencies:** `eyeris`, `dplyr`, `stringr`, `tidyr` R packages.
 
-#### Timepoint Analysis (`analysis_pupillme/`)
-Linear mixed-effects models for pupil dilation at each timepoint:
-- Response-aligned and stimulus-aligned analyses
-- Tests effects of subjective value, entropy, choice, and choice alternation
+**Inputs** (expected under `data/raw/`):
+| File | Description |
+|------|-------------|
+| `narps/pupil/asc/*.asc` | NARPS raw eye-tracking files (one per subject-run) |
+| `sheng2020/pupil/eye.csv` | Sheng2020 pupil time series |
+| `data/preprocessed/behavioral_data.csv` | Output of step 1 (used for behavioral exclusion flags) |
 
-#### Pupil-Behavior Relationship (`analysis_pupilbehavior/`)
-Models examining how trial-level pupil responses relate to choice behavior.
+**Processing steps:**
+1. **NARPS**: Load `.asc` files → deblink → detransient → interpolate → low-pass filter → detrend → z-score → bin at 8 Hz → extract start- and response-aligned epochs
+2. **Sheng2020**: Load CSV → fill missing samples → convert to eyeris format → detransient (no deblink) → same pipeline as NARPS
+3. **Combine**: Merge NARPS and Sheng2020 epoch data; assign NARPS condition labels (odd sub = equalIndifference, even sub = equalRange)
+4. **Exclusions**: Apply trial- and subject-level data quality thresholds (per dataset); merge with behavioral exclusions from step 1
+5. **Summary statistics**: Compute per-subject behavioral statistics for pupil-included participants
 
-#### Pupil Beta Extraction (`setup_pupilbetas/`)
-GLM-based extraction of trial-by-trial pupil response amplitudes using pupil response function (PRF) convolution.
+**Key parameters** (in `0_config.R`):
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `OUTPUT_SAMPLING_RATE` | 8 Hz | Final epoch sampling rate |
+| `START_EPOCH_LIMITS` | [0, 4] s | Stimulus-onset aligned window |
+| `RESPONSE_EPOCH_LIMITS` | [-2, 2] s | Response-aligned window |
+| `BASELINE_PERIOD` | [-0.5, 0] s | Baseline subtraction window |
+| `MAX_NA_PERCENTAGE` | 90% | Skip subject-run if >90% missing |
+| `MAX_EXCLUDED_TRIALS_PCT` | 30% | Exclude subject if >30% of trials excluded |
 
-### Drift-Diffusion Modeling (`analysis_ddm/`)
+**Outputs**:
+| File | Description |
+|------|-------------|
+| `data/preprocessed/pupil_data_alignedStartTime.csv` | Stimulus-onset aligned epochs with exclusion flags |
+| `data/preprocessed/pupil_data_alignedResponseTime.csv` | Response-aligned epochs with exclusion flags |
+| `results/setup_pupildata/pupil_data_statistics.csv` | Per-trial data quality statistics |
+| `results/setup_pupildata/pupil_data_statistics_with_exclusions.csv` | Trial statistics with exclusion flags |
+| `results/setup_pupildata/pupil_subject_exclusions.csv` | Subject-level exclusion summary |
+| `results/setup_pupildata/summary_exclusion.txt` | Human-readable exclusion report |
+| `results/setup_pupildata/4_summary_statistics.csv` | Dataset-level behavioral summary for included participants |
+| `data/derivatives/pupil/{narps,sheng2020}/timeseries/` | Per-subject filtered time series (25 Hz) |
 
-Hierarchical drift-diffusion models (HDDM) testing:
-- Whether choice history affects drift rate, boundary separation, or starting point
-- Computational mechanisms underlying choice history effects
-
-### fMRI Analysis (`setup_fmridata/`)
-
-Preparation of fMRI event files and data structures for neuroimaging analysis.
-
-## Data
-
-### Raw Data Structure
-```
-data/raw/
-├── narps/
-│   ├── behavioral/
-│   └── pupil/
-└── sheng2020/
-    ├── behavioral/
-    └── pupil/
-```
-
-### Preprocessed Output
-- `data/preprocessed/behavioral_data.csv`: Combined behavioral dataset with choice history variables
-- `data/preprocessed/pupil_*.csv`: Processed pupillometry data
-
-### Key Variables
-| Variable | Description |
-|----------|-------------|
-| `choice` | Current trial choice (1=accept, 0=reject) |
-| `gain_centered` | Centered gain value |
-| `loss_centered` | Centered loss value |
-| `choice_prev1` | Previous choice (+1=accept, -1=reject) |
-| `choice_prev2-5` | Lagged choices 2-5 trials back |
-| `switch` | Choice differs from previous trial |
-| `rt` | Response time (seconds) |
-| `sv` | Subjective value (computed from subject-specific parameters) |
-| `entropy` | Decision uncertainty |
-
-## Configuration
-
-The project auto-detects paths from the repository root. Override with environment variables:
+**How to run:**
 
 ```bash
-export RISKHISTORY_ROOT=/path/to/riskhistory
+# Run full pipeline (from repo root)
+Rscript src/riskhistory/setup_pupildata/run_setup_pupildata.R
+
+# Run individual steps
+Rscript src/riskhistory/setup_pupildata/run_setup_pupildata.R narps        # NARPS preprocessing only
+Rscript src/riskhistory/setup_pupildata/run_setup_pupildata.R sheng2020    # Sheng2020 preprocessing only
+Rscript src/riskhistory/setup_pupildata/run_setup_pupildata.R combine      # Combine datasets only
+Rscript src/riskhistory/setup_pupildata/run_setup_pupildata.R exclusions   # Apply exclusions only
+Rscript src/riskhistory/setup_pupildata/run_setup_pupildata.R summary      # Summary statistics only
 ```
 
-Each analysis module has its own config file (e.g., `0_config.R`) that extends the base configuration.
+> **Note:** Steps must be run in order (narps/sheng2020 → combine → exclusions → summary). Individual steps can be rerun after fixing intermediate files without rerunning the full pipeline. The runner can be called from any working directory.
 
-## Results
+---
 
-Analysis outputs are saved to `results/<analysis_name>/`:
-- Model comparison tables (AIC, BIC, Bayes Factors)
-- Fixed effects estimates with confidence intervals
-- Random effects summaries
-- Convergence diagnostics
+### 3. Pupil Beta Extraction (`setup_pupilbetas`)
 
-## License
+Fits a trial-wise LS-A GLM to each subject's preprocessed pupil time series to extract per-trial amplitude betas. A separate script extracts the pre-stimulus baseline. Requires steps 1 and 2.
 
-[Add license information]
+**Inputs:**
+| File | Description |
+|------|-------------|
+| `data/preprocessed/behavioral_data.csv` | Output of step 1 |
+| `results/setup_pupildata/pupil_data_statistics_with_exclusions.csv` | Output of step 2 |
+| `data/derivatives/pupil/{narps,sheng2020}/timeseries/` | Filtered time series from step 2 |
 
-## Citation
+**Key parameters** (in `run_setup_pupilglm.py` / `run_setup_pupilbaseline.py`):
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `HIGHPASS_CUTOFF` | 0.05 Hz | High-pass filter applied before GLM |
+| `LOWPASS_CUTOFF` | 0.05 Hz | Low-pass filter for baseline extraction |
+| `PRF_WIDTH` / `PRF_TIME_TO_PEAK` | 10.1 / 930 ms | Pupil response function (Hoeks & Levelt) |
+| `alphas` | `logspace(-5, -1, 25)` | Ridge regression regularisation grid |
 
-[Add citation information]
+**Outputs:**
+| File | Description |
+|------|-------------|
+| `data/preprocessed/pupilbetas_glm_preprocessed.csv` | Per-trial GLM beta (within-run z-scored), ridge alpha, exclusion flag |
+| `data/preprocessed/pupilbaseline_preprocessed.csv` | Per-trial pre-stimulus baseline (within-run z-scored), exclusion flag |
+| `results/setup_pupilbetas/pupilbetas_glm_results.csv` | Full GLM output (all regressors, all runs) |
+| `results/setup_pupilbetas/design_vif_per_run.csv` | VIF for decision regressors per subject-run |
+| `results/setup_pupilbetas/design_vif_summary.csv` | Mean VIF by dataset |
 
-## Contact
+**How to run:**
 
-Poldrack Lab, Stanford University
+```bash
+# GLM betas (LS-A per trial)
+uv run python src/riskhistory/setup_pupilbetas/run_setup_pupilglm.py
+
+# Pre-stimulus baseline
+uv run python src/riskhistory/setup_pupilbetas/run_setup_pupilbaseline.py
+```
+
+---
+
+### 4. Behavioral GLME Analysis (`analysis_acceptglme`)
+
+Fits a series of generalized linear mixed-effects models (binomial) to test whether and how previous choices, previous values, and previous stimuli influence current accept/reject decisions. Requires step 1.
+
+**Inputs:**
+| File | Description |
+|------|-------------|
+| `data/preprocessed/behavioral_data.csv` | Output of step 1 |
+
+**Outputs:**
+| File | Description |
+|------|-------------|
+| `results/analysis_acceptglme/1_baselinebehavior_betas.csv` | Per-subject gain/loss/intercept betas from M1 |
+| `results/analysis_acceptglme/2_behavior_model_comparison_{1,2,3}.csv` | AIC/BIC/BF comparisons for M1–M8 |
+| `results/analysis_acceptglme/2_behavior_fixed_effects.csv` | Fixed effects for M1–M8 (BH-corrected) |
+| `results/analysis_acceptglme/2_choicehistory_betas.csv` | Per-subject choice history random slopes from M2 |
+| `results/analysis_acceptglme/3_supplementary_model_comparison.csv` | AIC/BIC/BF for supplementary interaction model |
+| `results/analysis_acceptglme/3_supplementary_fixed_effects.csv` | Fixed effects for supplementary model |
+| `results/analysis_acceptglme/4_model_convergence_report.csv` | Convergence and singularity flags for all models |
+
+**How to run:**
+
+```bash
+# Full analysis (M1–M8 + supplementary + decay-rate profile)
+cd src/riskhistory/analysis_acceptglme && Rscript run_analysis_acceptglme.R
+```
+
+> **Note:** Must be run from its directory due to relative `source()` calls. The decay-rate profile sweep (`3b_choicehistory_profile.R`) runs automatically as part of the pipeline and does not need to be invoked separately.
+
+---
+
+### 5. Pupil LME Analysis (`analysis_pupillme`)
+
+Fits linear mixed-effects models per timepoint across the trial epoch to test whether pupil dilation tracks value, entropy, RT, and choice history (streak) signals. Also fits models on the trial-wise GLM betas from step 3. Requires steps 1–4.
+
+**Inputs:**
+| File | Description |
+|------|-------------|
+| `data/preprocessed/behavioral_data.csv` | Output of step 1 |
+| `data/preprocessed/pupil_data_alignedStartTime.csv` | Output of step 2 |
+| `data/preprocessed/pupil_data_alignedResponseTime.csv` | Output of step 2 |
+| `data/preprocessed/pupilbetas_glm_preprocessed.csv` | Output of step 3 |
+| `results/analysis_acceptglme/1_baselinebehavior_betas.csv` | Output of step 4 (for SV computation) |
+
+**Outputs:**
+| File | Description |
+|------|-------------|
+| `results/analysis_pupillme/1_trial_statistics.txt` | Trial count summary by dataset and alignment |
+| `results/analysis_pupillme/2_pupilmodel_startAligned_M1_switchStreak.csv` | Per-timepoint fixed effects, start-aligned |
+| `results/analysis_pupillme/2_pupilmodel_responseAligned_M1_switchStreak.csv` | Per-timepoint fixed effects, response-aligned |
+| `results/analysis_pupillme/3_pupilbetas_model_comparison.csv` | AIC/BIC/BF for pupil beta models M1 vs M2 |
+| `results/analysis_pupillme/3_pupilbetas_fixed_effects.csv` | Fixed effects for pupil beta models |
+| `results/analysis_pupillme/3_pupilbetas_random_effects_logstreak_on_switch.csv` | Per-subject switch-streak slopes from M2 |
+
+**How to run:**
+
+```bash
+cd src/riskhistory/analysis_pupillme && Rscript run_analysispupillme.R
+```
+
+---
+
+### 6. Drift-Diffusion Modeling (`analysis_ddm`)
+
+Fits hierarchical DDMs (HDDM) to test whether choice history influences the drift rate or starting point of the accumulation process. Requires step 1 (and step 3 for pupil-linked models).
+
+**Available models** (see `utils_model.py` for full specifications):
+
+| Model ID | Boundary | History effect |
+|----------|----------|----------------|
+| `HDDM_Collapse` | Collapsing (angle) | None (baseline) |
+| `HDDM_Collapse_Lag1-z0` | Collapsing | Starting point (`z`) |
+| `HDDM_Collapse_Lag1-v0` | Collapsing | Drift rate (`v`) |
+| `HDDM_Collapse_Lag1-z0_v0` | Collapsing | Both `z` and `v` |
+| `HDDM_Base` | Fixed | None (baseline) |
+| `HDDM_Base_Lag1-stp` | Fixed | Starting point (`z`) |
+| `HDDM_Base_Lag1-drift` | Fixed | Drift rate (`v`) |
+| `HDDM_Base_Lag1-stim` | Fixed | Stimulus × history interaction on `v` |
+| `HDDM_Base_Lag1-full` | Fixed | Both `z` and `v` with interaction |
+
+**Outputs** (per model-dataset pair):
+| File | Description |
+|------|-------------|
+| `results/analysis_ddm/hddm/{model_id}_{dataset}.nc` | Full posterior (InferenceData / NetCDF) |
+| `results/analysis_ddm/hddm_stats/{model_id}_{dataset}_model_stats.csv` | Group-level parameters + DIC/AIC/BIC |
+| `results/analysis_ddm/hddm_params/{model_id}_{dataset}_subj_params.csv` | Per-subject posterior means and SDs |
+| `results/analysis_ddm/hddm_compare/{dataset}_model_comparison_waic.csv` | WAIC model comparison table |
+| `results/analysis_ddm/hddm_compare/{dataset}_{rhat,ess}.csv` | Convergence diagnostics |
+
+**How to run:**
+
+```bash
+# Fit a single model
+uv run python -m riskhistory.analysis_ddm.model_hddm \
+    --model_id HDDM_Collapse \
+    --dataset_name equalIndifference \
+    --data_pth data/preprocessed/behavioral_data.csv \
+    --pupil_pth data/preprocessed/pupilbetas_glm_preprocessed.csv \
+    --results_pth results/analysis_ddm
+
+# Quick test run (4 subjects, 10 iterations)
+uv run python -m riskhistory.analysis_ddm.model_hddm --test \
+    --model_id HDDM_Collapse \
+    --dataset_name equalIndifference \
+    --data_pth data/preprocessed/behavioral_data.csv \
+    --pupil_pth data/preprocessed/pupilbetas_glm_preprocessed.csv \
+    --results_pth results/analysis_ddm
+
+# Compute per-model diagnostics (run once per fitted model)
+uv run python -m riskhistory.analysis_ddm.compute_diagnostics \
+    --model_id HDDM_Collapse \
+    --dataset_name equalIndifference \
+    --results_pth results/analysis_ddm
+
+# Compare models (run after compute_diagnostics for all models)
+uv run python -m riskhistory.analysis_ddm.compare_models \
+    --models HDDM_Collapse HDDM_Collapse_Lag1-z0 HDDM_Collapse_Lag1-v0 HDDM_Collapse_Lag1-z0_v0 \
+    --dataset_name equalIndifference \
+    --results_pth results/analysis_ddm
+```
+
+> **Note:** Each model fit is computationally intensive (default: 10,000 samples × 4 chains). Models are intended to be run as separate SLURM jobs — see `sbatch/` for job specifications.
+
+---
+
+### 7. Posterior Predictive Checks — DDM (`analysis_ppcddm`)
+
+Simulates trial-level choice and RT distributions from the five fixed-boundary HDDM models using each subject's posterior mean parameters. pyddm is used for the forward simulation. Requires the HDDM outputs from step 6.
+
+**Models simulated:**
+
+| Label | HDDM model ID | History mechanism |
+|-------|---------------|-------------------|
+| Baseline | `HDDM_Base` | None |
+| Starting Point Bias | `HDDM_Base_Lag1-stp` | Starting point (`z`) |
+| Drift Bias | `HDDM_Base_Lag1-drift` | Drift rate (`v`) |
+| Stimulus Bias | `HDDM_Base_Lag1-stim` | Stimulus × history on `v` |
+| Full | `HDDM_Base_Lag1-full` | Both `z` and `v` with interaction |
+
+**Inputs** (per model-dataset pair):
+
+| File | Description |
+|------|-------------|
+| `data/preprocessed/behavioral_data.csv` | Output of step 1 (trial conditions) |
+| `results/analysis_ddm/hddm_params/{model_id}_{dataset}_subj_params.csv` | Per-subject posterior means from step 6 |
+| `results/analysis_ddm/hddm_stats/{model_id}_{dataset}_model_stats.csv` | Group-level posterior means from step 6 |
+
+**Outputs** (one CSV per model, appended across subjects):
+
+| File | Description |
+|------|-------------|
+| `results/analysis_ppcddm/{model_id}_simulated_data.csv` | Simulated mean accept rate, mean RT, and repeat probability per trial condition and subject |
+
+**How to run:**
+
+```bash
+# Print total number of jobs (for SLURM array sizing)
+uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm --print_njobs
+
+# Run a single subject (SLURM array job)
+uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm --job_index $SLURM_ARRAY_TASK_ID
+
+# Run all subjects sequentially (local, slow)
+uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm
+```
+
+> **Note:** Each job simulates all five models for one (dataset, subject) pair. Concurrent writes across array jobs are safe — output CSVs are protected by a file lock. Run after all HDDM fits (step 6) are complete.
+
+---

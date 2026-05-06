@@ -23,3 +23,5 @@ hddm.sif
 */slurm*
 
 br_questions/*
+
+src/riskhistory/setup_pupilbetas/archive/*
