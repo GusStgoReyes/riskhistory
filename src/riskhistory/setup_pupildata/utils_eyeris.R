@@ -457,3 +457,180 @@ extract_trial_times <- function(event_list, pattern_start, pattern_response, tim
   )
   return(results)
 }
+
+# =============================================================================
+# Per-Subject-Run Processing (shared pipeline for NARPS and Sheng2020)
+# =============================================================================
+
+#' Run the full preprocessing pipeline for one subject-run
+#'
+#' Encapsulates the shared loop body: quality check, stats, preprocessing,
+#' timeseries save, timing extraction, and epoch extraction.
+#'
+#' @param data An eyeris object (already loaded and, for Sheng2020, converted)
+#' @param sub_id Integer subject ID
+#' @param run_id Integer run ID
+#' @param dataset Dataset label ("narps" or "sheng2020")
+#' @param apply_deblink Whether to apply deblink (TRUE for NARPS, FALSE for Sheng2020)
+#' @param deblink_extend Deblink extension in ms
+#' @param detransient_n Number of samples for detransient
+#' @param detransient_mad_thresh MAD threshold for detransient (NULL = auto)
+#' @param lowpass_wp,lowpass_ws,lowpass_rp,lowpass_rs Low-pass filter parameters
+#' @param output_sampling_rate Final sampling rate in Hz
+#' @param apply_detrend Whether to apply linear detrending
+#' @param event_start_pattern Glob pattern for trial-start events
+#' @param event_response_pattern Glob pattern for response events
+#' @param start_epoch_limits c(start, end) in seconds for trial epoch extraction
+#' @param response_epoch_limits c(start, end) in seconds for response epoch
+#' @param baseline_period c(start, end) in seconds for baseline subtraction
+#' @param stats_epoch_limits Wider epoch limits used only for quality statistics
+#' @param trials_per_run Number of trials per run (for global trial numbering)
+#' @param timeseries_output_dir Directory for per-subject timeseries CSV output
+#' @param max_na_percentage Skip subject-run if overall NA exceeds this threshold
+#' @return Named list with start_epoch, baseline, response_epoch, statistics,
+#'   start_timings, response_timings — or NULL if the subject-run was skipped.
+process_subject_run <- function(
+  data,
+  sub_id,
+  run_id,
+  dataset,
+  apply_deblink = TRUE,
+  deblink_extend = 100,
+  detransient_n = 16,
+  detransient_mad_thresh = NULL,
+  lowpass_wp = 4,
+  lowpass_ws = 8,
+  lowpass_rp = 1,
+  lowpass_rs = 35,
+  output_sampling_rate = 8,
+  apply_detrend = TRUE,
+  event_start_pattern,
+  event_response_pattern,
+  start_epoch_limits = c(0, 4),
+  response_epoch_limits = c(-2, 2),
+  baseline_period = c(-0.5, 0),
+  stats_epoch_limits = c(-0.5, 4.5),
+  trials_per_run,
+  timeseries_output_dir,
+  max_na_percentage = 90
+) {
+  # ---------------------------------------------------------------------------
+  # Data quality check
+  # ---------------------------------------------------------------------------
+  na_pct <- get_na_percentage(data)
+  cat("  NA percentage:", round(na_pct, 1), "%\n")
+
+  if (should_skip_data(data, max_na_percentage)) {
+    cat("  Skipping: >", max_na_percentage, "% missing data\n")
+    return(NULL)
+  }
+
+  # ---------------------------------------------------------------------------
+  # Quality statistics (before interpolation)
+  # ---------------------------------------------------------------------------
+  data_for_stats <- data
+  if (apply_deblink) {
+    data_for_stats <- deblink(data_for_stats, extend = deblink_extend)
+  }
+  data_for_stats <- detransient(data_for_stats, n = detransient_n, mad_thresh = detransient_mad_thresh)
+
+  stats_df <- calculate_trial_statistics(
+    data                 = data_for_stats,
+    start_event_pattern  = event_start_pattern,
+    response_event_pattern = event_response_pattern,
+    start_epoch_limits   = stats_epoch_limits,
+    response_epoch_limits = response_epoch_limits,
+    baseline_window      = baseline_period,
+    start_task_window    = start_epoch_limits,
+    trials_per_run       = trials_per_run,
+    sub_id               = sub_id,
+    run_id               = run_id
+  )
+  stats_df$dataset <- dataset
+
+  # ---------------------------------------------------------------------------
+  # Full preprocessing pipeline
+  # ---------------------------------------------------------------------------
+  results <- preprocess_eyeris(
+    data,
+    apply_deblink        = apply_deblink,
+    deblink_extend       = deblink_extend,
+    detransient_n        = detransient_n,
+    detransient_mad_thresh = detransient_mad_thresh,
+    lowpass_wp           = lowpass_wp,
+    lowpass_ws           = lowpass_ws,
+    lowpass_rp           = lowpass_rp,
+    lowpass_rs           = lowpass_rs,
+    bins_per_second      = output_sampling_rate,
+    apply_detrend        = apply_detrend
+  )
+  data <- results$data
+
+  # ---------------------------------------------------------------------------
+  # Save full timeseries
+  # ---------------------------------------------------------------------------
+  ensure_dir(timeseries_output_dir)
+  timeseries_path <- file.path(
+    timeseries_output_dir,
+    sprintf("sub-%03d_run-%d_timeseries.csv", sub_id, run_id)
+  )
+  write.csv(results$timeseries_pupil, file = timeseries_path, row.names = FALSE)
+  cat("  Saved timeseries:", timeseries_path, "\n")
+
+  # ---------------------------------------------------------------------------
+  # Extract trial onset and response timings
+  # ---------------------------------------------------------------------------
+  start_time_run <- data$timeseries$block_1$time_orig[1]
+  timings <- extract_trial_times(
+    data$events$block_1,
+    event_start_pattern,
+    event_response_pattern,
+    time_offset = start_time_run
+  )
+
+  start_timings           <- timings$start_events
+  start_timings$run_id    <- run_id
+  start_timings$sub_id    <- sub_id
+
+  response_timings        <- timings$response_events
+  response_timings$run_id <- run_id
+  response_timings$sub_id <- sub_id
+
+  # ---------------------------------------------------------------------------
+  # Extract start-aligned epochs
+  # ---------------------------------------------------------------------------
+  start_result <- extract_start_aligned_epoch(
+    data           = data,
+    event_pattern  = event_start_pattern,
+    limits         = start_epoch_limits,
+    baseline_period = baseline_period,
+    sub_id         = sub_id,
+    run_id         = run_id,
+    trials_per_run = trials_per_run,
+    dataset        = dataset
+  )
+
+  # ---------------------------------------------------------------------------
+  # Extract response-aligned epochs
+  # ---------------------------------------------------------------------------
+  response_df <- extract_response_aligned_epoch(
+    data           = data,
+    event_pattern  = event_response_pattern,
+    limits         = response_epoch_limits,
+    sub_id         = sub_id,
+    run_id         = run_id,
+    trials_per_run = trials_per_run,
+    dataset        = dataset
+  )
+
+  cat("  Done\n")
+
+  list(
+    start_epoch     = start_result$epoch,
+    baseline        = start_result$baseline,
+    response_epoch  = response_df,
+    statistics      = stats_df,
+    start_timings   = start_timings,
+    response_timings = response_timings
+  )
+}

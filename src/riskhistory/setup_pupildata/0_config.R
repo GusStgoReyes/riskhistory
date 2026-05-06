@@ -5,7 +5,7 @@
 # =============================================================================
 
 # Source the base config to get repo_path and standard paths
-source(file.path(dirname(sys.frame(1)$ofile), "..", "config.R"))
+source(file.path(script_dir, "..", "config.R"))
 
 # =============================================================================
 # Input Paths

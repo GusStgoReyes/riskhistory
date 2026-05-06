@@ -16,7 +16,15 @@ library(dplyr)
 library(tidyr)
 
 # Source config
-script_dir <- dirname(sys.frame(1)$ofile)
+script_dir <- local({
+  for (i in seq(sys.nframe(), 1, by = -1)) {
+    f <- sys.frame(i)$ofile
+    if (!is.null(f)) return(dirname(normalizePath(f, mustWork = FALSE)))
+  }
+  args <- commandArgs(trailingOnly = FALSE)
+  flag <- grep("--file=", args, value = TRUE)
+  if (length(flag)) dirname(normalizePath(sub("--file=", "", flag))) else getwd()
+})
 source(file.path(script_dir, "0_config.R"))
 
 # =============================================================================
@@ -144,38 +152,45 @@ cat("\n\nApplying subject-level exclusions...\n")
 
 # Function to calculate subject exclusions for a specific alignment
 calculate_subject_exclusions <- function(stats_data, exclude_col, alignment_name) {
+  threshold_lut <- tibble(
+    dataset          = names(thresholds),
+    thresh_pct_trial = sapply(thresholds, `[[`, "pct_trials_excluded"),
+    thresh_num_runs  = sapply(thresholds, `[[`, "num_runs")
+  )
+
   stats_data %>%
     group_by(sub, dataset) %>%
     summarise(
       n_trials_available = n(),
-      n_trials_excluded = sum(.data[[exclude_col]], na.rm = TRUE),
-      n_unique_runs = n_distinct(run),
+      n_trials_excluded  = sum(.data[[exclude_col]], na.rm = TRUE),
+      n_unique_runs      = n_distinct(run),
       .groups = "drop"
     ) %>%
     mutate(
       total_trials = case_when(
         dataset == "equalIndifference" ~ NARPS_TOTAL_TRIALS,
-        dataset == "equalRange" ~ NARPS_TOTAL_TRIALS,
-        dataset == "sheng2020" ~ SHENG2020_TOTAL_TRIALS,
+        dataset == "equalRange"        ~ NARPS_TOTAL_TRIALS,
+        dataset == "sheng2020"         ~ SHENG2020_TOTAL_TRIALS,
         TRUE ~ NA_integer_
       ),
-      n_trials_missing = total_trials - n_trials_available,
+      n_trials_missing    = total_trials - n_trials_available,
       pct_trials_excluded = (n_trials_excluded + n_trials_missing) / total_trials * 100
     ) %>%
-    rowwise() %>%
+    left_join(threshold_lut, by = "dataset") %>%
     mutate(
-      thresh = thresholds[[dataset]]$pct_trials_excluded,
-      exclude_pct_trials = pct_trials_excluded > thresh,
-      exclude_num_runs = n_unique_runs < thresholds[[dataset]]$num_runs,
-      exclude_subject = exclude_pct_trials | exclude_num_runs
+      exclude_pct_trials = pct_trials_excluded > thresh_pct_trial,
+      exclude_num_runs   = n_unique_runs < thresh_num_runs,
+      exclude_subject    = exclude_pct_trials | exclude_num_runs
     ) %>%
-    ungroup() %>%
+    select(-thresh_pct_trial, -thresh_num_runs) %>%
     select(sub, dataset, n_trials_available, n_trials_excluded, n_trials_missing,
            total_trials, pct_trials_excluded, n_unique_runs,
            exclude_pct_trials, exclude_num_runs, exclude_subject) %>%
-    rename_with(~ paste0(., "_", alignment_name),
-                .cols = c("n_trials_excluded", "pct_trials_excluded",
-                          "exclude_pct_trials", "exclude_num_runs", "exclude_subject"))
+    rename_with(
+      ~ paste0(., "_", alignment_name),
+      .cols = c("n_trials_excluded", "pct_trials_excluded",
+                "exclude_pct_trials", "exclude_num_runs", "exclude_subject")
+    )
 }
 
 # Calculate subject exclusions for each alignment
@@ -311,6 +326,63 @@ cat("  Updated:", output_response_aligned, "\n")
 cat("  Rows excluded:", sum(response_aligned$exclude), "/", nrow(response_aligned), "\n")
 
 # =============================================================================
+# Compute Detailed Trial-Level Exclusion Counts
+# =============================================================================
+
+# Base-included subjects: all expected runs present AND not subject-level
+# behaviorally excluded (subjects in behavioral_data.csv passed subject-level
+# behavioral criteria; trial-level exclude_behavioral flags remain).
+behavioral_subjects <- behavioral_exclusions %>%
+  select(sub, dataset) %>%
+  distinct()
+
+subjects_all_runs <- subject_exclusions %>%
+  filter(!exclude_num_runs_startAligned) %>%
+  select(sub, dataset)
+
+base_included_subjects <- subjects_all_runs %>%
+  semi_join(behavioral_subjects, by = c("sub", "dataset"))
+
+cat("\nBase-included subjects (all runs + behavioral):", nrow(base_included_subjects), "\n")
+
+stats_base_included <- statistics %>%
+  semi_join(base_included_subjects, by = c("sub", "dataset")) %>%
+  mutate(exclude_behavioral = coalesce(as.logical(exclude_behavioral), FALSE))
+
+# Marginal trial counts — start-aligned
+# Applied order: behavioral -> baseline -> % NaN in window -> longest NaN gap
+marginal_start <- stats_base_included %>%
+  group_by(sub, dataset) %>%
+  summarise(
+    n_behavioral    = sum(exclude_behavioral, na.rm = TRUE),
+    n_baseline      = sum(!exclude_behavioral & exclude_baseline, na.rm = TRUE),
+    n_start_pct     = sum(!exclude_behavioral & !exclude_baseline & exclude_start_pct, na.rm = TRUE),
+    n_start_longest = sum(!exclude_behavioral & !exclude_baseline & !exclude_start_pct & exclude_start_longest, na.rm = TRUE),
+    n_total         = sum(exclude_trial_startAligned, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Marginal trial counts — response-aligned
+marginal_response <- stats_base_included %>%
+  group_by(sub, dataset) %>%
+  summarise(
+    n_behavioral       = sum(exclude_behavioral, na.rm = TRUE),
+    n_baseline         = sum(!exclude_behavioral & exclude_baseline, na.rm = TRUE),
+    n_response_pct     = sum(!exclude_behavioral & !exclude_baseline & exclude_response_pct, na.rm = TRUE),
+    n_response_longest = sum(!exclude_behavioral & !exclude_baseline & !exclude_response_pct & exclude_response_longest, na.rm = TRUE),
+    n_total            = sum(exclude_trial_responseAligned, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+format_criterion_row <- function(label, values) {
+  sprintf("    %-32s M = %5.1f  SD = %5.1f  Total = %d",
+          label,
+          mean(values, na.rm = TRUE),
+          sd(values, na.rm = TRUE),
+          as.integer(sum(values, na.rm = TRUE)))
+}
+
+# =============================================================================
 # Generate Summary Exclusion Report
 # =============================================================================
 
@@ -399,6 +471,86 @@ for (ds in names(thresholds)) {
     paste0("  Max longest NaN response-aligned: ", thresholds[[ds]]$longest_nan_sec_response, " sec"),
     paste0("  Max % trials excluded per subject: ", thresholds[[ds]]$pct_trials_excluded, "%"),
     paste0("  Min unique runs required: ", thresholds[[ds]]$num_runs),
+    ""
+  )
+}
+
+# -------------------------------------------------------------------------
+# Trial-level marginal exclusion counts
+# -------------------------------------------------------------------------
+summary_lines <- c(summary_lines,
+  "",
+  "=============================================================================",
+  "Trial-Level Marginal Exclusion Counts (base-included subjects only)",
+  "  Base-included: all expected runs present AND not subject-level behaviorally excluded",
+  "  Applied order: behavioral -> baseline -> % NaN in window -> longest NaN gap",
+  "=============================================================================",
+  ""
+)
+
+for (ds in unique(statistics$dataset)) {
+  ds_start    <- marginal_start    %>% filter(dataset == ds)
+  ds_response <- marginal_response %>% filter(dataset == ds)
+
+  summary_lines <- c(summary_lines,
+    paste0("Dataset: ", ds),
+    "",
+    paste0("  Start-Aligned (N = ", nrow(ds_start), " subjects):"),
+    format_criterion_row("behavioral exclusion",  ds_start$n_behavioral),
+    format_criterion_row("baseline % NaN",        ds_start$n_baseline),
+    format_criterion_row("task window % NaN",     ds_start$n_start_pct),
+    format_criterion_row("longest NaN gap",       ds_start$n_start_longest),
+    format_criterion_row("TOTAL",                 ds_start$n_total),
+    "",
+    paste0("  Response-Aligned (N = ", nrow(ds_response), " subjects):"),
+    format_criterion_row("behavioral exclusion",  ds_response$n_behavioral),
+    format_criterion_row("baseline % NaN",        ds_response$n_baseline),
+    format_criterion_row("task window % NaN",     ds_response$n_response_pct),
+    format_criterion_row("longest NaN gap",       ds_response$n_response_longest),
+    format_criterion_row("TOTAL",                 ds_response$n_total),
+    ""
+  )
+}
+
+# -------------------------------------------------------------------------
+# Subject-level sole-criterion exclusion counts
+# -------------------------------------------------------------------------
+summary_lines <- c(summary_lines,
+  "",
+  "=============================================================================",
+  "Subject-Level Exclusion Counts (sole criterion)",
+  "=============================================================================",
+  ""
+)
+
+for (ds in unique(statistics$dataset)) {
+  ds_subj      <- subject_exclusions %>% filter(dataset == ds)
+  n_total_subs <- nrow(ds_subj)
+
+  only_runs_start <- sum(!ds_subj$exclude_pct_trials_startAligned &  ds_subj$exclude_num_runs_startAligned,  na.rm = TRUE)
+  only_pct_start  <- sum( ds_subj$exclude_pct_trials_startAligned & !ds_subj$exclude_num_runs_startAligned,  na.rm = TRUE)
+  both_start      <- sum( ds_subj$exclude_pct_trials_startAligned &  ds_subj$exclude_num_runs_startAligned,  na.rm = TRUE)
+  total_start     <- sum( ds_subj$exclude_subject_startAligned,  na.rm = TRUE)
+
+  only_runs_resp  <- sum(!ds_subj$exclude_pct_trials_responseAligned &  ds_subj$exclude_num_runs_responseAligned, na.rm = TRUE)
+  only_pct_resp   <- sum( ds_subj$exclude_pct_trials_responseAligned & !ds_subj$exclude_num_runs_responseAligned, na.rm = TRUE)
+  both_resp       <- sum( ds_subj$exclude_pct_trials_responseAligned &  ds_subj$exclude_num_runs_responseAligned, na.rm = TRUE)
+  total_resp      <- sum( ds_subj$exclude_subject_responseAligned, na.rm = TRUE)
+
+  summary_lines <- c(summary_lines,
+    paste0("Dataset: ", ds, " (N = ", n_total_subs, " subjects)"),
+    "",
+    "  Start-Aligned:",
+    paste0("    Insufficient runs (sole):       ", only_runs_start),
+    paste0("    Too many excl. trials (sole):   ", only_pct_start),
+    paste0("    Both criteria:                  ", both_start),
+    paste0("    Total excluded:                 ", total_start),
+    "",
+    "  Response-Aligned:",
+    paste0("    Insufficient runs (sole):       ", only_runs_resp),
+    paste0("    Too many excl. trials (sole):   ", only_pct_resp),
+    paste0("    Both criteria:                  ", both_resp),
+    paste0("    Total excluded:                 ", total_resp),
     ""
   )
 }

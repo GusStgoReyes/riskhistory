@@ -64,10 +64,7 @@ fill_missing_samples_grid <- function(
   mapped_times <- snap_to_grid(time_vec, t_grid)
 
   data_aligned <- data %>%
-    mutate(
-      .grid_time  = mapped_times
-    ) %>%
-    mutate(!!time_col := .grid_time)
+    mutate(!!time_col := mapped_times)
 
 
   filled <- grid %>%

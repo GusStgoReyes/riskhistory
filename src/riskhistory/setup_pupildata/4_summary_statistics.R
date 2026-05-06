@@ -14,7 +14,15 @@
 library(dplyr)
 
 # Source config
-script_dir <- dirname(sys.frame(1)$ofile)
+script_dir <- local({
+  for (i in seq(sys.nframe(), 1, by = -1)) {
+    f <- sys.frame(i)$ofile
+    if (!is.null(f)) return(dirname(normalizePath(f, mustWork = FALSE)))
+  }
+  args <- commandArgs(trailingOnly = FALSE)
+  flag <- grep("--file=", args, value = TRUE)
+  if (length(flag)) dirname(normalizePath(sub("--file=", "", flag))) else getwd()
+})
 source(file.path(script_dir, "0_config.R"))
 
 cat("=== Computing Summary Statistics for Included Participants ===\n\n")

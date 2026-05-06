@@ -16,7 +16,13 @@
 script_dir <- if (interactive()) {
   dirname(rstudioapi::getActiveDocumentContext()$path)
 } else {
-  dirname(sys.frame(1)$ofile)
+  args_all  <- commandArgs(trailingOnly = FALSE)
+  file_flag <- grep("--file=", args_all, value = TRUE)
+  if (length(file_flag) > 0) {
+    dirname(normalizePath(sub("--file=", "", file_flag)))
+  } else {
+    dirname(sys.frame(1)$ofile)
+  }
 }
 
 # Parse command line arguments

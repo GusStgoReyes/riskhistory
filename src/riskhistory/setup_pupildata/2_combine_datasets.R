@@ -12,7 +12,15 @@ library(dplyr)
 library(tidyr)
 
 # Source config
-script_dir <- dirname(sys.frame(1)$ofile)
+script_dir <- local({
+  for (i in seq(sys.nframe(), 1, by = -1)) {
+    f <- sys.frame(i)$ofile
+    if (!is.null(f)) return(dirname(normalizePath(f, mustWork = FALSE)))
+  }
+  args <- commandArgs(trailingOnly = FALSE)
+  flag <- grep("--file=", args, value = TRUE)
+  if (length(flag)) dirname(normalizePath(sub("--file=", "", flag))) else getwd()
+})
 source(file.path(script_dir, "0_config.R"))
 
 # =============================================================================
@@ -23,6 +31,12 @@ cat("=== Combining Pupil Datasets ===\n\n")
 
 # Ensure output directory exists
 ensure_dir(pupil_output_dir)
+
+# NARPS assigns condition by subject parity (odd = equalIndifference, even = equalRange)
+add_narps_dataset <- function(df) {
+  if (is.null(df)) return(NULL)
+  df %>% mutate(dataset = ifelse(sub %% 2 == 1, "equalIndifference", "equalRange"))
+}
 
 # =============================================================================
 # Load Intermediate Files
@@ -95,22 +109,11 @@ sheng_stats <- tryCatch(
 cat("\nCombining start-aligned data...\n")
 
 # Combine epoch data
-# For NARPS: odd subjects = equalIndifference, even subjects = equalRange
-if (!is.null(narps_start)) {
-  narps_start <- narps_start %>%
-    mutate(dataset = ifelse(sub %% 2 == 1, "equalIndifference", "equalRange"))
-}
-start_epochs <- bind_rows(
-  narps_start,
-  sheng_start
-)
+narps_start     <- add_narps_dataset(narps_start)
+start_epochs    <- bind_rows(narps_start, sheng_start)
 
 # Combine baselines
-# For NARPS: odd subjects = equalIndifference, even subjects = equalRange
-if (!is.null(narps_baselines)) {
-  narps_baselines <- narps_baselines %>%
-    mutate(dataset = ifelse(sub %% 2 == 1, "equalIndifference", "equalRange"))
-}
+narps_baselines <- add_narps_dataset(narps_baselines)
 baselines <- bind_rows(
   narps_baselines,
   sheng_baselines
@@ -137,15 +140,8 @@ if (nrow(start_epochs) > 0 && nrow(baselines) > 0) {
 
 cat("\nCombining response-aligned data...\n")
 
-# For NARPS: odd subjects = equalIndifference, even subjects = equalRange
-if (!is.null(narps_response)) {
-  narps_response <- narps_response %>%
-    mutate(dataset = ifelse(sub %% 2 == 1, "equalIndifference", "equalRange"))
-}
-response_aligned <- bind_rows(
-  narps_response,
-  sheng_response
-)
+narps_response   <- add_narps_dataset(narps_response)
+response_aligned <- bind_rows(narps_response, sheng_response)
 
 # Make the timebin be relative to response time
 response_aligned <- response_aligned %>%
@@ -171,16 +167,8 @@ if (nrow(response_aligned) > 0 && nrow(baselines) > 0) {
 
 cat("\nCombining statistics...\n")
 
-# Combine statistics from both datasets
-# For NARPS: odd subjects = equalIndifference, even subjects = equalRange
-if (!is.null(narps_stats)) {
-  narps_stats <- narps_stats %>%
-    mutate(dataset = ifelse(sub %% 2 == 1, "equalIndifference", "equalRange"))
-}
-stats_combined <- bind_rows(
-  narps_stats,
-  sheng_stats
-)
+narps_stats    <- add_narps_dataset(narps_stats)
+stats_combined <- bind_rows(narps_stats, sheng_stats)
 
 if (nrow(stats_combined) > 0) {
   # Statistics are now computed properly in calculate_trial_statistics()
