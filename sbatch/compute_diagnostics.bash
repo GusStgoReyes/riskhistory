@@ -46,8 +46,12 @@ MODEL_ID=${models[$IDX]}
 
 echo "Computing diagnostics for: $MODEL_ID"
 
-PYTHONPATH="$PYTHONPATH" singularity exec "$REPO_PTH/hddm.sif" \
-  python -m "$MODULE" \
+cd $REPO_PTH
+
+PYTHONPATH="$PYTHONPATH" 
+
+singularity exec "hddm.sif" \
+  python "$REPO_PTH/src/riskhistory/analysis_ddm/compute_diagnostics.py" \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
   --results_pth "$RESULTS_DIR"

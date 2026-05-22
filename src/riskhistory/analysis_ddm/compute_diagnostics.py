@@ -36,7 +36,17 @@ def compute_diagnostics(model_id: str, dataset: str, results_pth: str) -> None:
 
     print(f"Loading {nc_path} ...", flush=True)
     idata = az.from_netcdf(str(nc_path))
+    ll = idata.log_likelihood
 
+    # Whole group overview (variables + dims + sizes)
+    print(ll, flush = True)
+
+    # Just dim names and sizes per variable
+    for v in ll.data_vars:
+        print(v, dict(ll[v].sizes), flush = True)
+
+    # Top-level dims and sizes of the group
+    print(dict(ll.sizes), flush = True)
     print("  Computing WAIC (pointwise) ...", flush=True)
     waic_result = az.waic(idata, pointwise=True)
     waic_path = output_dir / f"{model_id}_{dataset}_waic.pkl"
