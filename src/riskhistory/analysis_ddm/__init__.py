@@ -7,7 +7,7 @@ from .utils_model import (
     DEFAULT_MODEL_PARAMS,
 )
 from .utils_data import load_data
-from .utils_stats import aic, bic, _patch_infdata_loglik
+from .utils_stats import aic, bic
 
 __all__ = [
     "fit_model",
@@ -16,7 +16,6 @@ __all__ = [
     "MODEL_REGISTRY",
     "DEFAULT_MODEL_PARAMS",
     "load_data",
-    "_patch_infdata_loglik",
     "aic",
     "bic",
 ]

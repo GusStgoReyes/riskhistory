@@ -28,11 +28,11 @@ TEMP_SBATCH=$(mktemp)
 cat > "$TEMP_SBATCH" <<EOF
 #!/bin/bash
 #SBATCH --job-name=diag_hddm
-#SBATCH --time=02:00:00
+#SBATCH --time=01:00:00
 #SBATCH --partition=normal,russpold
 #SBATCH --array=${ARRAY_RANGE}
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=100G
 
 set -euo pipefail
 EOF
