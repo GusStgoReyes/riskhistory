@@ -25,3 +25,4 @@ hddm.sif
 br_questions/*
 
 src/riskhistory/setup_pupilbetas/archive/*
+src/riskhistory/analysis_acceptglme/archive/*

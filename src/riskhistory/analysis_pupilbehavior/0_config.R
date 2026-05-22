@@ -37,6 +37,7 @@ acceptglme_path <- file.path(repo_path, "src", "riskhistory", "analysis_acceptgl
 source(file.path(acceptglme_path, "utils_modelcomparison.R"))
 source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
 source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
+source(file.path(acceptglme_path, "utils_saverandomeffectsub.R"))
 
 # check_model_diagnostics is defined in analysis_pupillme
 pupillme_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_pupillme")
@@ -50,6 +51,7 @@ source(file.path(utils_path, "utils_createregressors.R"))
 set.seed(42)
 datasets <- c("equalIndifference", "equalRange", "sheng2020")
 p_method <- "BH"
+GLMER_CONTROL <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
 
 # =============================================================================
 # Load behavioral data

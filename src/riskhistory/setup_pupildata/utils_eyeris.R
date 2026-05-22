@@ -1,5 +1,5 @@
 # =============================================================================
-# Pupil Data Preprocessing Pipeline v2: Eyeris Utility Functions
+# Pupil Data Preprocessing Pipeline: Eyeris Utility Functions
 # =============================================================================
 # Shared functions for processing pupil data with the eyeris package.
 # =============================================================================
@@ -13,20 +13,7 @@ library(tibble)
 # Core Processing Pipeline
 # =============================================================================
 
-#' Apply standard preprocessing pipeline to eyeris data
-#'
-#' @param data An eyeris object
-#' @param apply_deblink Whether to apply deblink (TRUE for NARPS, FALSE for Sheng2020)
-#' @param deblink_extend Extension for deblink in ms
-#' @param detransient_n Number of samples for detransient
-#' @param detransient_mad_thresh MAD threshold for detransient
-#' @param lowpass_wp Passband frequency
-#' @param lowpass_ws Stopband frequency
-#' @param lowpass_rp Passband ripple
-#' @param lowpass_rs Stopband attenuation
-#' @param bins_per_second Output sampling rate
-#' @param apply_detrend Whether to apply detrending
-#' @return Preprocessed eyeris object
+# Apply standard preprocessing pipeline to eyeris data
 preprocess_eyeris <- function(
   data,
   apply_deblink = TRUE,
@@ -38,27 +25,29 @@ preprocess_eyeris <- function(
   lowpass_rp = 1,
   lowpass_rs = 35,
   bins_per_second = 8,
-  apply_detrend = TRUE
+  apply_detrend = FALSE
 ) {
-  # Deblink (only for datasets with raw blink data)
+  # 1. Deblink (only for datasets with raw blink data)
   if (apply_deblink) {
     data <- deblink(data, extend = deblink_extend)
   }
-
-  # Detransient (remove artifacts)
+  # 2. Detransient (remove artifacts)
   data <- detransient(data, n = detransient_n, mad_thresh = detransient_mad_thresh)
-
-  # Interpolate missing values
+  # 3. Interpolate missing values
   data <- interpolate(data, verbose = FALSE)
-
-  # Low-pass filter
+  # 4. Apply low-pass filter
   data <- lpfilt(data, wp = lowpass_wp, ws = lowpass_ws, rp = lowpass_rp, rs = lowpass_rs)
 
-  # Full time series before binning
-  data_full <- detrend(data)
+  ####### Get the full time series binned to 25 Hz for analysis #######
+  # 5a. Detrend if allowed (do not do this step)
+  if (apply_detrend) {
+    data_full <- detrend(data)
+  } else {
+    data_full <- data
+  }
+  # 6a. Z-score to normalize the full time series
   data_full <- zscore(data_full)
-
-  # Bin to 25Hz
+  # 7a. Keep columns to bin to decrease running time
   data_full$timeseries$block_1 <- dplyr::select(
     data_full$timeseries$block_1,
     block,
@@ -68,25 +57,24 @@ preprocess_eyeris <- function(
     eye_y,
     all_of(data_full$latest$block_1)
   )
+  # 8a. Bin the full time series to 25 Hz for later analysis
   data_full <- bin(data_full, bins_per_second = 25, method = "mean")
 
-  # Full time series after filtering
+  # 9a. Save the full time series and the fixation information
   timeseries_time <- data_full$timeseries$block_1$time_secs
   pupil_filtered <- data_full$timeseries$block_1[[data_full$latest$block_1]]
   eye_x <- data_full$timeseries$block_1$eye_x
   eye_y <- data_full$timeseries$block_1$eye_y
-  # If eye_x is Na, set to 0
   eye_x[is.na(eye_x)] <- 0
   eye_y[is.na(eye_y)] <- 0
-
   timeseries_pupil <- tibble::tibble(
     time_secs = timeseries_time,
     pupil_filtered = pupil_filtered,
     eye_x = eye_x,
     eye_y = eye_y
   )
-
-  # Keep only necessary columns for efficiency
+  ####### Epoch the data based on events #######
+  # 5b. Keep only necessary columns for efficiency on binning
   current_col <- data$latest$block_1
   columns_selected <- c("block", "time_orig", "time_secs", current_col)
   data$timeseries$block_1 <- dplyr::select(
@@ -94,19 +82,20 @@ preprocess_eyeris <- function(
     all_of(columns_selected)
   )
 
+  # 6b. Detrend if allowed (do not do this step)
   # Detrend if requested
   if (apply_detrend) {
     data <- detrend(data)
   }
 
-  # Z-score normalize
+  # 7b. Z-score normalize
   data <- zscore(data)
   data$info$sample.rate <- bins_per_second
 
-  # Bin the data
+  # 8b. Bin the data to 8Hz
   data <- bin(data, bins_per_second = bins_per_second, method = "mean")
 
-  # Rename the final column to a standard name
+  # 9b. Rename the final column to a standard name
   final_col <- data$latest$block_1
   names(data$timeseries$block_1)[names(data$timeseries$block_1) == final_col] <- "pupil_processed"
   data$latest$block_1 <- "pupil_processed"
@@ -124,25 +113,13 @@ preprocess_eyeris <- function(
 # Statistics Calculation (Before Full Preprocessing)
 # =============================================================================
 
-#' Calculate data quality statistics for trials
-#'
+# Calculate data quality statistics for trials
 #' Computes NA statistics for both start-aligned and response-aligned epochs:
 #' 1. Percent NaN baseline (-0.5 to 0 sec from start)
 #' 2. Percent NaN start-aligned (0 to 4 sec from start)
 #' 3. Percent NaN response-aligned (-2 to 2 sec from response)
 #' 4. Longest NaN section in secs start-aligned
 #' 5. Longest NaN section in secs response-aligned
-#'
-#' @param data An eyeris object (after deblink/detransient but before interpolation)
-#' @param start_event_pattern Pattern for trial start events
-#' @param response_event_pattern Pattern for response events
-#' @param start_epoch_limits Limits for start-aligned epoching (should include baseline)
-#' @param response_epoch_limits Limits for response-aligned epoching
-#' @param baseline_window Window for baseline statistics relative to start
-#' @param start_task_window Window for start-aligned task statistics
-#' @param sub_id Subject ID
-#' @param run_id Run ID
-#' @return Data frame with statistics per trial
 calculate_trial_statistics <- function(
   data,
   start_event_pattern,
@@ -354,16 +331,7 @@ extract_start_aligned_epoch <- function(
   return(list(epoch = epoch_df, baseline = baseline_df))
 }
 
-#' Extract epoched data aligned to response
-#'
-#' @param data Preprocessed eyeris object
-#' @param event_pattern Event pattern for response
-#' @param limits Epoch limits (seconds)
-#' @param sub_id Subject ID
-#' @param run_id Run ID
-#' @param trials_per_run Number of trials per run
-#' @param dataset Dataset name
-#' @return Data frame with epoched data
+# Extract epoched data aligned to response
 extract_response_aligned_epoch <- function(
   data,
   event_pattern,

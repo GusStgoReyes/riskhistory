@@ -83,9 +83,12 @@ def create_fixation_matrix(eye_x,
     labels = ["eye_x", "eye_y", "eye_x_squared", "eye_y_squared"]
     return fixation_matrix, labels
 
-def convolve_with_prf(timings_matrix, prf_vector):
+def convolve_with_prf(timings_matrix, prf_vector, normalize = True):
     convolved_matrix = np.zeros_like(timings_matrix)
     for i in range(timings_matrix.shape[1]):
         convolved_matrix[:, i] = np.convolve(timings_matrix[:, i], prf_vector, mode = "full")[:len(timings_matrix)]
+        if normalize:
+            # Make max be 1
+            convolved_matrix[:, i] = convolved_matrix[:, i] / np.max(convolved_matrix[:, i])
     return convolved_matrix
 

@@ -1,24 +1,12 @@
 # =============================================================================
 # Pupil Data Preprocessing Pipeline: NARPS Dataset
 # =============================================================================
-# Preprocesses NARPS pupil data (.asc files) and saves intermediate outputs.
-# =============================================================================
 
 library(eyeris)
 library(dplyr)
 library(stringr)
-
-script_dir <- local({
-  for (i in seq(sys.nframe(), 1, by = -1)) {
-    f <- sys.frame(i)$ofile
-    if (!is.null(f)) return(dirname(normalizePath(f, mustWork = FALSE)))
-  }
-  args <- commandArgs(trailingOnly = FALSE)
-  flag <- grep("--file=", args, value = TRUE)
-  if (length(flag)) dirname(normalizePath(sub("--file=", "", flag))) else getwd()
-})
-source(file.path(script_dir, "0_config.R"))
-source(file.path(script_dir, "utils_eyeris.R"))
+source("0_config.R")
+source("utils_eyeris.R")
 
 # =============================================================================
 # Setup
@@ -77,7 +65,7 @@ for (file in asc_files) {
     lowpass_rp             = LOWPASS_RP,
     lowpass_rs             = LOWPASS_RS,
     output_sampling_rate   = OUTPUT_SAMPLING_RATE,
-    apply_detrend          = TRUE,
+    apply_detrend          = FALSE,
     event_start_pattern    = NARPS_EVENT_START_PATTERN,
     event_response_pattern = NARPS_EVENT_RESPONSE_PATTERN,
     start_epoch_limits     = START_EPOCH_LIMITS,
@@ -115,29 +103,36 @@ start_timings_df   <- bind_rows(all_start_timings)
 response_timings_df <- bind_rows(all_response_timings)
 
 write.csv(start_timings_df,
-          file = file.path(narps_output_dir, "timeseries", "narps_start_timings.csv"),
+          file = file.path(narps_output_dir,
+                           "timeseries",
+                           "narps_start_timings.csv"),
           row.names = FALSE)
 write.csv(response_timings_df,
-          file = file.path(narps_output_dir, "timeseries", "narps_response_timings.csv"),
+          file = file.path(narps_output_dir,
+                           "timeseries",
+                           "narps_response_timings.csv"),
           row.names = FALSE)
-
 write.csv(start_epochs_df,
-          file = file.path(narps_output_dir, "narps_start_aligned.csv"),
+          file = file.path(narps_output_dir,
+          "narps_start_aligned.csv"),
           row.names = FALSE)
 cat("Saved start-aligned epochs:", nrow(start_epochs_df), "rows\n")
 
 write.csv(response_epochs_df,
-          file = file.path(narps_output_dir, "narps_response_aligned.csv"),
+          file = file.path(narps_output_dir,
+                           "narps_response_aligned.csv"),
           row.names = FALSE)
 cat("Saved response-aligned epochs:", nrow(response_epochs_df), "rows\n")
 
 write.csv(baselines_df,
-          file = file.path(narps_output_dir, "narps_baselines.csv"),
+          file = file.path(narps_output_dir,
+                           "narps_baselines.csv"),
           row.names = FALSE)
 cat("Saved baselines:", nrow(baselines_df), "rows\n")
 
 write.csv(statistics_df,
-          file = file.path(narps_output_dir, "narps_statistics.csv"),
+          file = file.path(narps_output_dir,
+                           "narps_statistics.csv"),
           row.names = FALSE)
 cat("Saved statistics:", nrow(statistics_df), "rows\n")
 

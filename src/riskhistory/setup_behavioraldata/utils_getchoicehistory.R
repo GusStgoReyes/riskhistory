@@ -1,14 +1,6 @@
 # Compute an exponentially decayed sum of previous choices.
 #
 # choice_history = sum_{k=1}^{num_prev_trials} decay_rate ^ k * choice_prev{k}
-#
-# Parameters:
-#   df             : data.frame with columns 'dataset' and 'choice_prev1', ..., 'choice_prev{num_prev_trials}'
-#   num_prev_trials: number of previous trials to include (default 3)
-#   decay_rate     : named list mapping dataset -> rate, e.g. list(narps = 0.5, sheng2020 = 0.3)
-#
-# Returns:
-#   data.frame with an added 'choice_history' column
 
 compute_choice_history <- function(df, num_prev_trials = 3, decay_rate = NULL) {
   if (is.null(decay_rate)) {

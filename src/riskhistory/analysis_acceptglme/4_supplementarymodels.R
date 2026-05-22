@@ -13,7 +13,7 @@ for (ds in datasets) {
   # previous choice (accept vs reject)
   model_sup1 <- glmer(accept ~ gain_centered * choice_prev1 +
                         loss_centered * choice_prev1 +
-                        (1 + loss_centered | sub),
+                        (1 + loss_centered + gain_centered | sub),
                       data = df_sub, family = binomial, control = GLMER_CONTROL)
   models <- list(
     M_part1_Sup1 = model_sup1

@@ -8,23 +8,8 @@ import pandas as pd
 
 
 def compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type = "decision"):
-    """Compute VIF for regressors of interest within the full design matrix.
-
-    Uses the correlation-matrix formula: VIF_j = (R^{-1})_{jj}, where R is
-    the correlation matrix of all design-matrix columns. This accounts for
-    collinearity of each decision regressor against both the other decision
-    regressors AND the nuisance regressors (onset, response, fixation,
-    intercept).
-
-    Parameters
-    ----------
-    design_matrix : np.ndarray, shape (T, P)
-    betas_name    : list of str, length P
-    sub, run, dataset : identifiers written into the output dict
-
-    Returns
-    -------
-    dict with keys: sub, run, dataset, mean_vif, sd_vif, n_regressors
+    """
+        Compute VIF for regressors of interest within the full design matrix.
     """
     regressor_mask = np.array([regressor_type in name for name in betas_name])
     n_regressors = int(regressor_mask.sum())
@@ -47,8 +32,8 @@ def compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type = "
     vif = full_vif[regressor_mask]
     
     return {**base,
-            f"mean_vif_{regressor_type}": float(np.mean(vif)),
-            f"sd_vif_{regressor_type}":   float(np.std(vif))}
+            f"mean_vif_{regressor_type}": float(np.nanmean(vif)),
+            f"sd_vif_{regressor_type}":   float(np.nanstd(vif))}
     
 def build_design_matrix_run(all_pupil_data,
                             chosen_prf,
@@ -85,6 +70,13 @@ def build_design_matrix_run(all_pupil_data,
                                                                       regressor_name="decision")
     decision_regressors = convolve_with_prf(decision_regressors, chosen_prf)
 
+    # Find any duration < 0.1s and make the decision regressor 0
+    short_decision_mask = np.array([durations[trial] < 0.1 for trial in run_start_timings.keys()])
+    if short_decision_mask.sum() > 0:
+        print(f"  Found {short_decision_mask.sum()} trials with duration < 0.1s in sub-{sub} run-{run}, "
+            f"setting their decision regressors to 0")
+        decision_regressors[:, short_decision_mask] = 0.0
+
     # Button press regressors (1 impulse beta per trial at response time)
     response_timings_run = (get_response_timings_df(dataset)
                             .query("sub == @sub and run == @run")
@@ -109,8 +101,26 @@ def build_design_matrix_run(all_pupil_data,
     intercept_regressor = np.ones((len(time_vector), 1))
     intercept_betas_name = [f"intercept-{dataset}_sub-{sub}_run-{run}"]
 
-    design_matrix = np.hstack((onset_regressors, fixation_regressors, intercept_regressor, decision_regressors, button_regressors))
-    betas_name = onset_betas_name + fixation_betas_name + intercept_betas_name + decision_betas_name + button_betas_name
+    # Linear trend regressor
+    linear_trend = np.arange(len(time_vector)).reshape(-1, 1)
+    # zscore the linear trend regressor
+    linear_trend = (linear_trend - linear_trend.mean()) / linear_trend.std()
+    linear_trend_name = [f"linear_trend-{dataset}_sub-{sub}_run-{run}"]
+
+    design_matrix = np.hstack((onset_regressors, 
+                               fixation_regressors, 
+                               intercept_regressor, 
+                               decision_regressors, 
+                               button_regressors, 
+                               linear_trend))
+    
+    betas_name = (onset_betas_name + 
+                  fixation_betas_name + 
+                  intercept_betas_name + 
+                  decision_betas_name + 
+                  button_betas_name + 
+                  linear_trend_name)
+
 
     return design_matrix, betas_name
 

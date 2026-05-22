@@ -4,17 +4,17 @@
 # 0. Load config file
 source("0_config.R")
 
-# 1. Baseline Model
 source("1_baselinechoicemodel.R")
-# 2. Choice History Models
 source("2_choicehistorymodels.R")
-# 3. Supplementary Models
-source("5_supplementarymodels.R")
-# 3b. Profile likelihood over decay rate (eta)
-source("3b_choicehistory_profile.R")
+source("3_choicehistoryprofile.R")
+source("4_supplementarymodels.R")
+
 
 print("Extracting model comparison and fixed effects for behavior models...")
-models <- c("M1_part1", "M2_part1", "M3_part1", "M4_part1", "M5_part1", "M6_part1", "M7_part1", "M8_part1")
+models <- c("M1_part1", "M2_part1", "M3_part1",
+            "M4_part1", "M5_part1", "M6_part1",
+            "M7_part1", "M8_part1", "M9_part1",
+            "M10_part1")
 
 behavior_comparison_df <- compare_models(
   model_list      = behavioral_models_list,
@@ -52,7 +52,9 @@ behavior_comparison_df <- compare_models(
 write.csv(behavior_comparison_df, file.path(analysis_results_path,
                                             "2_behavior_model_comparison_3.csv"),
           row.names = FALSE)
-models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1", "M4_part1", "M5_part1", "M6_part1", "M7_part1", "M8_part1")
+models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1",
+            "M4_part1", "M5_part1", "M6_part1", "M7_part1",
+            "M8_part1", "M9_part1", "M10_part1")
 fixed_effects <- extract_fixed_effects(
   model_list = behavioral_models_list,
   datasets   = datasets,
@@ -89,7 +91,7 @@ write.csv(supplementary_fixed_effects,
 
 print("Checking convergence for all behavioral models...")
 behavioral_models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1", "M4_part1",
-                       "M5_part1", "M6_part1", "M7_part1", "M8_part1", "M_part1_Sup1")
+                       "M5_part1", "M6_part1", "M7_part1", "M8_part1", "M9_part1", "M10_part1", "M_part1_Sup1")
 convergence_all <- check_convergence_all_models(
   model_list = behavioral_models_list,
   datasets   = datasets,

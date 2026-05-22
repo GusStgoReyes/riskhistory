@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.signal import butter, filtfilt
-from sklearn.linear_model import Ridge
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.linear_model import RidgeCV
 
 def highpass_filter(data, cutoff=0.01, fs=25, order=3):
     nyq = 0.5 * fs  # Nyquist frequency
@@ -29,30 +28,16 @@ def ols(X, y):
     return beta_ols, residuals
     
 
-def ridge(X, y, alphas=None, n_splits=5):
+def ridge(X, y, alphas=None, n_splits=3):
     if alphas is None:
-        alphas = np.logspace(-5, -1, 25)
+        alphas = np.logspace(-5, 0, 25)
 
-    tscv = TimeSeriesSplit(n_splits=n_splits)
+    alphas = np.logspace(-3, 6, 50)
+    model = RidgeCV(alphas=alphas, cv=None, fit_intercept = False)
+    model.fit(X, y)
 
-    mean_errors = []
-    for alpha in alphas:
-        fold_errors = []
-        for train_idx, test_idx in tscv.split(X):
-            X_train, X_test = X[train_idx], X[test_idx]
-            y_train, y_test = y[train_idx], y[test_idx]
-            model = Ridge(alpha=alpha)
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            fold_errors.append(np.mean((y_test - y_pred) ** 2))
-        mean_errors.append(np.mean(fold_errors))
-
-    best_alpha = alphas[np.argmin(mean_errors)]
-    print(f"Best alpha: {best_alpha:.5f} with MSE: {min(mean_errors):.5f}")
-
-    final_model = Ridge(alpha=best_alpha)
-    final_model.fit(X, y)
-    y_pred = final_model.predict(X)
+    print(f"Best alpha: {model.alpha_}")
+    y_pred = model.predict(X)
     residuals = y - y_pred
 
-    return final_model.coef_, residuals, best_alpha
+    return model.coef_, residuals, model.alpha_

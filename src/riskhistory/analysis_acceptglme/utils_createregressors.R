@@ -11,8 +11,9 @@ add_subjectivevalues <- function(
                 by = c("sub", "dataset"))
 
   # Compute subjective value (sv) for each trial
-  data$sv <- data$beta_intercept + data$beta_gain * data$gain_centered +
+  data$sv <- data$beta_gain * data$gain_centered +
     data$beta_loss * data$loss_centered
+  data$ev <- 0.5 * data$gain_centered - 0.5 * data$loss_centered
 
   # Compute the prev_sv and delta_sv for each trial
   data <- data %>%
@@ -20,7 +21,9 @@ add_subjectivevalues <- function(
     arrange(trial) %>%
     mutate(
       prev_sv  = lag(sv),
-      delta_sv = sv - prev_sv
+      delta_sv = sv - prev_sv,
+      prev_ev  = lag(ev),
+      delta_ev = ev - prev_ev
     ) %>%
     ungroup()
 
@@ -36,7 +39,11 @@ create_behavioral_regressors <- function(df) {
     group_by(dataset, sub) %>%
     mutate(
       prev_sv_z  = as.numeric(scale(prev_sv, center = TRUE, scale = TRUE)),
-      delta_sv_z = as.numeric(scale(delta_sv, center = TRUE, scale = TRUE))
+      delta_sv_z = as.numeric(scale(delta_sv, center = TRUE, scale = TRUE)),
+      prev_gain_z = as.numeric(scale(prev_gain, center = TRUE, scale = TRUE)),
+      prev_loss_z = as.numeric(scale(prev_loss, center = TRUE, scale = TRUE)),
+      prev_ev_z  = as.numeric(scale(prev_ev, center = TRUE, scale = TRUE)),
+      delta_ev_z = as.numeric(scale(delta_ev, center = TRUE, scale = TRUE))
     ) %>%
     ungroup()
 

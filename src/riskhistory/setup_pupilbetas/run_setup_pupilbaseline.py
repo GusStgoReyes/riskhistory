@@ -6,7 +6,7 @@ from riskhistory.setup_pupilbetas.utils_get_data import (get_all_participants,
                                                           get_participant_pupil_data)
 from riskhistory.config import preprocessed_data_pth, results_pth
 
-LOWPASS_CUTOFF = 0.05
+LOWPASS_CUTOFF = 0.1
 FS = 25
 ORDER = 3
 

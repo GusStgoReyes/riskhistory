@@ -1,27 +1,10 @@
 # =============================================================================
 # Pupil Data Preprocessing Pipeline: Combine Datasets
 # =============================================================================
-# Combines NARPS and Sheng2020 preprocessed pupil data into final output files:
-# - pupil_data_alignedStartTime.csv
-# - pupil_data_alignedResponseTime.csv
-# - pupil_data_statistics.csv
-# =============================================================================
 
-# Load dependencies
 library(dplyr)
 library(tidyr)
-
-# Source config
-script_dir <- local({
-  for (i in seq(sys.nframe(), 1, by = -1)) {
-    f <- sys.frame(i)$ofile
-    if (!is.null(f)) return(dirname(normalizePath(f, mustWork = FALSE)))
-  }
-  args <- commandArgs(trailingOnly = FALSE)
-  flag <- grep("--file=", args, value = TRUE)
-  if (length(flag)) dirname(normalizePath(sub("--file=", "", flag))) else getwd()
-})
-source(file.path(script_dir, "0_config.R"))
+source("0_config.R")
 
 # =============================================================================
 # Setup
@@ -32,10 +15,12 @@ cat("=== Combining Pupil Datasets ===\n\n")
 # Ensure output directory exists
 ensure_dir(pupil_output_dir)
 
-# NARPS assigns condition by subject parity (odd = equalIndifference, even = equalRange)
+# NARPS conditions: odd = equalIndifference, even = equalRange
 add_narps_dataset <- function(df) {
   if (is.null(df)) return(NULL)
-  df %>% mutate(dataset = ifelse(sub %% 2 == 1, "equalIndifference", "equalRange"))
+  df %>% mutate(dataset = ifelse(sub %% 2 == 1,
+                                 "equalIndifference",
+                                 "equalRange"))
 }
 
 # =============================================================================
@@ -217,15 +202,4 @@ write.csv(
 cat("Saved:", output_statistics, "\n")
 cat("  Columns:", paste(names(statistics), collapse = ", "), "\n")
 
-# =============================================================================
-# Summary
-# =============================================================================
-
-cat("\n=== Summary ===\n")
-if (nrow(start_aligned) > 0) {
-  cat("  equalIndifference subjects:", n_distinct(start_aligned$sub[start_aligned$dataset == "equalIndifference"]), "\n")
-  cat("  equalRange subjects:", n_distinct(start_aligned$sub[start_aligned$dataset == "equalRange"]), "\n")
-  cat("  Sheng2020 subjects:", n_distinct(start_aligned$sub[start_aligned$dataset == "sheng2020"]), "\n")
-  cat("  Timebin range:", min(start_aligned$timebin), "to", max(start_aligned$timebin), "sec\n")
-}
 cat("\n=== Dataset combination complete ===\n")

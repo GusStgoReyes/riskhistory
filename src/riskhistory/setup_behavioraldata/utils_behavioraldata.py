@@ -1,5 +1,5 @@
 # =============================================================================
-# Choice History Under Risk: Behavioral Data Preparation Functions
+# Behavioral Data Preparation Functions
 # =============================================================================
 # Columns that should be present in the final dataframe:
 # 'sub': subject identifier

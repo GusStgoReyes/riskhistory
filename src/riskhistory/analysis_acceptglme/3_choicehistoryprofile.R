@@ -4,17 +4,11 @@
 # Sweeps eta from 0.05 to 0.95, fits the 6-lag choice history GLMM at each
 # value (same random effects as Model 14), and saves delta log-likelihood vs
 # eta per dataset.
-#
-# Outputs:
-#   results/analysis_acceptglme/3b_eta_profile.csv
-#
 
 if (!exists("behavioral_data")) source("0_config.R")
 
 NUM_LAGS   <- 6
 ETA_GRID   <- seq(0.05, 0.95, by = 0.05)
-ETA_FIXED  <- 0.7          # the value currently fixed in 0_config.R
-CI_THRESH  <- -1.92        # chi^2(1)/2 for 95% profile CI
 
 results_list <- list()
 
@@ -36,11 +30,21 @@ for (ds in datasets) {
 
     m <- tryCatch(
       suppressWarnings(
-        glmer(accept ~ gain_centered + loss_centered + choice_history6 +
-                (1 + loss_centered | sub) + (0 + choice_history6 | sub),
-              data    = df_tmp,
-              family  = binomial,
-              control = GLMER_CONTROL)
+        if (ds == "equalRange") {
+          # For equalRange, we had singularity issues with the full random effects structure.
+          # We'll simplify it by removing the random slope for choice_history6.
+          glmer(accept ~ gain_centered + loss_centered + choice_history6 +
+                  (1 + loss_centered + gain_centered | sub),
+                data    = df_tmp,
+                family  = binomial,
+                control = GLMER_CONTROL)
+        } else {
+          glmer(accept ~ gain_centered + loss_centered + choice_history6 +
+                  (1 + loss_centered + gain_centered + choice_history6 | sub),
+                data    = df_tmp,
+                family  = binomial,
+                control = GLMER_CONTROL)
+        }
       ),
       error = function(e) {
         cat("FAILED\n")
@@ -62,11 +66,6 @@ for (ds in datasets) {
   max_ll    <- max(ll_vals, na.rm = TRUE)
   delta_ll  <- ll_vals - max_ll
   eta_hat   <- ETA_GRID[which.max(ll_vals)]
-  ci_lo     <- min(ETA_GRID[!is.na(delta_ll) & delta_ll >= CI_THRESH])
-  ci_hi     <- max(ETA_GRID[!is.na(delta_ll) & delta_ll >= CI_THRESH])
-
-  cat(sprintf("  => eta_hat = %.2f  |  95%% CI: [%.2f, %.2f]\n",
-              eta_hat, ci_lo, ci_hi))
 
   results_list[[ds]] <- data.frame(
     dataset      = ds,
@@ -74,9 +73,6 @@ for (ds in datasets) {
     loglik       = ll_vals,
     delta_loglik = delta_ll,
     eta_hat      = eta_hat,
-    ci_lo        = ci_lo,
-    ci_hi        = ci_hi,
-    in_ci        = !is.na(delta_ll) & delta_ll >= CI_THRESH,
     converged    = converged_vals,
     singular     = singular_vals
   )
@@ -90,7 +86,7 @@ rownames(results_df) <- NULL
 # =============================================================================
 dir.create(analysis_results_path, showWarnings = FALSE, recursive = TRUE)
 write.csv(results_df,
-          file.path(analysis_results_path, "3b_choicehistory_profile.csv"),
+          file.path(analysis_results_path, "3_choicehistoryprofile.csv"),
           row.names = FALSE)
 
 cat("\nDone. Results saved to", analysis_results_path, "\n")

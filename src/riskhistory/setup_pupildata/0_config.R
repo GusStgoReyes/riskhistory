@@ -1,33 +1,40 @@
 # =============================================================================
 # Pupil Data Preprocessing Pipeline: Configuration
 # =============================================================================
-# This file contains all paths and settings for pupil data preprocessing.
-# =============================================================================
 
 # Source the base config to get repo_path and standard paths
-source(file.path(script_dir, "..", "config.R"))
+source(file.path("..", "config.R"))
 
-# =============================================================================
 # Input Paths
-# =============================================================================
-narps_input_dir <- file.path(raw_data_path, "narps", "pupil", "asc")
-sheng2020_input_file <- file.path(raw_data_path, "sheng2020", "pupil", "eye.csv")
+narps_input_dir <- file.path(raw_data_path,
+                             "narps",
+                             "pupil",
+                             "asc")
+sheng2020_input_file <- file.path(raw_data_path,
+                                  "sheng2020",
+                                  "pupil",
+                                  "eye.csv")
 
-# =============================================================================
 # Output Paths
-# =============================================================================
 pupil_output_dir <- file.path(derivatives_path, "pupil")
 narps_output_dir <- file.path(pupil_output_dir, "narps")
 sheng2020_output_dir <- file.path(pupil_output_dir, "sheng2020")
 
 # Final combined output files
-output_start_aligned <- file.path(preprocessed_data_path, "pupil_data_alignedStartTime.csv")
-output_response_aligned <- file.path(preprocessed_data_path, "pupil_data_alignedResponseTime.csv")
-output_statistics <- file.path(results_path, "setup_pupildata", "pupil_data_statistics.csv")
-output_summary_statistics <- file.path(results_path, "setup_pupildata", "4_summary_statistics.csv")
+output_start_aligned <- file.path(preprocessed_data_path,
+                                  "pupil_data_alignedStartTime.csv")
+output_response_aligned <- file.path(preprocessed_data_path,
+                                     "pupil_data_alignedResponseTime.csv")
+output_statistics <- file.path(results_path,
+                               "setup_pupildata",
+                               "pupil_data_statistics.csv")
+output_summary_statistics <- file.path(results_path,
+                                       "setup_pupildata",
+                                       "4_summary_statistics.csv")
 
 # Behavioral data (source of behavioral exclusion flags)
-behavioral_data_path <- file.path(preprocessed_data_path, "behavioral_data.csv")
+behavioral_data_path <- file.path(preprocessed_data_path,
+                                  "behavioral_data.csv")
 
 # =============================================================================
 # Processing Parameters
@@ -62,12 +69,9 @@ MAX_NA_PERCENTAGE <- 90  # Skip subjects/runs with >90% missing data
 DETRANSIENT_N <- 16
 DETRANSIENT_MAD_THRESH <- NULL
 
-# Deblink parameters (NARPS only - Sheng2020 already has blink correction)
+# Deblink parameters (NARPS only)
 DEBLINK_EXTEND <- 100  # ms
 
-# =============================================================================
-# Dataset-specific settings
-# =============================================================================
 # NARPS: 64 trials per run, 4 runs
 NARPS_TRIALS_PER_RUN <- 64
 NARPS_TOTAL_TRIALS <- NARPS_TRIALS_PER_RUN * 4
@@ -80,13 +84,11 @@ SHENG2020_TOTAL_TRIALS <- SHENG2020_TRIALS_PER_RUN * 2
 SHENG2020_EVENT_START_PATTERN <- "Start*"
 SHENG2020_EVENT_RESPONSE_PATTERN <- "Response*"
 
-# =============================================================================
-# Valid subjects (can be overridden)
-# =============================================================================
-# NARPS valid subjects (those with usable pupil data)
+
+# Manual exclusion subjects NARPS
 narps_invalid_subs <- c()
 
-# Sheng2020: Exclude subject 29 due to missing data
+# Manual exclusion subjects Sheng2020
 sheng2020_invalid_subs <- c(29)
 
 # =============================================================================

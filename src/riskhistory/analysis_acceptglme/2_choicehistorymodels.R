@@ -1,5 +1,5 @@
 # =============================================================================
-# Choice History Under Risk: Run the Behavior Models with History in R
+# Run the Behavior Models with History in R
 # =============================================================================
 # Run several behavioral models including choice history and stimuli history for
 # each dataset and extract fixed effects.
@@ -18,37 +18,46 @@ for (ds in datasets) {
 
   # CHOICE HISTORY MODEL (MODEL OF INTEREST)
   model2 <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
-                    (1 + loss_centered | sub),
+                    (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS SUBJECTIVE VALUE MODEL
-  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_sv_z +
-                    (1 + loss_centered | sub),
+  # PREVIOUS EXPECTED VALUE MODEL
+  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_ev_z +
+                    (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # DELTA SUBJECTIVE VALUE MODEL
-  model4 <- glmer(accept ~ gain_centered + loss_centered + delta_sv_z +
-                    (1 + loss_centered | sub),
+  # DELTA EXPECTED VALUE MODEL
+  model4 <- glmer(accept ~ gain_centered + loss_centered + delta_ev_z +
+                    (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS STIMULI MODEL
-  model5 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_centered +
-                    prev_loss_centered + (1 + loss_centered | sub),
+  # PREVIOUS GAIN MODEL
+  model5 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_z +
+                    (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS SUBJECTIVE VALUE MODEL + CHOICE HISTORY
-  model6 <- glmer(accept ~ gain_centered + loss_centered + prev_sv_z +
-                    choice_prev1 + (1 + loss_centered | sub),
+  # PREVIOUS LOSS MODEL
+  model6 <- glmer(accept ~ gain_centered + loss_centered + prev_loss_z +
+                    (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # DELTA SUBJECTIVE VALUE MODEL + CHOICE HISTORY
-  model7 <- glmer(accept ~ gain_centered + loss_centered + delta_sv_z +
-                    choice_prev1 + (1 + loss_centered | sub),
+  # PREVIOUS EXPECTED VALUE MODEL + CHOICE HISTORY
+  model7 <- glmer(accept ~ gain_centered + loss_centered + prev_ev_z +
+                    choice_prev1 + (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS STIMULI MODEL + CHOICE HISTORY
-  model8 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_centered +
-                    prev_loss_centered + choice_prev1 +
-                    (1 + loss_centered | sub),
+  # DELTA EXPECTED VALUE MODEL + CHOICE HISTORY
+  model8 <- glmer(accept ~ gain_centered + loss_centered + delta_ev_z +
+                    choice_prev1 + (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
+  # PREVIOUS GAIN + CHOICE HISTORY
+  model9 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_z +
+                    choice_prev1 +
+                    (1 + loss_centered + gain_centered | sub),
+                  data = df_sub, family = binomial, control = GLMER_CONTROL)
+  # PREVIOUS LOSS + CHOICE HISTORY
+  model10 <- glmer(accept ~ gain_centered + loss_centered + prev_loss_z +
+                     choice_prev1 +
+                     (1 + loss_centered + gain_centered | sub),
+                   data = df_sub, family = binomial, control = GLMER_CONTROL)
 
   # CHOICE HISTORY MODEL + RND EFFECT OF CHOICE HISTORY
   model2_rnd <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
-                        (1 + loss_centered | sub) + (0 + choice_prev1 | sub),
+                        (1 + loss_centered + gain_centered  + choice_prev1 | sub),
                       data = df_sub, family = binomial, control = GLMER_CONTROL)
   models <- list(
     M2_part1 = model2,
@@ -58,7 +67,9 @@ for (ds in datasets) {
     M5_part1 = model5,
     M6_part1 = model6,
     M7_part1 = model7,
-    M8_part1 = model8
+    M8_part1 = model8,
+    M9_part1 = model9,
+    M10_part1 = model10
   )
   behavioral_models_list <- add_models_to_list(
     models_list = behavioral_models_list,

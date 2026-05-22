@@ -74,3 +74,16 @@ behavioral_models_list <- list()
 for (ds in datasets) {
   behavioral_models_list[[ds]] <- list()
 }
+
+# Print the number of unique participants in each dataset for verification
+for (ds in datasets) {
+  n_subs <- length(unique(behavioral_data$sub[behavioral_data$dataset == ds]))
+  message(sprintf("Dataset: %s, Unique Participants: %d", ds, n_subs))
+  # Print the mean number of trials per participant for verification
+  mean_trials <- behavioral_data %>%
+    filter(dataset == ds) %>%
+    group_by(sub) %>%
+    summarise(n_trials = n()) %>%
+    summarise(mean_trials = mean(n_trials))
+  message(sprintf("Dataset: %s, Mean Trials per Participant: %.2f", ds, mean_trials$mean_trials))
+}

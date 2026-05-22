@@ -5,22 +5,6 @@ def compute_choice_history(df, num_prev_trials=3, decay_rate=None):
     Compute an exponentially decayed sum of previous choices.
 
     choice_history = sum_{k=1}^{num_prev_trials} exp(-decay_rate * k) * choice_prev{k}
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Must contain columns: 'dataset' and 'choice_prev1', 'choice_prev2', ...
-        up to 'choice_prev{num_prev_trials}'.
-    num_prev_trials : int
-        Number of previous trials to include (default 3).
-    decay_rate : dict
-        Decay rate per dataset, e.g. {'narps': 0.5, 'sheng2020': 0.3}.
-        Keys must cover all unique values in df['dataset'].
-
-    Returns
-    -------
-    pd.DataFrame
-        Input dataframe with an added 'choice_history' column.
     """
     if decay_rate is None:
         raise ValueError("decay_rate must be provided as a dict mapping dataset -> rate")

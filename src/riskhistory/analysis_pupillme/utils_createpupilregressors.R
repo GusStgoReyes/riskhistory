@@ -1,11 +1,6 @@
 # =============================================================================
 # Create pupil regressors from behavioral data
 # =============================================================================
-# Creates derived regressors for pupil analysis: sv, entropy, logRT
-# Requires: behavioral data with gain_centered, loss_centered (from scale_stimuli)
-#           and merged subject-specific betas (beta_intercept, beta_gain, beta_loss)
-# =============================================================================
-# Sigmoid function for computing entropy from subjective value
 sigmoid <- function(x) {
   1 / (1 + exp(-x))
 }
@@ -40,20 +35,38 @@ create_pupil_regressors <- function(df) {
     ungroup() %>%
     group_by(sub) %>%
     mutate(
-      # SV: z-score within subject
       sv_z = scale(sv)[, 1],
       log_abs_delta_sv_z = scale(log_abs_delta_sv,
-                                center = TRUE, scale = TRUE)[, 1],
+                                 center = TRUE, scale = TRUE)[, 1],
       logRT_z = scale(logRT, center = TRUE, scale = TRUE)[, 1],
-      # Entropy: center within subject
       entropy_c = scale(entropy, center = TRUE, scale = FALSE)[, 1],
-      # Streaks: center within subject
       logstreak_on_switch_z = scale(logstreak_on_switch,
                                     center = TRUE, scale = TRUE)[, 1],
       logstreak_on_repeat_z = scale(logstreak_on_repeat,
-                                    center = TRUE, scale = TRUE)[, 1]
+                                    center = TRUE, scale = TRUE)[, 1],
+      gain_z = scale(gain)[, 1],
+      loss_z = scale(loss)[, 1]
     ) %>%
     ungroup()
 
   return(df)
+}
+
+add_pattern <- function(df) {
+  df %>%
+    mutate(
+      prev1   = choice_prev1 > 0,
+      prev2   = choice_prev2 > 0,
+      pattern = case_when(
+        is.na(choice_prev1) | is.na(choice_prev2) ~ NA_character_,
+        (accept == 1) == prev1 & prev1 == prev2   ~ "streak_continue", #AAA
+        (accept == 1) != prev1 & prev1 == prev2   ~ "streak_break", #AAB
+        (accept == 1) == prev1 & prev1 != prev2   ~ "confirm_switch", #ABB
+        (accept == 1) != prev1 & prev1 != prev2   ~ "return_to_prior" #ABA
+      ),
+      pattern = factor(pattern,
+                       levels = c("streak_continue", "streak_break",
+                                  "confirm_switch", "return_to_prior"))
+    ) %>%
+    select(-prev1, -prev2)
 }

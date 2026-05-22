@@ -73,6 +73,28 @@ behavioral_data <- merge(behavioral_data, betas_sub,
 behavioral_data <- add_sv(behavioral_data)
 
 # =============================================================================
+# Load pupil GLM betas
+# =============================================================================
+message("Loading pupil GLM betas...")
+pupil_betas <- read.csv(file.path(analysis_data_path, "preprocessed",
+                                  "pupilbetas_glm_preprocessed.csv"))
+# Make exclude_startAligned boolean
+pupil_betas <- pupil_betas %>%
+  mutate(exclude_startAligned = as.logical(exclude_startAligned))
+
+# Merge with behavioral data to obtain trial-level regressors
+message("Merging with behavioral data...")
+data_betas <- merge(pupil_betas,
+                    behavioral_data,
+                    by = c("sub", "trial", "run", "dataset"))
+# Apply pupil exclusion criteria
+data_betas_clean <- data_betas %>%
+  filter(!exclude_startAligned)
+
+# Scale regressors within-subject (reuses existing pupil regressor pipeline)
+data_betas_clean <- create_pupil_regressors(data_betas_clean)
+
+# =============================================================================
 # Load pupil data
 # =============================================================================
 message("Loading pupil data...")

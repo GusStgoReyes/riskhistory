@@ -11,7 +11,7 @@ extract_random_effects_sv <- function(
   # Extract random effects for loss and intercept slopes
   ranef_vals <- ranef(model)$sub %>%
     rownames_to_column("sub") %>%
-    rename(u_intercept = `(Intercept)`, u_loss = loss_centered)
+    rename(u_intercept = `(Intercept)`, u_loss = loss_centered, u_gain = gain_centered)
   ranef_vals$sub <- as.integer(ranef_vals$sub)
 
   ranef_vals$dataset <- ds
@@ -19,7 +19,7 @@ extract_random_effects_sv <- function(
     mutate(
       beta_intercept = intercept_fixed + u_intercept,
       beta_loss = loss_fixed + u_loss,
-      beta_gain = gain_fixed # + u_gain
+      beta_gain = gain_fixed + u_gain
     ) %>%
     select(sub, dataset, beta_intercept, beta_gain, beta_loss)
 
