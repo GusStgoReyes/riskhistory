@@ -11,7 +11,7 @@ from pathlib import Path
 import arviz as az
 import numpy as np
 import pandas as pd
-
+import hddm
 
 def idata_to_tidy(ds, model_id: str, stat_name: str) -> pd.DataFrame:
     rows = []
@@ -34,24 +34,29 @@ def compute_diagnostics(model_id: str, dataset: str, results_pth: str) -> None:
     if not nc_path.exists():
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
 
+    model_path = hddm_dir / f"{model_id}_{dataset}"
+    m = hddm.load(model_path)
+    print("p_outlier:", m.p_outlier, flush = True)
     print(f"Loading {nc_path} ...", flush=True)
     idata = az.from_netcdf(str(nc_path))
-    ll = idata.log_likelihood
+    ll = idata.log_likelihood["log_lik"].values
+    flat = ll.reshape(-1, ll.shape[-1])
 
-    # Whole group overview (variables + dims + sizes)
-    print(ll, flush = True)
+    print("any nan:", np.isnan(flat).any(), "any inf:", np.isinf(flat).any(), flush = True)
+    print("global min/max:", np.nanmin(flat), np.nanmax(flat), flush = True)
+    var_t = flat.var(0); mean_t = flat.mean(0)
+    print("p_waic:", var_t.sum(), flush = True)
+    print("n var>1:", (var_t>1).sum(), " n>10:", (var_t>10).sum(), " n>100:", (var_t>100).sum(), flush = True)
+    print("top 10 trial variances:", np.sort(var_t)[-10:], flush = True)
+    print("avg per-trial mean loglik:", mean_t.mean(), " min:", mean_t.min(), flush = True)
+    worst = np.argmax(var_t)
+    print("worst trial sample:", flat[:20, worst], "min/max:", flat[:,worst].min(), flat[:,worst].max(), flush = True)
 
-    # Just dim names and sizes per variable
-    for v in ll.data_vars:
-        print(v, dict(ll[v].sizes), flush = True)
-
-    # Top-level dims and sizes of the group
-    print(dict(ll.sizes), flush = True)
-    print("  Computing WAIC (pointwise) ...", flush=True)
-    waic_result = az.waic(idata, pointwise=True)
-    waic_path = output_dir / f"{model_id}_{dataset}_waic.pkl"
-    with open(waic_path, "wb") as f:
-        pickle.dump(waic_result, f)
+    print("  Computing LOO (pointwise) ...", flush=True)
+    loo_result = az.loo(idata, pointwise=True)
+    loo_path = output_dir / f"{model_id}_{dataset}_loo.pkl"
+    with open(loo_path, "wb") as f:
+        pickle.dump(loo_result, f)
 
     print("  Computing rhat ...", flush=True)
     idata_to_tidy(az.rhat(idata), model_id, "rhat").to_csv(

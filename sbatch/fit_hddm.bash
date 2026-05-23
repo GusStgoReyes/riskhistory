@@ -67,8 +67,10 @@ MODEL_ID=${models[$IDX]}
 
 echo "Running model: $MODEL_ID"
 
-PYTHONPATH="$PYTHONPATH" singularity exec "$REPO_PTH/hddm.sif" \
-  python -m "$MODULE" \
+cd $REPO_PTH
+
+singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \
+  python -m riskhistory.analysis_ddm.model_hddm \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
   --data_pth "$BEHAV_CSV" \
