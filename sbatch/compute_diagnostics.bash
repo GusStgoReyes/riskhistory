@@ -59,7 +59,7 @@ singularity exec "hddm.sif" \
   --results_pth "$RESULTS_DIR"
 EOF
 
-export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE
+export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE BEHAV_CSV PUPIL_CSV
 echo "Submitting diagnostics array job..."
 ARRAY_JOB_ID=$(sbatch --export=ALL --parsable "$TEMP_SBATCH")
 echo "Array job ID: $ARRAY_JOB_ID"
