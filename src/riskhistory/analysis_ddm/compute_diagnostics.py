@@ -122,16 +122,22 @@ def main():
         required=True,
         help="Path to pupil betas CSV file",
     )
-
+    
     parser.add_argument(
         "--results_pth", type=str, required=True, help="Path to results directory"
     )
     args = parser.parse_args()
 
+    if "Pupil" in args.model_id:
+        pupil = True
+    else:
+        pupil = False
+
     compute_diagnostics(
         model_id=args.model_id,
         dataset=args.dataset_name,
         results_pth=args.results_pth,
+        pupil=pupil,
         data_pth=args.data_pth,
         pupil_pth=args.pupil_pth
     )
