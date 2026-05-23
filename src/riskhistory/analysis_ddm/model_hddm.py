@@ -118,7 +118,7 @@ def main():
     parser.add_argument(
         "--model_id",
         type=str,
-        default="HDDM_Collapse",
+        default="HDDM_Base",
         choices=get_available_models(),
         help="Model ID to fit",
     )

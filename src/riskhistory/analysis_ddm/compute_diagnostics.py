@@ -1,4 +1,4 @@
-"""Per-model WAIC, rhat, and ESS computation for a single HDDM fit.
+"""Per-model LOO, rhat, and ESS computation for a single HDDM fit.
 
 Run one instance per model (e.g. as a SLURM array job) so each job holds
 only one ~20 GB InferenceData file in memory at a time.
@@ -7,6 +7,8 @@ Results are saved as small intermediate files for compare_models.py to aggregate
 import argparse
 import pickle
 from pathlib import Path
+
+from .utils_data import load_data
 
 import arviz as az
 import numpy as np
@@ -25,7 +27,13 @@ def idata_to_tidy(ds, model_id: str, stat_name: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def compute_diagnostics(model_id: str, dataset: str, results_pth: str) -> None:
+def compute_diagnostics(model_id: str, 
+                        dataset: str, 
+                        results_pth: str, 
+                        pupil: bool,
+                        data_pth: str,
+                        pupil_pth: str,
+                        ) -> None:
     hddm_dir = Path(results_pth) / "hddm"
     output_dir = Path(results_pth) / "hddm_compare"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -37,8 +45,11 @@ def compute_diagnostics(model_id: str, dataset: str, results_pth: str) -> None:
     model_path = hddm_dir / f"{model_id}_{dataset}"
     m = hddm.load(model_path)
     print("p_outlier:", m.p_outlier, flush = True)
+
     print(f"Loading {nc_path} ...", flush=True)
     idata = az.from_netcdf(str(nc_path))
+    
+    print("Checking log_likelihood ...", flush=True)
     ll = idata.log_likelihood["log_lik"].values
     flat = ll.reshape(-1, ll.shape[-1])
 
@@ -52,8 +63,25 @@ def compute_diagnostics(model_id: str, dataset: str, results_pth: str) -> None:
     worst = np.argmax(var_t)
     print("worst trial sample:", flat[:20, worst], "min/max:", flat[:,worst].min(), flat[:,worst].max(), flush = True)
 
+    # Fixing the log_likelihood to reflect p_outlier
+    data = load_data(
+        data_pth=data_pth,
+        pupil_pth=pupil_pth,
+        dataset_name=dataset,
+        pupil=pupil
+    )
+    rt_min, rt_max = data["rt"].min(), data["rt"].max()
+    uniform_density = 1.0 / (rt_max - rt_min) / 2.0
+    dens = np.exp(ll.values)
+    ll_mixed = np.log((1 - m.p_outlier) * dens + m.p_outlier * uniform_density)
+    idata.log_likelihood["log_lik"] = (ll.dims, ll_mixed)
+
     print("  Computing LOO (pointwise) ...", flush=True)
     loo_result = az.loo(idata, pointwise=True)
+    print("elpd_loo:", loo_result.elpd_loo, "p_loo:", loo_result.p_loo, flush = True)
+    k = np.asarray(loo_result.pareto_k.values)
+    print("n k>0.7:", (k>0.7).sum(), "max k:", k.max(), "new min ll:", ll_mixed.min(), flush = True)
+
     loo_path = output_dir / f"{model_id}_{dataset}_loo.pkl"
     with open(loo_path, "wb") as f:
         pickle.dump(loo_result, f)
@@ -73,7 +101,7 @@ def compute_diagnostics(model_id: str, dataset: str, results_pth: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compute WAIC, rhat, and ESS for a single HDDM fit"
+        description="Compute LOO, rhat, and ESS for a single HDDM fit"
     )
     parser.add_argument("--model_id", type=str, required=True, help="Model ID")
     parser.add_argument(
@@ -83,6 +111,19 @@ def main():
         choices=["equalIndifference", "sheng2020", "equalRange"],
     )
     parser.add_argument(
+        "--data_pth",
+        type=str,
+        required=True,
+        help="Path to behavioral CSV file",
+    )
+    parser.add_argument(
+        "--pupil_pth",
+        type=str,
+        required=True,
+        help="Path to pupil betas CSV file",
+    )
+
+    parser.add_argument(
         "--results_pth", type=str, required=True, help="Path to results directory"
     )
     args = parser.parse_args()
@@ -91,6 +132,8 @@ def main():
         model_id=args.model_id,
         dataset=args.dataset_name,
         results_pth=args.results_pth,
+        data_pth=args.data_pth,
+        pupil_pth=args.pupil_pth
     )
 
 

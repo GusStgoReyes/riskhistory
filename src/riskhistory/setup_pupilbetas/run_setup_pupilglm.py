@@ -59,10 +59,10 @@ def main():
     vif_df = pd.concat(vif_results, ignore_index=True)
 
     # Summary: R², alpha, and decision betas by dataset
-    r2_per_run = glm_results_df[["sub", "run", "dataset", "r2", "alpha"]].drop_duplicates()
+    r2_per_sub = glm_results_df[["sub", "dataset", "r2", "alpha"]].drop_duplicates()
     decision_betas = glm_results_df[glm_results_df["betas_names"].str.contains("decision")]
     summary = (
-        r2_per_run.groupby("dataset")[["r2", "alpha"]]
+        r2_per_sub.groupby("dataset")[["r2", "alpha"]]
         .agg(["mean", "std"])
         .round(4)
     )
@@ -93,7 +93,7 @@ def main():
     # Save VIF results
     vif_out = results_pth / "setup_pupilbetas"
     vif_out.mkdir(parents=True, exist_ok=True)
-    vif_df.to_csv(vif_out / "design_vif_per_run.csv", index=False)
+    vif_df.to_csv(vif_out / "design_vif_per_sub.csv", index=False)
     vif_summary.to_csv(vif_out / "design_vif_summary.csv")
     print(f"Saved VIF results to {vif_out}")
 

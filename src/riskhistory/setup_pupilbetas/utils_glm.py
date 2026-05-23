@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import block_diag
 from riskhistory.setup_pupilbetas.utils_create_regressors import (create_timings_matrix,
                                                                     create_fixation_matrix,
                                                                     convolve_with_prf)
@@ -70,14 +71,7 @@ def build_design_matrix_run(all_pupil_data,
                                                                       regressor_name="decision")
     decision_regressors = convolve_with_prf(decision_regressors, chosen_prf)
 
-    # Find any duration < 0.1s and make the decision regressor 0
-    short_decision_mask = np.array([durations[trial] < 0.1 for trial in run_start_timings.keys()])
-    if short_decision_mask.sum() > 0:
-        print(f"  Found {short_decision_mask.sum()} trials with duration < 0.1s in sub-{sub} run-{run}, "
-            f"setting their decision regressors to 0")
-        decision_regressors[:, short_decision_mask] = 0.0
-
-    # Button press regressors (1 impulse beta per trial at response time)
+    # Button press regressors (1 beta per run)
     response_timings_run = (get_response_timings_df(dataset)
                             .query("sub == @sub and run == @run")
                             .set_index("trial")["time_secs"]
@@ -85,7 +79,7 @@ def build_design_matrix_run(all_pupil_data,
     button_regressors, button_betas_name = create_timings_matrix(response_timings_run,
                                                                   time_vector,
                                                                   trial_durations=None,
-                                                                  option="ls-a",
+                                                                  option="all",
                                                                   trial_of_interest=None,
                                                                   sub=sub,
                                                                   run=run,
@@ -161,22 +155,67 @@ def glm_single_run(all_pupil_data,
     return pd.DataFrame(results_run), vif_stats
 
 
+def build_design_matrix_all_runs(all_pupil_data,
+                                 chosen_prf,
+                                 start_timings,
+                                 sub,
+                                 runs,
+                                 dataset):
+    dms = []
+    all_names = []
+    for run in runs:
+        dm_run, names_run = build_design_matrix_run(
+            all_pupil_data, chosen_prf, start_timings, sub, run, dataset
+        )
+        dms.append(dm_run)
+        all_names.extend(names_run)
+    return block_diag(*dms), all_names
+
+
+def glm_all_runs(all_pupil_data,
+                 chosen_prf,
+                 start_timings,
+                 sub,
+                 runs,
+                 dataset):
+    combined_dm, betas_name = build_design_matrix_all_runs(
+        all_pupil_data, chosen_prf, start_timings, sub, runs, dataset
+    )
+    y = np.concatenate([all_pupil_data[run]["pupil"].values for run in runs])
+
+    betas_estimates, residuals, best_alpha = ridge(combined_dm, y)
+
+    ss_res = (residuals ** 2).sum()
+    ss_tot = ((y - y.mean()) ** 2).sum()
+    r2 = 1.0 - ss_res / ss_tot
+    print(f"R-squared for sub-{sub} (all runs combined): {r2:.4f}")
+
+    n = len(betas_name)
+    results_df = pd.DataFrame({
+        "betas_estimates": betas_estimates.tolist(),
+        "betas_names": betas_name,
+        "r2": [r2] * n,
+        "alpha": [best_alpha] * n,
+    })
+    results_df["run"] = results_df["betas_names"].str.extract(r'_run-(\d+)')[0].astype("Int64")
+    results_df["sub"] = sub
+    results_df["dataset"] = dataset
+
+    vif_stats = compute_vif(combined_dm, betas_name, sub, run=None, dataset=dataset,
+                            regressor_type="decision")
+    print(f"  Decision VIF — mean: {vif_stats['mean_vif_decision']:.2f}, "
+          f"sd: {vif_stats['sd_vif_decision']:.2f} (n={vif_stats['n_regressors_decision']})")
+
+    return results_df, vif_stats
+
+
 def glm_single_sub(all_pupil_data,
                    chosen_prf,
                    start_timings,
                    sub,
                    runs,
                    dataset):
-    run_frames = []
-    vif_records = []
-    for run in runs:
-        results_run, vif_stats = glm_single_run(all_pupil_data, chosen_prf,
-                                                start_timings,
-                                                sub, run, dataset)
-        results_run["run"] = run
-        run_frames.append(results_run)
-        vif_records.append(vif_stats)
-    results_sub = pd.concat(run_frames, ignore_index=True)
-    results_sub["sub"] = sub
-    results_sub["dataset"] = dataset
-    return results_sub, pd.DataFrame(vif_records)
+    results_sub, vif_stats = glm_all_runs(
+        all_pupil_data, chosen_prf, start_timings, sub, runs, dataset
+    )
+    return results_sub, pd.DataFrame([vif_stats])

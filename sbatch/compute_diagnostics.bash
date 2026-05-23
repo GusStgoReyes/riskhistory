@@ -54,6 +54,8 @@ singularity exec "hddm.sif" \
   python "$REPO_PTH/src/riskhistory/analysis_ddm/compute_diagnostics.py" \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
+  --data_pth "$BEHAV_CSV" \
+  --pupil_pth "$PUPIL_CSV" \
   --results_pth "$RESULTS_DIR"
 EOF
 
