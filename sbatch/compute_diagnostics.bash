@@ -50,8 +50,8 @@ cd $REPO_PTH
 
 PYTHONPATH="$PYTHONPATH" 
 
-singularity exec "hddm.sif" \
-  python "$REPO_PTH/src/riskhistory/analysis_ddm/compute_diagnostics.py" \
+singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \
+  python -m riskhistory.analysis_ddm.compute_diagnostics \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
   --data_pth "$BEHAV_CSV" \
