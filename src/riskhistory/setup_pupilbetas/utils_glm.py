@@ -89,7 +89,8 @@ def build_design_matrix_run(all_pupil_data,
 
     # Fixation regressors (4 betas estimated per run)
     fixation_regressors, fixation_betas_name = create_fixation_matrix(all_pupil_data[run]["eye_x"].values,
-                                                                       all_pupil_data[run]["eye_y"].values)
+                                                                       all_pupil_data[run]["eye_y"].values,
+                                                                       run_block=run)
 
     # Intercept regressor (1 beta estimated per run)
     intercept_regressor = np.ones((len(time_vector), 1))

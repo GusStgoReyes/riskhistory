@@ -59,7 +59,8 @@ def create_timings_matrix(trial_timings,
     return timings_matrix, labels
 
 def create_fixation_matrix(eye_x, 
-                           eye_y):
+                           eye_y,
+                           run_block):
     # Z-score eye_x and eye_y
     eye_x = (eye_x - np.mean(eye_x)) / np.std(eye_x)
     eye_y = (eye_y - np.mean(eye_y)) / np.std(eye_y)
@@ -80,7 +81,7 @@ def create_fixation_matrix(eye_x,
     fixation_matrix[:, 2] = np.square(eye_x)
     fixation_matrix[:, 3] = np.square(eye_y)
 
-    labels = ["eye_x", "eye_y", "eye_x_squared", "eye_y_squared"]
+    labels = [f"eye_x_run-{run_block}", f"eye_y_run-{run_block}", f"eye_x_squared_run-{run_block}", f"eye_y_squared_run-{run_block}"]
     return fixation_matrix, labels
 
 def convolve_with_prf(timings_matrix, prf_vector, normalize = True):
