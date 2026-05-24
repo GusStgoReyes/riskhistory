@@ -35,7 +35,9 @@ cat > "$TEMP_SBATCH" <<EOF
 
 set -euo pipefail
 
-PYTHONPATH="$PYTHONPATH" singularity exec "$REPO_PTH/hddm.sif" \\
+PYTHONPATH="$PYTHONPATH" 
+
+singularity exec --env "PYTHONPATH"=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \\
   python -m "$MODULE" \\
   --models ${models[*]} \\
   --dataset_name "$DATASET_NAME" \\

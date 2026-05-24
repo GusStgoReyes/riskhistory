@@ -50,7 +50,8 @@ def compute_diagnostics(model_id: str,
     idata = az.from_netcdf(str(nc_path))
     
     print("Checking log_likelihood ...", flush=True)
-    ll = idata.log_likelihood["log_lik"].values
+    ll_da = idata.log_likelihood["log_lik"]
+    ll = ll_da.values
     flat = ll.reshape(-1, ll.shape[-1])
 
     print("any nan:", np.isnan(flat).any(), "any inf:", np.isinf(flat).any(), flush = True)
@@ -72,9 +73,9 @@ def compute_diagnostics(model_id: str,
     )
     rt_min, rt_max = data["rt"].min(), data["rt"].max()
     uniform_density = 1.0 / (rt_max - rt_min) / 2.0
-    dens = np.exp(ll.values)
+    dens = np.exp(ll)
     ll_mixed = np.log((1 - m.p_outlier) * dens + m.p_outlier * uniform_density)
-    idata.log_likelihood["log_lik"] = (ll.dims, ll_mixed)
+    idata.log_likelihood["log_lik"] = (ll_da.dims, ll_mixed)
 
     print("  Computing LOO (pointwise) ...", flush=True)
     loo_result = az.loo(idata, pointwise=True)

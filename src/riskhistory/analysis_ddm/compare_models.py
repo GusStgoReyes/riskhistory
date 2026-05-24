@@ -1,4 +1,4 @@
-"""WAIC model comparison aggregation for HDDM fits.
+"""LOO model comparison aggregation for HDDM fits.
 
 Loads per-model intermediate files produced by compute_diagnostics.py
 and runs az.compare(). No large InferenceData files are loaded here.
@@ -14,42 +14,42 @@ import pandas as pd
 def run_comparison(models: list[str], dataset: str, results_pth: str) -> None:
     output_dir = Path(results_pth) / "hddm_compare"
 
-    waic_dict: dict[str, az.ELPDData] = {}
+    loo_dict: dict[str, az.ELPDData] = {}
     rhat_frames = []
     ess_frames = []
 
     for model_name in models:
-        waic_path = output_dir / f"{model_name}_{dataset}_waic.pkl"
+        loo_path = output_dir / f"{model_name}_{dataset}_loo.pkl"
         rhat_path = output_dir / f"{model_name}_{dataset}_rhat.csv"
         ess_path = output_dir / f"{model_name}_{dataset}_ess.csv"
 
-        for p in (waic_path, rhat_path, ess_path):
+        for p in (loo_path, rhat_path, ess_path):
             if not p.exists():
                 raise FileNotFoundError(
                     f"{p} not found — run compute_diagnostics.py first"
                 )
 
-        with open(waic_path, "rb") as f:
-            waic_dict[model_name] = pickle.load(f)
+        with open(loo_path, "rb") as f:
+            loo_dict[model_name] = pickle.load(f)
 
         rhat_frames.append(pd.read_csv(rhat_path))
         ess_frames.append(pd.read_csv(ess_path))
 
-    print("Running WAIC comparison...", flush=True)
-    compare_df = az.compare(waic_dict, ic="waic")
+    print("Running LOO comparison...", flush=True)
+    compare_df = az.compare(waic_dict, ic="loo")
     compare_df.index.name = "model"
     compare_df.reset_index().to_csv(
-        output_dir / f"{dataset}_model_comparison_waic.csv", index=False
+        output_dir / "summary" / f"{dataset}_model_comparison_loo.csv", index=False
     )
     print(compare_df.to_string(), flush=True)
 
     pd.concat(rhat_frames, ignore_index=True).to_csv(
-        output_dir / f"{dataset}_rhat.csv", index=False
+        output_dir / "summary" / f"{dataset}_rhat.csv", index=False
     )
     pd.concat(ess_frames, ignore_index=True).to_csv(
-        output_dir / f"{dataset}_ess.csv", index=False
+        output_dir / "summary" / f"{dataset}_ess.csv", index=False
     )
-    print(f"Results saved to {output_dir}", flush=True)
+    print(f"Results saved to {output_dir}/summary", flush=True)
 
 
 def main():
