@@ -48,7 +48,7 @@ for (ds in datasets) {
              data = df_sub, REML = FALSE, control = LMER_CONTROL)
 
   M2 <- lmer(pupil ~ logRT_z + gain_z + loss_z + entropy_c +
-               (1 + logRT_z | sub),
+               (1 + logRT_z  | sub),
              data = df_sub, REML = FALSE, control = LMER_CONTROL)
 
   M3 <- lmer(pupil ~ logRT_z + gain_z + loss_z + entropy_c + pattern +

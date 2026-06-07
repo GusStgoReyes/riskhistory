@@ -51,6 +51,11 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
                 .drop_duplicates(subset=["param_name"], keep="last"))
     
     param_dict = dict(zip(combined["param_name"], combined["param_value"]))
+
+    # PyDDM Boundary is half of HDDM's a
+    if "a" in param_dict:
+        param_dict["a"] = param_dict["a"] / 2.0
+        
     model.set_parameters(param_dict)
     return model
 

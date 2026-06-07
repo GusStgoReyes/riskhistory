@@ -15,7 +15,7 @@ for (ds in datasets) {
   pupilbins_models_list[[ds]] <- list()
 }
 
-BINS <- c("q1", "q2", "q3", "q4")
+BINS <- c("Low", "High")
 
 for (ds in datasets) {
   message(sprintf("\nFitting pupil-bin models for dataset: %s", ds))
@@ -25,7 +25,7 @@ for (ds in datasets) {
     df_bin <- data_clean %>% filter(dataset == ds, pupil_bin == bin)
 
     m <- glmer(
-      accept ~ gain_centered + loss_centered + choice_prev1 + (1 + loss_centered | sub),
+      accept ~ gain_centered + loss_centered + (1 + loss_centered + gain_centered | sub),
       data    = df_bin,
       family  = binomial,
       control = GLMER_CONTROL

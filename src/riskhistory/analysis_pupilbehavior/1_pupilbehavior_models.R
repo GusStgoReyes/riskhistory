@@ -4,9 +4,6 @@
 # Tests whether decision-period pupil dilation interacts with stimulus values
 # and previous choices to predict accept/reject decisions.
 #
-# Model:
-#   accept ~ gain_centered*pupil + loss_centered*pupil + choice_prev1*pupil
-#            + (1 + loss_centered | sub)
 # =============================================================================
 
 pupilbehavior_models_list <- list()
@@ -19,8 +16,8 @@ for (ds in datasets) {
   df_sub <- data_clean %>% filter(dataset == ds)
 
   m <- glmer(
-    accept ~ gain_centered * pupil + loss_centered * pupil + choice_prev1 * pupil +
-      (1 + loss_centered | sub),
+    accept ~ gain_centered * pupil  + loss_centered * pupil +
+      (1 + loss_centered + gain_centered + pupil | sub),
     data    = df_sub,
     family  = binomial,
     control = GLMER_CONTROL
