@@ -26,9 +26,8 @@ sbatch <<EOF
 #!/bin/bash
 #SBATCH --job-name=ppcddm
 #SBATCH --time=00:15:00
-#SBATCH --partition=russpold
+#SBATCH --partition=normal,russpold
 #SBATCH --qos=normal
-#SBATCH --account=russpold
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1G
 #SBATCH --output=${LOG_DIR}/ppcddm_%A_%a.out
