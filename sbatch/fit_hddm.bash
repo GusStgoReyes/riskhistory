@@ -69,7 +69,7 @@ echo "Running model: $MODEL_ID"
 
 cd $REPO_PTH
 
-singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \
+singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   python -m riskhistory.analysis_ddm.model_hddm \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
@@ -82,6 +82,6 @@ EOF
 # ======================
 # Submit and clean up
 # ======================
-export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV PUPIL_CSV RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE
+export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV PUPIL_CSV RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE HDDM_SIF
 echo "Submitting array job..."
 sbatch --export=ALL "$TEMP_SBATCH"

@@ -37,14 +37,14 @@ set -euo pipefail
 
 PYTHONPATH="$PYTHONPATH" 
 
-singularity exec --env "PYTHONPATH"=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \\
+singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \\
   python -m "$MODULE" \\
   --models ${models[*]} \\
   --dataset_name "$DATASET_NAME" \\
   --results_pth "$RESULTS_DIR"
 EOF
 
-export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE
+export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE HDDM_SIF
 
 DEPENDENCY_FLAG=""
 if [[ -n "$DIAG_JOB_ID" ]]; then

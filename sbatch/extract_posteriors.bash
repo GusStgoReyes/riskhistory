@@ -48,14 +48,14 @@ echo "Extracting posterior for: $MODEL_ID"
 
 cd $REPO_PTH
 
-singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \
+singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   python -m riskhistory.analysis_ddm.extract_posteriors \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
   --results_pth "$RESULTS_DIR"
 EOF
 
-export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE
+export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE HDDM_SIF
 echo "Submitting posterior extraction array job..."
 ARRAY_JOB_ID=$(sbatch --export=ALL --parsable "$TEMP_SBATCH")
 echo "Array job ID: $ARRAY_JOB_ID"

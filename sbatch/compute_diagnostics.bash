@@ -50,7 +50,7 @@ cd $REPO_PTH
 
 PYTHONPATH="$PYTHONPATH" 
 
-singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \
+singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   python -m riskhistory.analysis_ddm.compute_diagnostics \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
@@ -59,7 +59,7 @@ singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$REPO_PTH/hddm.sif" \
   --results_pth "$RESULTS_DIR"
 EOF
 
-export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE BEHAV_CSV PUPIL_CSV
+export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE BEHAV_CSV PUPIL_CSV HDDM_SIF
 echo "Submitting diagnostics array job..."
 ARRAY_JOB_ID=$(sbatch --export=ALL --parsable "$TEMP_SBATCH")
 echo "Array job ID: $ARRAY_JOB_ID"
