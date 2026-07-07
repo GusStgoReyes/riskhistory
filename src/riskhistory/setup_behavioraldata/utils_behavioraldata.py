@@ -6,6 +6,7 @@
 # 'trial': trial number
 # 'trial_run': trial number within the run
 # 'accept': choice made by the subject (0 or 1)
+# 'response_raw': original coding of the response (e.g. for NARPS: 1, 2, 3, 4, or nan)
 # 'gain': gain amount for the trial
 # 'loss': loss amount for the trial
 # 'prev_gain' : gain amount from the previous trial
@@ -38,7 +39,7 @@ STIMULI_CENTER = {
 
 def _final_columns(N_max=6):
     return (
-        ['sub', 'trial', 'trial_run', 'run', 'accept', 'gain', 'loss',
+        ['sub', 'trial', 'trial_run', 'run', 'accept', 'response_raw', 'gain', 'loss',
          'gain_centered', 'loss_centered', 'prev_gain_centered', 'prev_loss_centered',
          'rt', 'dataset', 'choice'] +
         [f'choice_prev{N}' for N in range(1, N_max + 1)] +
@@ -224,6 +225,7 @@ def prepare_narps_behavioral_data(df, min_rt=0.2, max_rt=3.8, N_max=6):
     # Vectorized RT validity and response coding
     invalid_rt = (df['rt'] < min_rt) | (df['rt'] > max_rt)
     original_response = df['response_int'].copy()
+    df['response_raw'] = original_response
 
     df['accept'] = np.where(invalid_rt, np.nan,
                    np.where(original_response.isin([3.0, 4.0]), 1.0,
@@ -272,6 +274,7 @@ def prepare_sheng2020_behavioral_data(df_response, df_pupil, min_rt=0.2, max_rt=
 
     # Vectorized RT validity and response coding
     invalid_rt = (df['rt'] < min_rt) | (df['rt'] > max_rt)
+    df['response_raw'] = df['accept'].copy()
     df['accept'] = np.where(invalid_rt, np.nan,
                    np.where(df['accept'].isin([0, 1, 2, 3, 4]), df['accept'].astype(float), np.nan))
 
@@ -305,7 +308,7 @@ def compute_exclusion_counts(df, min_rt=0.2, max_rt=3.8, min_prev_valid_trials=2
 
     Returns a DataFrame with columns:
         dataset, sub, n_trials, n_excluded_min_rt, n_excluded_max_rt,
-        n_excluded_min_prev_valid, n_excluded_total
+        n_excluded_min_prev_valid, n_excluded_missing_gainloss, n_excluded_total
     """
     rows = []
     for (dataset, sub), group in df.groupby(["dataset", "sub"]):
@@ -317,6 +320,8 @@ def compute_exclusion_counts(df, min_rt=0.2, max_rt=3.8, min_prev_valid_trials=2
         prev_flags = [group[f"choice_prev{N}"] == 0 for N in range(1, min_prev_valid_trials + 1)]
         n_min_prev = np.logical_or.reduce(prev_flags).sum()
 
+        n_missing_gainloss = (group["gain"].isna() | group["loss"].isna()).sum()
+
         n_total = group["exclude"].sum()
 
         rows.append({
@@ -326,6 +331,7 @@ def compute_exclusion_counts(df, min_rt=0.2, max_rt=3.8, min_prev_valid_trials=2
             "n_excluded_min_rt": int(n_min_rt),
             "n_excluded_max_rt": int(n_max_rt),
             "n_excluded_min_prev_valid": int(n_min_prev),
+            "n_excluded_missing_gainloss": int(n_missing_gainloss),
             "n_excluded_total": int(n_total),
         })
 
@@ -339,10 +345,10 @@ def summarize_exclusion_counts(exclusion_counts_df):
     Returns a DataFrame with columns:
         dataset, n_subjects,
         mean/sd of n_excluded_min_rt, n_excluded_max_rt,
-        n_excluded_min_prev_valid, n_excluded_total
+        n_excluded_min_prev_valid, n_excluded_missing_gainloss, n_excluded_total
     """
-    criteria = ["n_excluded_min_rt", "n_excluded_max_rt",
-                "n_excluded_min_prev_valid", "n_excluded_total"]
+    criteria = ["n_excluded_min_rt", "n_excluded_max_rt", "n_excluded_min_prev_valid",
+                "n_excluded_missing_gainloss", "n_excluded_total"]
 
     rows = []
     for dataset, group in exclusion_counts_df.groupby("dataset"):
@@ -460,35 +466,55 @@ def exclude_participants_by_criteria(
     df : pd.DataFrame
         Behavioral data with excluded participants removed.
     subject_stats_df : pd.DataFrame
-        Updated stats with 'excluded' and 'exclusion_reason' columns.
+        Updated stats with 'excluded', 'exclusion_reason', and one boolean
+        column per criterion ('excluded_high_trial_exclusion_pct',
+        'excluded_low_acceptance_rate', 'excluded_high_acceptance_rate',
+        'excluded_low_mean_rt', 'excluded_high_mean_rt', 'excluded_manual').
     """
     if manually_excluded is None:
         manually_excluded = []
 
+    criterion_cols = [
+        'excluded_high_trial_exclusion_pct',
+        'excluded_low_acceptance_rate',
+        'excluded_high_acceptance_rate',
+        'excluded_low_mean_rt',
+        'excluded_high_mean_rt',
+        'excluded_manual',
+    ]
+
     subject_stats_df = subject_stats_df.copy()
     subject_stats_df['excluded'] = False
     subject_stats_df['exclusion_reason'] = ''
+    for col in criterion_cols:
+        subject_stats_df[col] = False
 
     for idx, row in subject_stats_df.iterrows():
         reasons = []
 
         if row['excluded_trials_pct'] > max_excluded_trials_pct:
             reasons.append(f"excluded_trials_pct={row['excluded_trials_pct']:.2f}")
+            subject_stats_df.loc[idx, 'excluded_high_trial_exclusion_pct'] = True
 
         if pd.notna(row['acceptance_rate']):
             if row['acceptance_rate'] < min_acceptance_rate:
                 reasons.append(f"acceptance_rate={row['acceptance_rate']:.2f}<{min_acceptance_rate}")
+                subject_stats_df.loc[idx, 'excluded_low_acceptance_rate'] = True
             elif row['acceptance_rate'] > max_acceptance_rate:
                 reasons.append(f"acceptance_rate={row['acceptance_rate']:.2f}>{max_acceptance_rate}")
+                subject_stats_df.loc[idx, 'excluded_high_acceptance_rate'] = True
 
         if pd.notna(row['mean_rt']):
             if row['mean_rt'] < min_mean_rt:
                 reasons.append(f"mean_rt={row['mean_rt']:.2f}<{min_mean_rt}")
+                subject_stats_df.loc[idx, 'excluded_low_mean_rt'] = True
             elif row['mean_rt'] > max_mean_rt:
                 reasons.append(f"mean_rt={row['mean_rt']:.2f}>{max_mean_rt}")
+                subject_stats_df.loc[idx, 'excluded_high_mean_rt'] = True
 
         if (row['dataset'], row['sub']) in manually_excluded:
             reasons.append("manual_exclusion")
+            subject_stats_df.loc[idx, 'excluded_manual'] = True
 
         if reasons:
             subject_stats_df.loc[idx, 'excluded'] = True
@@ -501,3 +527,83 @@ def exclude_participants_by_criteria(
     df = df[df['_exclude'].isna()].drop(columns='_exclude').reset_index(drop=True)
 
     return df, subject_stats_df
+
+
+def summarize_participant_exclusions(subject_stats_df):
+    """
+    Summarize participant-level exclusions by dataset and criterion.
+
+    Criteria are evaluated independently (not cumulatively), so a participant
+    excluded by multiple criteria is counted once under each criterion column,
+    but only once in n_excluded_total.
+
+    Parameters
+    ----------
+    subject_stats_df : pd.DataFrame
+        Output of exclude_participants_by_criteria(), containing the
+        per-criterion boolean columns and 'excluded'.
+
+    Returns
+    -------
+    pd.DataFrame with columns:
+        dataset, n_subjects,
+        n_excluded_high_trial_exclusion_pct, n_excluded_low_acceptance_rate,
+        n_excluded_high_acceptance_rate, n_excluded_low_mean_rt,
+        n_excluded_high_mean_rt, n_excluded_manual,
+        n_excluded_total (unique participants excluded, no double-counting)
+    """
+    criterion_cols = [
+        'excluded_high_trial_exclusion_pct',
+        'excluded_low_acceptance_rate',
+        'excluded_high_acceptance_rate',
+        'excluded_low_mean_rt',
+        'excluded_high_mean_rt',
+        'excluded_manual',
+    ]
+
+    rows = []
+    for dataset, group in subject_stats_df.groupby('dataset'):
+        row = {'dataset': dataset, 'n_subjects': len(group)}
+        for col in criterion_cols:
+            row[f'n_{col}'] = int(group[col].sum())
+        row['n_excluded_total'] = int(group['excluded'].sum())
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def summarize_final_sample(subject_stats_df):
+    """
+    Summarize sample size and behavior statistics for included (non-excluded) participants.
+
+    Parameters
+    ----------
+    subject_stats_df : pd.DataFrame
+        Output of exclude_participants_by_criteria(), containing 'excluded',
+        'n_valid_trials', 'acceptance_rate', and 'mean_rt' per subject.
+
+    Returns
+    -------
+    pd.DataFrame with columns:
+        dataset, n_subjects,
+        mean_n_valid_trials, min_n_valid_trials, max_n_valid_trials,
+        mean_acceptance_rate, sd_acceptance_rate,
+        mean_rt, sd_rt
+    """
+    included = subject_stats_df[~subject_stats_df['excluded']]
+
+    rows = []
+    for dataset, group in included.groupby('dataset'):
+        rows.append({
+            'dataset': dataset,
+            'n_subjects': len(group),
+            'mean_n_valid_trials': group['n_valid_trials'].mean(),
+            'min_n_valid_trials': group['n_valid_trials'].min(),
+            'max_n_valid_trials': group['n_valid_trials'].max(),
+            'mean_acceptance_rate': group['acceptance_rate'].mean(),
+            'sd_acceptance_rate': group['acceptance_rate'].std(),
+            'mean_rt': group['mean_rt'].mean(),
+            'sd_rt': group['mean_rt'].std(),
+        })
+
+    return pd.DataFrame(rows)

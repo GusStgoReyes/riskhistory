@@ -82,6 +82,7 @@ def startingposition(z,
     s += z_choice_prev6 * choice_prev6
 
     # Ensure starting position is within bounds [-1, 1]
+    # Conversion from HDDM to PyDDM
     s = s * 2 - 1
 
     return s

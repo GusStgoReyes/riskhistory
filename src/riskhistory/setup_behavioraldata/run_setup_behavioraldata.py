@@ -8,7 +8,9 @@ from riskhistory.config import (narps_behavioral_data_pth,
                                 behavioral_data_pth,
                                 subject_statistics_pth,
                                 trial_exclusion_counts_pth,
-                                trial_exclusion_summary_pth)
+                                trial_exclusion_summary_pth,
+                                participant_exclusion_summary_pth,
+                                final_sample_summary_pth)
 
 from riskhistory.setup_behavioraldata.utils_behavioraldata import (
     prepare_narps_behavioral_data,
@@ -17,7 +19,9 @@ from riskhistory.setup_behavioraldata.utils_behavioraldata import (
     compute_exclusion_counts,
     summarize_exclusion_counts,
     compute_subject_statistics,
-    exclude_participants_by_criteria
+    exclude_participants_by_criteria,
+    summarize_participant_exclusions,
+    summarize_final_sample
 )
 
 import pandas as pd
@@ -30,7 +34,7 @@ from datetime import datetime
 # Trial-level exclusion criteria
 MIN_RT = 0.2  # Minimum response time threshold (seconds)
 MAX_RT = 3.8  # Maximum response time threshold (seconds)
-MIN_PREV_VALID_TRIALS = 2  # Minimum previous valid trials for choice history
+MIN_PREV_VALID_TRIALS = 1  # Minimum previous valid trials for choice history
 
 # Participant-level exclusion criteria
 MAX_EXCLUDED_TRIALS_PCT = 0.30  # Exclude participants with >30% excluded trials
@@ -125,6 +129,15 @@ if __name__ == "__main__":
     )
 
     # =========================================================================
+    # Step 7b: Summarize participant exclusions and the final retained sample
+    # =========================================================================
+    print("Summarizing participant exclusions...")
+    participant_exclusion_summary_df = summarize_participant_exclusions(subject_stats_df)
+
+    print("Summarizing final sample...")
+    final_sample_summary_df = summarize_final_sample(subject_stats_df)
+
+    # =========================================================================
     # Step 8: Save outputs
     # =========================================================================
     print(f"Saving behavioral data to {behavioral_data_pth}...")
@@ -139,3 +152,9 @@ if __name__ == "__main__":
 
     print(f"Saving trial exclusion summary to {trial_exclusion_summary_pth}...")
     trial_exclusion_summary_df.to_csv(trial_exclusion_summary_pth, index=False)
+
+    print(f"Saving participant exclusion summary to {participant_exclusion_summary_pth}...")
+    participant_exclusion_summary_df.to_csv(participant_exclusion_summary_pth, index=False)
+
+    print(f"Saving final sample summary to {final_sample_summary_pth}...")
+    final_sample_summary_df.to_csv(final_sample_summary_pth, index=False)

@@ -29,11 +29,12 @@ Loads and preprocesses raw behavioral data from two datasets (NARPS and Sheng202
 **Outputs**:
 | File | Description |
 |------|-------------|
-| `data/preprocessed/behavioral_data.csv` | Unified behavioral dataset (all subjects, both datasets) |
-| `results/setup_behavioraldata/subject_statistics.csv` | Per-subject statistics (acceptance rate, RT, exclusion flags) |
-| `results/setup_behavioraldata/trial_exclusion_counts.csv` | Per-subject trial exclusion counts by criterion |
-| `results/setup_behavioraldata/trial_exclusion_summary.csv` | Dataset-level exclusion summary |
-| `results/setup_behavioraldata/behavioral_summary.txt` | Human-readable summary of the full pipeline run |
+| `data/preprocessed/behavioral_data.csv` | Unified behavioral dataset (all subjects, both datasets), including the `response_raw` column (raw response coding, e.g. 1-4 for NARPS, before collapsing to accept/reject) |
+| `results/setup_behavioraldata/subject_statistics.csv` | Per-subject statistics (acceptance rate, RT, exclusion flags/reasons per criterion) |
+| `results/setup_behavioraldata/trial_exclusion_counts.csv` | Per-subject trial exclusion counts by criterion (pre-participant-exclusion) |
+| `results/setup_behavioraldata/trial_exclusion_summary.csv` | Dataset-level trial exclusion summary: mean/sd trials excluded per criterion (RT-low, RT-high, insufficient choice history, missing gain/loss), plus deduplicated total, across subjects (pre-participant-exclusion) |
+| `results/setup_behavioraldata/participant_exclusion_summary.csv` | Dataset-level participant exclusion summary: count of participants excluded per criterion, plus deduplicated total |
+| `results/setup_behavioraldata/final_sample_summary.csv` | Dataset-level sample size and behavior statistics after participant exclusion: subjects retained, valid trials (mean/min/max), acceptance rate (mean/sd), RT (mean/sd) |
 
 **Exclusion criteria** (configurable at the top of `run_setup_behavioraldata.py`):
 
@@ -48,13 +49,13 @@ Loads and preprocesses raw behavioral data from two datasets (NARPS and Sheng202
 - Mean RT < 0.3 s or > 3.5 s
 - Manual exclusion: Sheng2020 subject 29 (missing trial indicator in Run 2)
 
+Trial-level exclusion criteria are evaluated independently (not cumulatively) for the per-criterion counts in `trial_exclusion_counts.csv`/`trial_exclusion_summary.csv`, so a trial (or participant, for `participant_exclusion_summary.csv`) failing multiple criteria is counted once under each criterion but only once in the deduplicated total.
+
 **How to run:**
 
 ```bash
 uv run python src/riskhistory/setup_behavioraldata/run_setup_behavioraldata.py
 ```
-
-The script prints a summary to the console and saves it to `results/setup_behavioraldata/behavioral_summary.txt`.
 
 ---
 
@@ -246,6 +247,7 @@ Fits hierarchical DDMs (HDDM) to test whether choice history influences the drif
 | `results/analysis_ddm/hddm_params/{model_id}_{dataset}_subj_params.csv` | Per-subject posterior means and SDs |
 | `results/analysis_ddm/hddm_compare/{dataset}_model_comparison_waic.csv` | WAIC model comparison table |
 | `results/analysis_ddm/hddm_compare/{dataset}_{rhat,ess}.csv` | Convergence diagnostics |
+| `results/analysis_ddm/hddm_posteriors/{model_id}_{dataset}_posterior.npz` | Raw posterior samples per parameter (numpy-only, no hddm/arviz needed to read) |
 
 **How to run:**
 
@@ -277,9 +279,17 @@ uv run python -m riskhistory.analysis_ddm.compare_models \
     --models HDDM_Collapse HDDM_Collapse_Lag1-z0 HDDM_Collapse_Lag1-v0 HDDM_Collapse_Lag1-z0_v0 \
     --dataset_name equalIndifference \
     --results_pth results/analysis_ddm
+
+# Extract posterior parameter samples into a small, numpy-only .npz for local plotting
+uv run python -m riskhistory.analysis_ddm.extract_posteriors \
+    --model_id HDDM_Collapse \
+    --dataset_name equalIndifference \
+    --results_pth results/analysis_ddm
 ```
 
 > **Note:** Each model fit is computationally intensive (default: 10,000 samples × 4 chains). Models are intended to be run as separate SLURM jobs — see `sbatch/` for job specifications.
+
+> **Note:** `extract_posteriors.py` opens only the `posterior` netCDF4 group of the `.nc` file, never loading the much larger `log_likelihood`/`observed_data` groups, so it's cheap enough to run on a login node without SLURM. An array-job wrapper is also available at `sbatch/extract_posteriors.bash` for running it across all models at once.
 
 ---
 
