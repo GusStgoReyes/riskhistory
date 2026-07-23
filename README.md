@@ -190,9 +190,11 @@ cd src/riskhistory/analysis_acceptglme && Rscript run_analysis_acceptglme.R
 
 ---
 
-### 5. Pupil LME Analysis (`analysis_pupillme`)
+### 5. Pupil Timeseries Analysis (`analysis_pupiltimeseries`)
 
-Fits linear mixed-effects models per timepoint across the trial epoch to test whether pupil dilation tracks value, entropy, RT, and choice history (streak) signals. Also fits models on the trial-wise GLM betas from step 3. Requires steps 1–4.
+Fits a linear mixed-effects model per timepoint across the trial epoch (start- and response-aligned) to test whether pupil dilation tracks value, entropy, RT, and the choice-history `transition` factor (current x previous choice). Estimated marginal means and pairwise contrasts for `transition` are computed per timepoint via `marginaleffects` (population-level, re.form = NA). Requires steps 1–2.
+
+Trial-wise pupil GLM betas (not per-timepoint) are handled separately in `analysis_pupilbetas`.
 
 **Inputs:**
 | File | Description |
@@ -200,23 +202,22 @@ Fits linear mixed-effects models per timepoint across the trial epoch to test wh
 | `data/preprocessed/behavioral_data.csv` | Output of step 1 |
 | `data/preprocessed/pupil_data_alignedStartTime.csv` | Output of step 2 |
 | `data/preprocessed/pupil_data_alignedResponseTime.csv` | Output of step 2 |
-| `data/preprocessed/pupilbetas_glm_preprocessed.csv` | Output of step 3 |
 | `results/analysis_acceptglme/1_baselinebehavior_betas.csv` | Output of step 4 (for SV computation) |
 
 **Outputs:**
 | File | Description |
 |------|-------------|
-| `results/analysis_pupillme/1_trial_statistics.txt` | Trial count summary by dataset and alignment |
-| `results/analysis_pupillme/2_pupilmodel_startAligned_M1_switchStreak.csv` | Per-timepoint fixed effects, start-aligned |
-| `results/analysis_pupillme/2_pupilmodel_responseAligned_M1_switchStreak.csv` | Per-timepoint fixed effects, response-aligned |
-| `results/analysis_pupillme/3_pupilbetas_model_comparison.csv` | AIC/BIC/BF for pupil beta models M1 vs M2 |
-| `results/analysis_pupillme/3_pupilbetas_fixed_effects.csv` | Fixed effects for pupil beta models |
-| `results/analysis_pupillme/3_pupilbetas_random_effects_logstreak_on_switch.csv` | Per-subject switch-streak slopes from M2 |
+| `results/analysis_pupiltimeseries/1_timeseries_start_fixed_effects.csv` | Per-timepoint fixed effects, start-aligned |
+| `results/analysis_pupiltimeseries/1_timeseries_start_emmeans.csv` | Per-timepoint transition emmeans, start-aligned |
+| `results/analysis_pupiltimeseries/1_timeseries_start_contrasts.csv` | Per-timepoint transition contrasts, start-aligned |
+| `results/analysis_pupiltimeseries/1_timeseries_response_fixed_effects.csv` | Per-timepoint fixed effects, response-aligned |
+| `results/analysis_pupiltimeseries/1_timeseries_response_emmeans.csv` | Per-timepoint transition emmeans, response-aligned |
+| `results/analysis_pupiltimeseries/1_timeseries_response_contrasts.csv` | Per-timepoint transition contrasts, response-aligned |
 
 **How to run:**
 
 ```bash
-cd src/riskhistory/analysis_pupillme && Rscript run_analysispupillme.R
+cd src/riskhistory/analysis_pupiltimeseries && Rscript run_analysispupiltimeseries.R
 ```
 
 ---

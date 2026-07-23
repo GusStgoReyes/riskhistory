@@ -82,7 +82,12 @@ def compute_diagnostics(model_id: str,
     uniform_density = 1.0 / (rt_max - rt_min) / 2.0
     dens = np.exp(ll)
     ll_mixed = np.log((1 - m.p_outlier) * dens + m.p_outlier * uniform_density)
-    idata.log_likelihood["log_lik"] = (ll_da.dims, ll_mixed)
+    # .copy(data=...) preserves ll_da's chain/draw coordinates; assigning a
+    # bare (dims, values) tuple instead drops them, which newer arviz_stats
+    # versions require to be present (log_likelihood.chain.size in
+    # _prepare_loo_inputs) -- causes AttributeError: 'DataArray' object has
+    # no attribute 'chain'.
+    idata.log_likelihood["log_lik"] = ll_da.copy(data=ll_mixed)
 
     print("  Computing LOO (pointwise) ...", flush=True)
     loo_result = az.loo(idata, pointwise=True)

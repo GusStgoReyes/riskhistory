@@ -46,9 +46,8 @@ source(file.path(acceptglme_path, "utils_createregressors.R"))
 source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
 source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
 
-# check_model_diagnostics() is defined in analysis_pupillme
-pupillme_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_pupillme")
-source(file.path(pupillme_utils_path, "utils_modelanalytics.R"))
+# check_model_diagnostics() is defined in analysis_acceptglme
+source(file.path(acceptglme_path, "utils_modelanalytics.R"))
 
 source(file.path(utils_path, "utils_createsequence.R"))
 

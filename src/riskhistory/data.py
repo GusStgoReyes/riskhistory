@@ -175,16 +175,6 @@ def load_convergence():
     return pd.read_csv(path)
 
 
-def load_pupil_timeseries(alignment="start", model="M1"):
-    filenames = {
-        ("start",    "M1"): "2_pupilmodel_startAligned_M1_switchStreak.csv",
-        ("response", "M1"): "2_pupilmodel_responseAligned_M1_switchStreak.csv",
-    }
-    path = (REPO_ROOT / "results" / "analysis_pupillme"
-            / filenames[(alignment, model)])
-    return pd.read_csv(path)
-
-
 def load_pupilbetas():
     path = (REPO_ROOT / "results" / "setup_pupilbetas"
             / "pupilbetas_glm_results.csv")
@@ -283,6 +273,24 @@ def load_pupilbetas_fullmodel_fixed_effects():
 def load_pupilbetas_fullmodel_residuals():
     path = (REPO_ROOT / "results" / "analysis_pupilbetas"
             / "2_pupilbetas_fullmodel_residuals.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilbetas_transition_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
+            / "3_pupilbetas_transition_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilbetas_transition_emmeans():
+    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
+            / "3_pupilbetas_transition_emmeans.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilbetas_transition_contrasts():
+    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
+            / "3_pupilbetas_transition_contrasts.csv")
     return pd.read_csv(path)
 
 

@@ -16,7 +16,8 @@ riskhistory/
 │   ├── setup_pupilbetas/         # Pupil beta extraction via GLM (Python)
 │   ├── setup_fmridata/           # fMRI data preparation
 │   ├── analysis_acceptglme/      # GLME choice analysis (R)
-│   ├── analysis_pupillme/        # Pupil LME per timepoint (R)
+│   ├── analysis_pupiltimeseries/ # Pupil LME per timepoint (R)
+│   ├── analysis_pupilbetas/      # Pupil beta GLME + choice-history checks (R)
 │   ├── analysis_pupilbehavior/   # Pupil-behavior relationship (R)
 │   ├── analysis_ddm/             # Drift-diffusion modeling (Python)
 │   ├── config.py                 # Python configuration
@@ -68,7 +69,7 @@ uv run python src/riskhistory/setup_pupilbetas/run_setup_pupilbetas.py
 # R scripts (run from their directories)
 cd src/riskhistory/analysis_acceptglme && Rscript run_analysis_acceptglme.R
 cd src/riskhistory/setup_pupildata && Rscript run_setup_pupildata.R
-cd src/riskhistory/analysis_pupillme && Rscript run_analysispupillme.R
+cd src/riskhistory/analysis_pupiltimeseries && Rscript run_analysispupiltimeseries.R
 cd src/riskhistory/analysis_pupilbehavior && Rscript run_analysis_pupilbehavior.R
 ```
 
@@ -87,7 +88,7 @@ Auto-detected paths with optional environment variable overrides:
 
 Analysis-specific configs extend the base config:
 - `analysis_acceptglme/0_config.R`
-- `analysis_pupillme/0_config.R`
+- `analysis_pupiltimeseries/0_config.R`
 - `analysis_pupilbehavior/0_config.R`
 - `setup_pupildata/0_config.R`
 
@@ -130,15 +131,20 @@ Key utility files:
 - `utils_savefixedeffects.R`: Extract and save fixed effects
 - `utils_addsubjectivevalues.R`: Compute trial-by-trial subjective values
 
-### Pupil Timepoint Analysis (`analysis_pupillme/`)
-Linear mixed-effects models per timepoint:
-- `2_pupilmodel_startAligned.R`: Stimulus-onset aligned analysis
-- `2_pupilmodel_responseAligned.R`: Response-aligned analysis
+### Pupil Timepoint Analysis (`analysis_pupiltimeseries/`)
+Linear mixed-effects models per timepoint, for both start- and
+response-aligned epochs:
+- `1_timeseries_model.R`: Fits one LME per timebin per dataset; also
+  computes estimated marginal means and contrasts for the `transition`
+  factor via `marginaleffects` (population-level, re.form = NA)
 - `utils_timepointmodels.R`: Functions for fitting models across timepoints
+- `utils_createtransitionregressor.R`: Builds the 4-level `transition`
+  factor (current x previous choice)
 
 Model formula:
 ```r
-pupil_size ~ sv + entropy + logRT + choice + switch + (1 + switch + sv || sub)
+pupil_size ~ logRT_z + gain_z + loss_z + entropy_c + abs_delta_ev_z +
+  transition + (1 | sub)
 ```
 
 ### Pupil-Behavior Analysis (`analysis_pupilbehavior/`)

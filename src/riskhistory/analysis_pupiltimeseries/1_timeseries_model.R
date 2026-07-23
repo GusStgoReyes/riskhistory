@@ -9,9 +9,8 @@
 # reject_to_accept, reject_to_reject; reference = accept_to_accept)
 # =============================================================================
 
-pupillme_path <- file.path(repo_path, "src", "riskhistory", "analysis_pupillme")
-source(file.path(pupillme_path, "utils_modelanalytics.R"))
-source(file.path(pupillme_path, "utils_timepointmodels.R"))
+source(file.path(acceptglme_path, "utils_modelanalytics.R"))
+source(file.path(utils_path, "utils_timepointmodels.R"))
 
 formula_m1 <- pupil_size ~ logRT_z + gain_z + loss_z + entropy_c +
   abs_delta_ev_z + transition + (1 | sub)

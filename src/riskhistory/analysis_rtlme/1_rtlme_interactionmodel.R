@@ -4,7 +4,7 @@
 # Fits the maximal correlated random-effects structure implied by the fixed
 # effects; falls back to a decorrelated structure (||) on non-convergence/
 # singular fit (see check_model_diagnostics() in
-# analysis_pupillme/utils_modelanalytics.R).
+# analysis_acceptglme/utils_modelanalytics.R).
 # =============================================================================
 
 rtlme_data$condition <- factor(

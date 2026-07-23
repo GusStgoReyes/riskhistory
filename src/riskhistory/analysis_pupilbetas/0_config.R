@@ -31,6 +31,7 @@ library(tibble)
 library(lmtest)
 library(lmerTest)
 library(bayestestR)
+library(marginaleffects)
 
 # Source utility functions from analysis_acceptglme
 source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
