@@ -42,13 +42,13 @@ cat >> "$TEMP_SBATCH" <<'EOF'
 
 mapfile -t models < <(tail -n +2 "$HDDM_MODEL_CSV")
 IDX=$((SLURM_ARRAY_TASK_ID - 1))
-MODEL_ID=${models[$IDX]}
+IFS=',' read -r MODEL_ID PUPIL_COL <<< "${models[$IDX]}"
 
-echo "Computing diagnostics for: $MODEL_ID"
+echo "Computing diagnostics for: $MODEL_ID (pupil_col=$PUPIL_COL)"
 
 cd $REPO_PTH
 
-PYTHONPATH="$PYTHONPATH" 
+PYTHONPATH="$PYTHONPATH"
 
 singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   python -m riskhistory.analysis_ddm.compute_diagnostics \
@@ -56,6 +56,7 @@ singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   --dataset_name "$DATASET_NAME" \
   --data_pth "$BEHAV_CSV" \
   --pupil_pth "$PUPIL_CSV" \
+  --pupil_col "$PUPIL_COL" \
   --results_pth "$RESULTS_DIR"
 EOF
 

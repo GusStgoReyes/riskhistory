@@ -15,7 +15,14 @@ MODULE="riskhistory.analysis_ddm.compare_models"
 
 source "$REPO_PTH/sbatch/configs/general.sh"
 
-mapfile -t models < <(tail -n +2 "$HDDM_MODEL_CSV")
+mapfile -t lines < <(tail -n +2 "$HDDM_MODEL_CSV")
+models=()
+pupil_cols=()
+for line in "${lines[@]}"; do
+  IFS=',' read -r m p <<< "$line"
+  models+=("$m")
+  pupil_cols+=("$p")
+done
 
 echo "-------------------------------------------------"
 echo " Dataset:     $DATASET_NAME"
@@ -40,6 +47,7 @@ PYTHONPATH="$PYTHONPATH"
 singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \\
   python -m "$MODULE" \\
   --models ${models[*]} \\
+  --pupil_cols ${pupil_cols[*]} \\
   --dataset_name "$DATASET_NAME" \\
   --results_pth "$RESULTS_DIR"
 EOF

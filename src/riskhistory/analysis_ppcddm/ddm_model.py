@@ -201,16 +201,18 @@ class PTDDM(Model):
         self.rt_column_name = rt_column_name
         self.choice_column_name = choice_column_name
 
-        artificial_data = {"gain" : [], 
-                           "loss" : [], 
-                           "mean_rt" : [], 
+        artificial_data = {"gain" : [],
+                           "loss" : [],
+                           "mean_rt" : [],
                            "mean_accept" : [],
-                           "pred_repeat" : []}
-        
+                           "pred_repeat" : [],
+                           "real_choice" : [],
+                           "real_choice_prev1" : []}
+
         # Generate data for each gain, loss condition
         for _, row in conditions.iterrows():
             sample = self.model.solve(
-                conditions={"gain": row["gain"], "loss": row["loss"], 
+                conditions={"gain": row["gain"], "loss": row["loss"],
                             "choice_prev1" : row["choice_prev1"], **self.fixed_parameters}
             ).sample(samples_per_condition)
 
@@ -223,14 +225,19 @@ class PTDDM(Model):
             else:
                 pred_repeat = len(reject_rts) / (len(accept_rts) + len(reject_rts))
 
+            # Real (observed) choice and previous choice for this trial's
+            # condition, coded +/-1 to match choice/choice_prev1 elsewhere
+            real_choice = 1 if row[self.choice_column_name] == 1 else -1
 
             artificial_data["gain"].extend([row["gain"]])
             artificial_data["loss"].extend([row["loss"]])
             artificial_data["mean_rt"].extend([mean_rt])
             artificial_data["mean_accept"].extend([mean_accept])
             artificial_data["pred_repeat"].extend([pred_repeat])
+            artificial_data["real_choice"].extend([real_choice])
+            artificial_data["real_choice_prev1"].extend([row["choice_prev1"]])
 
-                
+
         artificial_data = pd.DataFrame(artificial_data)
 
         return artificial_data

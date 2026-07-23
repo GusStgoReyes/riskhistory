@@ -19,6 +19,7 @@ def extract_posterior(
     results_pth: str,
     output_pth: str = None,
     dtype=np.float32,
+    pupil_col: str = "pupil",
 ) -> Path:
     """Extract posterior samples for one fitted model into a compressed .npz.
 
@@ -35,13 +36,20 @@ def extract_posterior(
     dtype : optional
         Dtype to cast samples to before saving (default float32, halves size
         relative to the float64 samples HDDM stores).
+    pupil_col : str, optional
+        Which pupil column the fit used as its "pupil" regressor -- must
+        match how the model was fit (model_hddm.py), since it determines the
+        filename suffix.
 
     Returns
     -------
     Path to the saved .npz file.
     """
+    # Must match model_hddm.py's save_name / utils_stats.py's idx_save suffix.
+    idx_save = "" if pupil_col == "pupil" else f"_{pupil_col}"
+
     hddm_dir = Path(results_pth) / "hddm"
-    nc_path = hddm_dir / f"{model_id}_{dataset}.nc"
+    nc_path = hddm_dir / f"{model_id}_{dataset}{idx_save}.nc"
     if not nc_path.exists():
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
 
@@ -55,7 +63,7 @@ def extract_posterior(
 
     output_dir = Path(output_pth) if output_pth else Path(results_pth) / "hddm_posteriors"
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / f"{model_id}_{dataset}_posterior.npz"
+    out_path = output_dir / f"{model_id}_{dataset}{idx_save}_posterior.npz"
 
     np.savez_compressed(out_path, **arrays)
     size_mb = out_path.stat().st_size / 1e6
@@ -83,6 +91,14 @@ def main():
         default=None,
         help="Directory to save the .npz (default: {results_pth}/hddm_posteriors)",
     )
+    parser.add_argument(
+        "--pupil_col",
+        type=str,
+        default="pupil",
+        choices=["pupil", "pupil_residual"],
+        help="Which pupil column the fit used as its 'pupil' regressor "
+             "(must match how the model was fit, for filename lookup)",
+    )
     args = parser.parse_args()
 
     extract_posterior(
@@ -90,6 +106,7 @@ def main():
         dataset=args.dataset_name,
         results_pth=args.results_pth,
         output_pth=args.output_pth,
+        pupil_col=args.pupil_col,
     )
 
 

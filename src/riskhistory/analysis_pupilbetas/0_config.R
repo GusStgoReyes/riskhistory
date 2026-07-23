@@ -37,8 +37,11 @@ source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
 source(file.path(acceptglme_path, "utils_createregressors.R"))
 source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
 
-source(file.path(utils_path, "utils_anova.R"))
-source(file.path(utils_path, "utils_randomeffects.R"))
+# add_transition_regressor() -- same current x previous choice transition
+# factor used in analysis_pupiltimeseries
+pupiltimeseries_path <- file.path(repo_path, "src", "riskhistory",
+                                  "analysis_pupiltimeseries")
+source(file.path(pupiltimeseries_path, "utils_createtransitionregressor.R"))
 
 # =============================================================================
 # Analysis settings
@@ -112,5 +115,8 @@ for (ds in datasets) {
 # =============================================================================
 message("Creating pupil regressors...")
 data_betas_clean <- create_pupil_regressors(data_betas_clean)
+
+message("Creating transition (current x previous choice) regressor...")
+data_betas_clean <- add_transition_regressor(data_betas_clean)
 
 message("Config loaded successfully.")

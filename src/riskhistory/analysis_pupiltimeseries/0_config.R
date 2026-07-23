@@ -27,12 +27,14 @@ library(broom.mixed)
 library(dplyr)
 library(tibble)
 library(lmerTest)
+library(marginaleffects)
 
 # Source utility functions from analysis_acceptglme
 source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
 source(file.path(acceptglme_path, "utils_createregressors.R"))
 source(file.path(acceptglme_path, "utils_modelcomparison.R"))
 source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
+source(file.path(utils_path, "utils_createtransitionregressor.R"))
 
 # =============================================================================
 # Analysis settings
@@ -132,6 +134,10 @@ for (ds in datasets) {
 message("Creating pupil regressors...")
 data_start_clean    <- create_pupil_regressors(data_start_clean)
 data_response_clean <- create_pupil_regressors(data_response_clean)
+
+message("Creating transition (current x previous choice) regressor...")
+data_start_clean    <- add_transition_regressor(data_start_clean)
+data_response_clean <- add_transition_regressor(data_response_clean)
 
 # =============================================================================
 # Get unique timebins

@@ -51,22 +51,3 @@ create_pupil_regressors <- function(df) {
 
   return(df)
 }
-
-add_pattern <- function(df) {
-  df %>%
-    mutate(
-      prev1   = choice_prev1 > 0,
-      prev2   = choice_prev2 > 0,
-      pattern = case_when(
-        is.na(choice_prev1) | is.na(choice_prev2) ~ NA_character_,
-        (accept == 1) == prev1 & prev1 == prev2   ~ "streak_continue", #AAA
-        (accept == 1) != prev1 & prev1 == prev2   ~ "streak_break", #AAB
-        (accept == 1) == prev1 & prev1 != prev2   ~ "confirm_switch", #ABB
-        (accept == 1) != prev1 & prev1 != prev2   ~ "return_to_prior" #ABA
-      ),
-      pattern = factor(pattern,
-                       levels = c("streak_continue", "streak_break",
-                                  "confirm_switch", "return_to_prior"))
-    ) %>%
-    select(-prev1, -prev2)
-}

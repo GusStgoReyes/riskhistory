@@ -31,6 +31,7 @@ library(broom.mixed)
 library(dplyr)
 library(tibble)
 library(bayestestR)
+library(emmeans)
 
 # Source utility functions
 acceptglme_path <- file.path(repo_path, "src", "riskhistory", "analysis_acceptglme")
@@ -62,29 +63,24 @@ behavioral_data <- read.csv(file.path(analysis_data_path,
                                       "behavioral_data.csv"))
 
 # =============================================================================
-# Adding the pupil betas
+# Adding the residualized pupil
 # =============================================================================
-message("Pupil betas including...")
-# Use the same exclude flag written by setup_pupilbetas
-pupilbetas_preprocessed <- read.csv(
-  file.path(analysis_data_path, "preprocessed", "pupilbetas_glm_preprocessed.csv")
-)
-pupilbetas_preprocessed <- pupilbetas_preprocessed %>%
-  mutate(exclude_startAligned = as.logical(exclude_startAligned)) %>%
-  select(sub, run, trial, dataset, exclude_startAligned, pupil)
+message("Loading residualized pupil...")
+# results/analysis_pupilbetas/2_pupilbetas_fullmodel_residuals.csv --
+# residuals of pupil ~ logRT_z + gain_z + loss_z + entropy_c + abs_delta_ev_z +
+# (1 | sub), i.e. pupil dilation with RT/value/entropy and each subject's own
+# baseline already regressed out. Behavioral and pupil-specific exclusions
+# were already applied upstream when that model was fit (analysis_pupilbetas
+# /0_config.R), so an inner merge here restricts data_clean to that same
+# already-excluded trial set -- no additional filtering needed.
+pupil_residuals <- read.csv(
+  file.path(results_path, "analysis_pupilbetas",
+            "2_pupilbetas_fullmodel_residuals.csv")
+) %>%
+  select(sub, run, trial, dataset, pupil, pupil_residual)
 
-# Add pupil_prev to pupilbetas_preprocessed
-pupilbetas_preprocessed <- pupilbetas_preprocessed %>%
-  group_by(sub, run, dataset) %>%
-  arrange(trial, .by_group = TRUE) %>%
-  mutate(pupil_prev = lag(pupil)) %>%
-  ungroup()
-
-data_merged <- merge(behavioral_data, pupilbetas_preprocessed,
-                     by = c("sub", "run", "trial", "dataset"))
-
-data_clean <- data_merged %>%
-  filter(!exclude_startAligned)
+data_clean <- merge(behavioral_data, pupil_residuals,
+                    by = c("sub", "run", "trial", "dataset"))
 
 message("Creating regressors...")
 data_clean <- create_pupilbehavior_regressors(data_clean)

@@ -34,7 +34,7 @@ from datetime import datetime
 # Trial-level exclusion criteria
 MIN_RT = 0.2  # Minimum response time threshold (seconds)
 MAX_RT = 3.8  # Maximum response time threshold (seconds)
-MIN_PREV_VALID_TRIALS = 1  # Minimum previous valid trials for choice history
+MIN_PREV_VALID_TRIALS = 2  # Minimum previous valid trials for choice history
 
 # Participant-level exclusion criteria
 MAX_EXCLUDED_TRIALS_PCT = 0.30  # Exclude participants with >30% excluded trials

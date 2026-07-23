@@ -1,20 +1,23 @@
 # =============================================================================
 # Choice History Under Risk: Profile Likelihood over Eta (Decay Rate)
 # =============================================================================
-# Sweeps eta from 0.05 to 0.95, fits the 6-lag choice history GLMM at each
-# value (same random effects as Model 14), and saves delta log-likelihood vs
-# eta per dataset.
+# Sweeps eta from 0.02 to 0.98, fits the choice history GLMM (choice_history
+# capped at the past 7 trials) at each value (same random effects as Model
+# 14), and saves delta log-likelihood vs eta per dataset.
+#
+# compute_choice_history() is called on behavioral_data_full (pre-exclusion)
+# so a trial later excluded for RT reasons still correctly contributes to the
+# history of subsequent trials in its run; `!exclude` is applied afterward.
 
 if (!exists("behavioral_data")) source("0_config.R")
 
-NUM_LAGS   <- 6
-ETA_GRID   <- seq(0.05, 0.95, by = 0.05)
+ETA_GRID   <- seq(0.02, 0.98, by = 0.02)
 
 results_list <- list()
 
 for (ds in datasets) {
   cat(sprintf("\n=== Dataset: %s ===\n", ds))
-  df_sub <- behavioral_data[behavioral_data$dataset == ds, ]
+  df_sub <- behavioral_data_full[behavioral_data_full$dataset == ds, ]
   ll_vals        <- rep(NA_real_, length(ETA_GRID))
   converged_vals <- rep(NA, length(ETA_GRID))
   singular_vals  <- rep(NA, length(ETA_GRID))
@@ -24,23 +27,23 @@ for (ds in datasets) {
     cat(sprintf("  eta = %.2f ... ", eta))
 
     decay  <- setNames(list(eta), ds)
-    df_tmp <- compute_choice_history(df_sub,
-                                     num_prev_trials = NUM_LAGS,
-                                     decay_rate      = decay)
+    df_tmp <- compute_choice_history(df_sub, decay_rate = decay)
+    df_tmp <- df_tmp[!df_tmp$exclude, ]
 
     m <- tryCatch(
       suppressWarnings(
         if (ds == "equalRange") {
-          # For equalRange, we had singularity issues with the full random effects structure.
-          # We'll simplify it by removing the random slope for choice_history6.
-          glmer(accept ~ gain_centered + loss_centered + choice_history6 +
-                  (1 + loss_centered + gain_centered | sub),
+          # Full correlated random-effects structure gives a boundary
+          # (singular) fit for equalRange. Decorrelating resolves it while
+          # still keeping the choice_history random slope.
+          glmer(accept ~ gain_centered + loss_centered + choice_history +
+                  (1 + loss_centered + gain_centered + choice_history || sub),
                 data    = df_tmp,
                 family  = binomial,
                 control = GLMER_CONTROL)
         } else {
-          glmer(accept ~ gain_centered + loss_centered + choice_history6 +
-                  (1 + loss_centered + gain_centered + choice_history6 | sub),
+          glmer(accept ~ gain_centered + loss_centered + choice_history +
+                  (1 + loss_centered + gain_centered + choice_history | sub),
                 data    = df_tmp,
                 family  = binomial,
                 control = GLMER_CONTROL)

@@ -20,6 +20,7 @@ def fit_model(
     subj_IDs: list = None,
     idx_save: str = "",
     pupil: bool = False,
+    pupil_col: str = "pupil",
     burnin: int = 2000,
     sampling_iters: int = 10000,
     chains: int = 4,
@@ -42,6 +43,10 @@ def fit_model(
         List of subject IDs to include. If None, all subjects are used.
     idx_save : str, optional
         Suffix for output filenames.
+    pupil_col : str, optional
+        Which pupil column to use as the model's "pupil" regressor -- "pupil"
+        (raw GLM amplitude) or "pupil_residual" (residualized). Only relevant
+        when the model formula references "pupil" (Pupil_stp/_drift/_full).
     burnin : int, optional
         Number of burn-in samples (default: 2000).
     sampling_iters : int, optional
@@ -54,7 +59,8 @@ def fit_model(
         pupil_pth=pupil_pth,
         dataset_name=dataset_name,
         subj_IDs=subj_IDs,
-        pupil=pupil
+        pupil=pupil,
+        pupil_col=pupil_col,
     )
 
     config = get_model_config(model_id)
@@ -142,6 +148,14 @@ def main():
         help="Path to pupil betas CSV file",
     )
     parser.add_argument(
+        "--pupil_col",
+        type=str,
+        default="pupil",
+        choices=["pupil", "pupil_residual"],
+        help="Which pupil column to use as the model's regressor "
+             "(only relevant for Pupil_stp/_drift/_full models)",
+    )
+    parser.add_argument(
         "--results_pth",
         type=str,
         required=True,
@@ -167,9 +181,13 @@ def main():
         sampling_iters = 10000
         chains = 4
 
-    print(f"Fitting model {args.model_id} to dataset {args.dataset_name}...", flush=True)
     pupil = "Pupil" in args.model_id
-    
+    if pupil and args.pupil_col != "pupil":
+        idx_save = f"_{args.pupil_col}{idx_save}"
+
+    print(f"Fitting model {args.model_id} to dataset {args.dataset_name} "
+          f"(pupil_col={args.pupil_col if pupil else 'n/a'})...", flush=True)
+
     fit_model(
         model_id=args.model_id,
         dataset_name=args.dataset_name,
@@ -179,6 +197,7 @@ def main():
         subj_IDs=subj_IDs,
         idx_save=idx_save,
         pupil=pupil,
+        pupil_col=args.pupil_col,
         burnin=burnin,
         sampling_iters=sampling_iters,
         chains=chains

@@ -42,7 +42,7 @@ source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils
 set.seed(42)
 
 # Define datasets to analyze
-datasets <- c("equalIndifference", "equalRange", "sheng2020")
+datasets <- c("sheng2020", "equalRange", "equalIndifference")
 
 # Multiple comparisons method
 p_method <- "BH"  # Benjamini-Hochberg

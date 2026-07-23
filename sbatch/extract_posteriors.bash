@@ -42,9 +42,9 @@ cat >> "$TEMP_SBATCH" <<'EOF'
 
 mapfile -t models < <(tail -n +2 "$HDDM_MODEL_CSV")
 IDX=$((SLURM_ARRAY_TASK_ID - 1))
-MODEL_ID=${models[$IDX]}
+IFS=',' read -r MODEL_ID PUPIL_COL <<< "${models[$IDX]}"
 
-echo "Extracting posterior for: $MODEL_ID"
+echo "Extracting posterior for: $MODEL_ID (pupil_col=$PUPIL_COL)"
 
 cd $REPO_PTH
 
@@ -52,6 +52,7 @@ singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   python -m riskhistory.analysis_ddm.extract_posteriors \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
+  --pupil_col "$PUPIL_COL" \
   --results_pth "$RESULTS_DIR"
 EOF
 

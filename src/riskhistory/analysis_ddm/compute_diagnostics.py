@@ -27,22 +27,28 @@ def idata_to_tidy(ds, model_id: str, stat_name: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def compute_diagnostics(model_id: str, 
-                        dataset: str, 
-                        results_pth: str, 
+def compute_diagnostics(model_id: str,
+                        dataset: str,
+                        results_pth: str,
                         pupil: bool,
                         data_pth: str,
                         pupil_pth: str,
+                        pupil_col: str = "pupil",
                         ) -> None:
+    # Must match model_hddm.py's save_name / utils_stats.py's idx_save suffix
+    # exactly, so this locates the .nc file the corresponding fit wrote.
+    idx_save = "" if pupil_col == "pupil" else f"_{pupil_col}"
+    model_label = f"{model_id}{idx_save}"
+
     hddm_dir = Path(results_pth) / "hddm"
     output_dir = Path(results_pth) / "hddm_compare"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    nc_path = hddm_dir / f"{model_id}_{dataset}.nc"
+    nc_path = hddm_dir / f"{model_id}_{dataset}{idx_save}.nc"
     if not nc_path.exists():
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
 
-    model_path = hddm_dir / f"{model_id}_{dataset}"
+    model_path = hddm_dir / f"{model_id}_{dataset}{idx_save}"
     m = hddm.load(model_path)
     print("p_outlier:", m.p_outlier, flush = True)
 
@@ -69,7 +75,8 @@ def compute_diagnostics(model_id: str,
         data_pth=data_pth,
         pupil_pth=pupil_pth,
         dataset_name=dataset,
-        pupil=pupil
+        pupil=pupil,
+        pupil_col=pupil_col,
     )
     rt_min, rt_max = data["rt"].min(), data["rt"].max()
     uniform_density = 1.0 / (rt_max - rt_min) / 2.0
@@ -83,18 +90,18 @@ def compute_diagnostics(model_id: str,
     k = np.asarray(loo_result.pareto_k.values)
     print("n k>0.7:", (k>0.7).sum(), "max k:", k.max(), "new min ll:", ll_mixed.min(), flush = True)
 
-    loo_path = output_dir / f"{model_id}_{dataset}_loo.pkl"
+    loo_path = output_dir / f"{model_id}_{dataset}{idx_save}_loo.pkl"
     with open(loo_path, "wb") as f:
         pickle.dump(loo_result, f)
 
     print("  Computing rhat ...", flush=True)
-    idata_to_tidy(az.rhat(idata), model_id, "rhat").to_csv(
-        output_dir / f"{model_id}_{dataset}_rhat.csv", index=False
+    idata_to_tidy(az.rhat(idata), model_label, "rhat").to_csv(
+        output_dir / f"{model_id}_{dataset}{idx_save}_rhat.csv", index=False
     )
 
     print("  Computing ESS ...", flush=True)
-    idata_to_tidy(az.ess(idata), model_id, "ess").to_csv(
-        output_dir / f"{model_id}_{dataset}_ess.csv", index=False
+    idata_to_tidy(az.ess(idata), model_label, "ess").to_csv(
+        output_dir / f"{model_id}_{dataset}{idx_save}_ess.csv", index=False
     )
 
     print(f"Done. Results saved to {output_dir}", flush=True)
@@ -123,7 +130,14 @@ def main():
         required=True,
         help="Path to pupil betas CSV file",
     )
-    
+    parser.add_argument(
+        "--pupil_col",
+        type=str,
+        default="pupil",
+        choices=["pupil", "pupil_residual"],
+        help="Which pupil column the fit used as its 'pupil' regressor "
+             "(must match how the model was fit, for filename lookup)",
+    )
     parser.add_argument(
         "--results_pth", type=str, required=True, help="Path to results directory"
     )
@@ -140,7 +154,8 @@ def main():
         results_pth=args.results_pth,
         pupil=pupil,
         data_pth=args.data_pth,
-        pupil_pth=args.pupil_pth
+        pupil_pth=args.pupil_pth,
+        pupil_col=args.pupil_col,
     )
 
 

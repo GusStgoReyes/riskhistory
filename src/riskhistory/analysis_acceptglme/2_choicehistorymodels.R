@@ -56,9 +56,19 @@ for (ds in datasets) {
                    data = df_sub, family = binomial, control = GLMER_CONTROL)
 
   # CHOICE HISTORY MODEL + RND EFFECT OF CHOICE HISTORY
-  model2_rnd <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
-                        (1 + loss_centered + gain_centered  + choice_prev1 | sub),
-                      data = df_sub, family = binomial, control = GLMER_CONTROL)
+  if (ds == "equalRange") {
+    # Full correlated random-effects structure gives a boundary (singular)
+    # fit for equalRange (gain/loss random slope correlation ~ -0.94).
+    # Decorrelating resolves it while still keeping the choice_prev1
+    # random slope.
+    model2_rnd <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
+                          (1 + loss_centered + gain_centered + choice_prev1 || sub),
+                        data = df_sub, family = binomial, control = GLMER_CONTROL)
+  } else {
+    model2_rnd <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
+                          (1 + loss_centered + gain_centered  + choice_prev1 | sub),
+                        data = df_sub, family = binomial, control = GLMER_CONTROL)
+  }
   models <- list(
     M2_part1 = model2,
     M2_part1_rnd = model2_rnd,

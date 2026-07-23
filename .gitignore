@@ -16,6 +16,8 @@ src/riskhistory/trash/*
 
 figures/*
 figures_draft/*
+figures_official/*
+
 results/*
 sections/*
 scripts/*

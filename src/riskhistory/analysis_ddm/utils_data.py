@@ -9,6 +9,7 @@ def load_data(
     dataset_name: str,
     subj_IDs: list = None,
     pupil: bool = False,
+    pupil_col: str = "pupil",
 ) -> pd.DataFrame:
     """Load and preprocess behavioral data for HDDM fitting.
 
@@ -24,6 +25,11 @@ def load_data(
         List of subject IDs to include. If None, all subjects are included.
     pupil : bool, optional
         If True, include pupil data in the returned DataFrame.
+    pupil_col : str, optional
+        Which column in the pupil CSV to expose as "pupil" for the model
+        formula -- e.g. "pupil" (raw GLM amplitude) or "pupil_residual"
+        (residualized on RT/gain/loss/entropy/|delta EV|, see
+        analysis_pupilbetas/2_pupilbetas_fullmodel.R). Ignored if pupil=False.
 
     Returns
     -------
@@ -34,10 +40,21 @@ def load_data(
 
     if pupil:
         pupil_data = hddm.load_csv(pupil_pth)
-        data = data.drop(columns=["exclude"])
+        # The old pupilbetas_glm_preprocessed.csv carries its own
+        # exclude_startAligned flag; results/analysis_pupilbetas/
+        # 2_pupilbetas_fullmodel_residuals.csv has no such column since both
+        # behavioral and pupil-specific exclusions were already applied
+        # upstream (analysis_pupilbetas/0_config.R) -- an inner merge alone
+        # restricts to that already-excluded trial set.
+        has_own_exclude = "exclude_startAligned" in pupil_data.columns
+        if has_own_exclude:
+            data = data.drop(columns=["exclude"])
         data = pd.merge(data, pupil_data, on=["sub", "trial", "run", "dataset"], how="inner")
-        data = data.rename(columns={"exclude_startAligned": "exclude"})
-    
+        if has_own_exclude:
+            data = data.rename(columns={"exclude_startAligned": "exclude"})
+        if pupil_col != "pupil":
+            data = data.drop(columns=["pupil"]).rename(columns={pupil_col: "pupil"})
+
     data = data[data["dataset"] == dataset_name]
 
     if subj_IDs is not None:
