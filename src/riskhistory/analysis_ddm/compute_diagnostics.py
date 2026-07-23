@@ -82,12 +82,34 @@ def compute_diagnostics(model_id: str,
     uniform_density = 1.0 / (rt_max - rt_min) / 2.0
     dens = np.exp(ll)
     ll_mixed = np.log((1 - m.p_outlier) * dens + m.p_outlier * uniform_density)
+
+    # Some trials can be numerically saturated by the outlier-mixture term
+    # (dens underflows to ~0 for every posterior draw -- e.g. an extreme-RT
+    # lapse trial), collapsing ll_mixed to a constant across draws. PSIS-LOO's
+    # tail-fit then fails ("All tail values are the same"), and such a
+    # trial's held-out predictive density doesn't depend on the fitted
+    # parameters anyway, so it carries no cross-validation information --
+    # drop it from the LOO computation only (rhat/ess below use the
+    # unmodified idata and are unaffected).
+    flat_mixed = ll_mixed.reshape(-1, ll_mixed.shape[-1])
+    degenerate = flat_mixed.var(0) <= 1e-12
+    n_degenerate = int(degenerate.sum())
+    print(f"Degenerate (zero-variance) trials in ll_mixed: "
+          f"{n_degenerate} / {len(degenerate)}", flush=True)
+
     # .copy(data=...) preserves ll_da's chain/draw coordinates; assigning a
     # bare (dims, values) tuple instead drops them, which newer arviz_stats
     # versions require to be present (log_likelihood.chain.size in
     # _prepare_loo_inputs) -- causes AttributeError: 'DataArray' object has
     # no attribute 'chain'.
-    idata.log_likelihood["log_lik"] = ll_da.copy(data=ll_mixed)
+    ll_mixed_da = ll_da.copy(data=ll_mixed)
+    if n_degenerate > 0:
+        obs_dim = ll_da.dims[-1]
+        keep_idx = np.where(~degenerate)[0]
+        ll_mixed_da = ll_mixed_da.isel({obs_dim: keep_idx})
+        print(f"Dropping {n_degenerate} degenerate trial(s) from LOO "
+              f"(kept {len(keep_idx)}/{len(degenerate)})", flush=True)
+    idata.log_likelihood["log_lik"] = ll_mixed_da
 
     print("  Computing LOO (pointwise) ...", flush=True)
     loo_result = az.loo(idata, pointwise=True)
