@@ -15,39 +15,17 @@ source(file.path(utils_path, "utils_timepointmodels.R"))
 formula_m1 <- pupil_size ~ logRT_z + gain_z + loss_z + entropy_c +
   abs_delta_ev_z + transition + (1 | sub)
 
-# Three grouped contrasts, each averaging 2-vs-2 or 1-vs-1 transition levels
-# via marginaleffects::hypotheses() (see utils_timepointmodels.R):
-#   1. Repeat vs Switch: (accept_to_accept + reject_to_reject)/2 vs
-#      (accept_to_reject + reject_to_accept)/2 -- did pupil response differ
-#      between staying and switching, collapsing over previous-choice
-#      outcome.
-#   2. Switch to Accept vs Switch to Reject: reject_to_accept vs
-#      accept_to_reject directly -- of the two ways to switch, did pupil
-#      response differ by which direction the switch went.
-#   3. Repeat Accept vs Repeat Reject: accept_to_accept vs reject_to_reject
-#      directly -- of the two ways to stay, did pupil response differ by
-#      which outcome was repeated.
-# Passed to run_all_timepoint_models() so emmeans/contrasts are computed per
-# timepoint off the already-fit model (no refit), with p_adj_bh on the
-# contrasts table adjusted per dataset across every timepoint and all three
-# contrasts together (a family separate from the fixed-effects p_adj_bh).
-TRANSITION_CONTRASTS <- list(
+
+TRANSITION_LEVELS <- c("accept_to_accept", "accept_to_reject",
+                       "reject_to_accept", "reject_to_reject")
+TRANSITION_PAIRS <- combn(TRANSITION_LEVELS, 2, simplify = FALSE)
+TRANSITION_CONTRASTS <- lapply(TRANSITION_PAIRS, function(pair) {
   list(
-    name = "Repeat - Switch",
-    pos = c("accept_to_accept", "reject_to_reject"), pos_label = "Repeat",
-    neg = c("accept_to_reject", "reject_to_accept"), neg_label = "Switch"
-  ),
-  list(
-    name = "Switch to Accept - Switch to Reject",
-    pos = "reject_to_accept", pos_label = "Switch to Accept",
-    neg = "accept_to_reject", neg_label = "Switch to Reject"
-  ),
-  list(
-    name = "Repeat Accept - Repeat Reject",
-    pos = "accept_to_accept", pos_label = "Repeat Accept",
-    neg = "reject_to_reject", neg_label = "Repeat Reject"
+    name = paste(pair[1], "-", pair[2]),
+    pos = pair[1], pos_label = pair[1],
+    neg = pair[2], neg_label = pair[2]
   )
-)
+})
 
 # =============================================================================
 # Start-aligned

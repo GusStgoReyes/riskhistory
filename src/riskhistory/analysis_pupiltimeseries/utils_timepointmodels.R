@@ -2,27 +2,7 @@
 # Utility functions for fitting timepoint models on pupil data
 # =============================================================================
 
-#' Fit a single timepoint LME model
-#'
-#' @param data Data frame containing pupil data for a single timebin
-#' @param formula Model formula to fit
-#' @param timebin Numeric timebin value (for metadata)
-#' @param dataset Character dataset name (for metadata)
-#' @param min_obs Minimum observations required to fit model (default: 50)
-#' @param emmeans_var Optional: name of a factor term in `formula` to compute
-#'   average adjusted predictions (via marginaleffects::avg_predictions(),
-#'   population-level/re.form=NA) and contrasts for, reusing the fitted
-#'   model (no refit). NULL (default) skips this entirely and returns just
-#'   the fixed-effects data frame, unchanged from previous behavior.
-#' @param emmeans_contrasts Optional: list of contrast specs, each
-#'   list(name, pos, pos_label, neg, neg_label) -- see the comment above the
-#'   avg_predictions()/hypotheses() block below for details. `pos`/`neg` can
-#'   each name one or several `emmeans_var` levels (averaged together first
-#'   if more than one). Only used when `emmeans_var` is set.
-#' @return If `emmeans_var` is NULL: a data frame of fixed effects, or NULL
-#'   if fitting fails. If `emmeans_var` is set: a list with `fixed`,
-#'   `emmeans`, and `contrasts` elements (the latter two possibly NULL if
-#'   emmeans computation itself fails), or NULL if fitting fails.
+# Fit a single timepoint LME model
 fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
                                 emmeans_var = NULL, emmeans_contrasts = NULL) {
   if (nrow(data) < min_obs) {
@@ -63,31 +43,7 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
 
   # ---------------------------------------------------------------------
   # Estimated marginal means + specified contrasts for emmeans_var, via
-  # marginaleffects::avg_predictions()/hypotheses() rather than emmeans,
-  # reusing the already-fit model (no refit). re.form = NA gives
-  # population-level predictions (ignoring random effects) -- marginaleffects
-  # does NOT do this by default for merMod objects, unlike emmeans, so it
-  # must be requested explicitly.
-  #
-  # `emmeans_contrasts` is a list of specs, each
-  #   list(name = <contrast label>,
-  #        pos = <character vector of one or more emmeans_var levels>,
-  #        pos_label = <label for the averaged pos-group mean>,
-  #        neg = <character vector of one or more emmeans_var levels>,
-  #        neg_label = <label for the averaged neg-group mean>)
-  # `pos`/`neg` can each be a single level (an ordinary pairwise contrast)
-  # or several levels (averaged together first, e.g. "Repeat" = mean of
-  # accept_to_accept and reject_to_reject) -- marginaleffects::hypotheses()
-  # supports arbitrary linear combinations of the avg_predictions() rows
-  # (b1, b2, ... in row order), not just single-row differences. For each
-  # spec this computes the two averaged group means (appended to the
-  # emmeans table under pos_label/neg_label, alongside the raw per-level
-  # rows) and the pos-vs-neg contrast (a row in the contrasts table).
-  #
-  # Columns are renamed to match the schema the old emmeans-based code
-  # produced (emmean/SE/asymp.LCL/asymp.UCL for the means; contrast/estimate/
-  # SE/z.ratio/p.value for the contrasts), so nothing downstream (the CSV
-  # consumers in data.py / figure4.ipynb) needed to change.
+  # marginaleffects::avg_predictions()/hypotheses() 
   # ---------------------------------------------------------------------
   emmeans_result <- tryCatch({
     pred <- avg_predictions(model, by = emmeans_var, re.form = NA)
@@ -114,11 +70,23 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
         pos_expr <- group_expr(spec$pos)
         neg_expr <- group_expr(spec$neg)
 
+        # A singleton group whose label is literally the raw level itself is
+        # already present in emm_df via avg_predictions() -- echoing it again
+        # here would just be a duplicate row. Only pooled groups (length > 1)
+        # or singletons under a distinct custom label are genuinely new rows.
+        pos_is_raw_level <- length(spec$pos) == 1 &&
+          identical(spec$pos_label, spec$pos)
+        neg_is_raw_level <- length(spec$neg) == 1 &&
+          identical(spec$neg_label, spec$neg)
+
         hyp_strings <- c(hyp_strings,
                          paste0(pos_expr, " = 0"),
                          paste0(neg_expr, " = 0"),
                          paste0(pos_expr, " - ", neg_expr, " = 0"))
-        hyp_kind  <- c(hyp_kind, "group", "group", "contrast")
+        hyp_kind  <- c(hyp_kind,
+                       if (pos_is_raw_level) "group_skip" else "group",
+                       if (neg_is_raw_level) "group_skip" else "group",
+                       "contrast")
         hyp_label <- c(hyp_label, spec$pos_label, spec$neg_label, spec$name)
       }
 
@@ -168,17 +136,7 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
 }
 
 
-#' Run timepoint models for a single dataset
-#'
-#' @param data Data frame containing pupil data for a single dataset
-#' @param formula Model formula to fit
-#' @param dataset Character dataset name
-#' @param min_obs Minimum observations required to fit model (default: 50)
-#' @param emmeans_var,emmeans_contrasts See fit_timepoint_model(). NULL by
-#'   default (no emmeans computed).
-#' @return List with `fixed_effects`, `emmeans`, `contrasts` elements
-#'   (the latter two NULL when emmeans_var is NULL), or NULL if no timebin
-#'   produced a valid fit.
+# Run timepoint models for a single dataset
 run_models_for_dataset <- function(data, formula, dataset, min_obs = 50,
                                    emmeans_var = NULL, emmeans_contrasts = NULL) {
   timebins <- sort(unique(data$timebin))
@@ -219,23 +177,7 @@ run_models_for_dataset <- function(data, formula, dataset, min_obs = 50,
 }
 
 
-#' Run timepoint models across all datasets with per-dataset p-value adjustment
-#'
-#' @param data Full data frame containing all datasets
-#' @param formula Model formula to fit
-#' @param datasets Character vector of dataset names to process
-#' @param p_method Method for p-value adjustment (default: "BH")
-#' @param min_obs Minimum observations required to fit model (default: 50)
-#' @param emmeans_var Optional: factor term to compute estimated marginal
-#'   means/contrasts for (see fit_timepoint_model()). NULL (default)
-#'   preserves the original fixed-effects-only behavior.
-#' @param emmeans_contrasts Optional: list of c(level_a, level_b) pairs
-#'   specifying which contrasts of `emmeans_var` to compute.
-#' @return List with `fixed_effects` (always present), `emmeans`, and
-#'   `contrasts` (both NULL unless emmeans_var is set). The contrasts table,
-#'   when present, gets its own `p_adj_bh` column: one p.adjust() call per
-#'   dataset across every timepoint and every requested contrast pair
-#'   together -- a separate family from the fixed-effects `p_adj_bh`.
+# Run timepoint models across all datasets with per-dataset p-value adjustment
 run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
                                      min_obs = 50, emmeans_var = NULL,
                                      emmeans_contrasts = NULL) {
@@ -285,10 +227,7 @@ run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
 }
 
 
-#' Print summary of timepoint model results
-#'
-#' @param results List with fixed_effects element (or bare data frame)
-#' @param datasets Character vector of dataset names
+# Print summary of timepoint model results
 print_results_summary <- function(results, datasets) {
   if (is.list(results) && "fixed_effects" %in% names(results)) {
     results <- results$fixed_effects

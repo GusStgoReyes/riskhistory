@@ -30,9 +30,8 @@ def ols(X, y):
 
 def ridge(X, y, alphas=None, n_splits=3):
     if alphas is None:
-        alphas = np.logspace(-5, 0, 25)
+        alphas = np.logspace(-3, 6, 50)
 
-    alphas = np.logspace(-3, 6, 50)
     model = RidgeCV(alphas=alphas, cv=None, fit_intercept = False)
     model.fit(X, y)
 

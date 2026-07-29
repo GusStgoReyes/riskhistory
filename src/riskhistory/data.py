@@ -294,6 +294,39 @@ def load_pupilbetas_transition_contrasts():
     return pd.read_csv(path)
 
 
+def load_pupilcorrelates_interaction_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_pupilcorrelates"
+            / "1_pupil_interaction_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilcorrelates_scatter_rawpupil():
+    path = (REPO_ROOT / "results" / "analysis_pupilcorrelates"
+            / "2_scatter_data_rawpupil.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilchoicehistory_switch_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_pupilchoicehistory"
+            / "1_pupil_switch_ch_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilchoicehistory_accept_data():
+    """Per-subject mean acceptance rate and pupil beta by transition
+    (AA/AR/RR/RA), one row per (sub, dataset). See
+    analysis_pupilchoicehistory/2_pupil_accept.R."""
+    path = (REPO_ROOT / "results" / "analysis_pupilchoicehistory"
+            / "2_pupil_accept_data.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilchoicehistory_accept_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_pupilchoicehistory"
+            / "2_pupil_accept_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
 def load_pupilbetas_correlation():
     path = (REPO_ROOT / "results" / "analysis_pupilbetas"
             / "2_regressors_correlation.csv")

@@ -83,18 +83,24 @@ def compute_diagnostics(model_id: str,
     dens = np.exp(ll)
     ll_mixed = np.log((1 - m.p_outlier) * dens + m.p_outlier * uniform_density)
 
-    # Some trials can be numerically saturated by the outlier-mixture term
-    # (dens underflows to ~0 for every posterior draw -- e.g. an extreme-RT
-    # lapse trial), collapsing ll_mixed to a constant across draws. PSIS-LOO's
-    # tail-fit then fails ("All tail values are the same"), and such a
-    # trial's held-out predictive density doesn't depend on the fitted
-    # parameters anyway, so it carries no cross-validation information --
-    # drop it from the LOO computation only (rhat/ess below use the
-    # unmodified idata and are unaffected).
+    # PSIS-LOO only fits a Generalized Pareto to each trial's *tail* (the
+    # largest ~M draws, not the full posterior), so a trial can have nonzero
+    # overall variance yet still have its top M values be exact ties (e.g.
+    # the DDM likelihood saturates at a ceiling for most draws, with only a
+    # minority differing) -- that's enough to trigger "All tail values are
+    # the same" even though a whole-distribution variance check (like the
+    # one this replaced) sees nothing wrong. Replicate PSIS's own tail-size
+    # heuristic (reff=1 approximation) and check *that* slice specifically.
     flat_mixed = ll_mixed.reshape(-1, ll_mixed.shape[-1])
-    degenerate = flat_mixed.var(0) <= 1e-12
+    n_samples = flat_mixed.shape[0]
+    tail_size = max(5, int(min(0.2 * n_samples, 3 * np.sqrt(n_samples))))
+    sorted_desc = np.sort(flat_mixed, axis=0)[::-1, :]
+    tail_unique_counts = np.array([
+        np.unique(sorted_desc[:tail_size, j]).size for j in range(sorted_desc.shape[1])
+    ])
+    degenerate = tail_unique_counts <= 1
     n_degenerate = int(degenerate.sum())
-    print(f"Degenerate (zero-variance) trials in ll_mixed: "
+    print(f"Degenerate trials (constant tail, tail_size={tail_size}): "
           f"{n_degenerate} / {len(degenerate)}", flush=True)
 
     # .copy(data=...) preserves ll_da's chain/draw coordinates; assigning a

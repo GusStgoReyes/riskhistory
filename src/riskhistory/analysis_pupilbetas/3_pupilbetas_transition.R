@@ -1,18 +1,6 @@
 # =============================================================================
 # Pupil Betas — Transition Model
 # =============================================================================
-# Same fixed effects as 2_pupilbetas_regressout.R, but the plain intercept is
-# replaced by the 4-level transition factor (current x previous choice):
-#
-#   pupil ~ logRT_z + gain_z + loss_z + entropy_c + abs_delta_ev_z +
-#           transition + (1 | sub)
-#
-# Estimated marginal means (population-level, re.form = NA) for each of the
-# 4 transition levels (accept_to_accept, accept_to_reject, reject_to_accept,
-# reject_to_reject), and all 6 pairwise contrasts between them, computed via
-# marginaleffects::avg_predictions()/hypotheses() -- same approach as
-# analysis_pupiltimeseries/1_timeseries_model.R.
-# =============================================================================
 
 formula_pupilbetas_transition <- pupil ~ logRT_z + gain_z + loss_z +
   entropy_c + abs_delta_ev_z + transition + (1 | sub)
