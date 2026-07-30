@@ -28,9 +28,6 @@ output_response_aligned <- file.path(preprocessed_data_path,
 output_statistics <- file.path(results_path,
                                "setup_pupildata",
                                "pupil_data_statistics.csv")
-output_summary_statistics <- file.path(results_path,
-                                       "setup_pupildata",
-                                       "4_summary_statistics.csv")
 
 # Behavioral data (source of behavioral exclusion flags)
 behavioral_data_path <- file.path(preprocessed_data_path,

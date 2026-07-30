@@ -86,7 +86,7 @@ for (ds in datasets) {
   message(sprintf("  n_subs=%d", nrow(df_ds)))
 
   fe <- broom::tidy(m, conf.int = TRUE) %>%
-    mutate(dataset = ds, n_subs = nrow(df_ds))
+    mutate(model = "pupil_switch_ch", dataset = ds, n_subs = nrow(df_ds))
   fixed_effects_rows[[length(fixed_effects_rows) + 1]] <- fe
 }
 

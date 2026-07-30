@@ -14,7 +14,8 @@ src/riskhistory/trash/*
 
 *delete*
 
-figures*
+figures
+figures_draft*
 
 results/*
 sections/*
