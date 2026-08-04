@@ -72,7 +72,10 @@ echo "Running model: $MODEL_ID (pupil_col=$PUPIL_COL)"
 
 cd $REPO_PTH
 
-singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
+singularity exec \
+  --env "PYTHONPATH=$REPO_PTH/src" \
+  --env "OMP_NUM_THREADS=1,MKL_NUM_THREADS=1,OPENBLAS_NUM_THREADS=1,NUMEXPR_NUM_THREADS=1" \
+  "$HDDM_SIF" \
   python -m riskhistory.analysis_ddm.model_hddm \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \

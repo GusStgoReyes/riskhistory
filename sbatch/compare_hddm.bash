@@ -40,7 +40,10 @@ set -euo pipefail
 
 PYTHONPATH="$PYTHONPATH" 
 
-singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \\
+singularity exec \\
+  --env "PYTHONPATH=$REPO_PTH/src" \\
+  --env "OMP_NUM_THREADS=1,MKL_NUM_THREADS=1,OPENBLAS_NUM_THREADS=1,NUMEXPR_NUM_THREADS=1" \\
+  "$HDDM_SIF" \\
   python -m "$MODULE" \\
   --models ${models[*]} \\
   --pupil_cols ${pupil_cols[*]} \\
