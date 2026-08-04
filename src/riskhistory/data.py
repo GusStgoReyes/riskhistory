@@ -133,39 +133,27 @@ def load_eta_profile():
     return pd.read_csv(path)
 
 
+def load_rtlme_baseline_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_rtlme"
+            / "1_rtlme_baseline_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
 def load_rtlme_interaction_fixed_effects():
     path = (REPO_ROOT / "results" / "analysis_rtlme"
-            / "1_rtlme_interaction_fixed_effects.csv")
-    return pd.read_csv(path)
-
-
-def load_rtlme_sequence_fixed_effects():
-    path = (REPO_ROOT / "results" / "analysis_rtlme"
-            / "2_rtlme_sequence_fixed_effects.csv")
-    return pd.read_csv(path)
-
-
-def load_rtlme_sequence_emmeans():
-    path = (REPO_ROOT / "results" / "analysis_rtlme"
-            / "2_rtlme_sequence_emmeans.csv")
-    return pd.read_csv(path)
-
-
-def load_rtlme_sequence_contrasts():
-    path = (REPO_ROOT / "results" / "analysis_rtlme"
-            / "2_rtlme_sequence_contrasts.csv")
+            / "2_rtlme_interaction_fixed_effects.csv")
     return pd.read_csv(path)
 
 
 def load_rtlme_interaction_emmeans():
     path = (REPO_ROOT / "results" / "analysis_rtlme"
-            / "1_rtlme_interaction_emmeans.csv")
+            / "2_rtlme_interaction_emmeans.csv")
     return pd.read_csv(path)
 
 
 def load_rtlme_interaction_contrasts():
     path = (REPO_ROOT / "results" / "analysis_rtlme"
-            / "1_rtlme_interaction_contrasts.csv")
+            / "2_rtlme_interaction_contrasts.csv")
     return pd.read_csv(path)
 
 
