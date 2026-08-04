@@ -48,8 +48,9 @@ def compute_diagnostics(model_id: str,
     nc_path = hddm_dir / f"{model_id}_{dataset}{idx_save}.nc"
     if not nc_path.exists():
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
-
+    
     model_path = hddm_dir / f"{model_id}_{dataset}{idx_save}"
+    print(f"Model Path", model_path, flush=True)
     m = hddm.load(model_path)
     print("p_outlier:", m.p_outlier, flush = True)
 

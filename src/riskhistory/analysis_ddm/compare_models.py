@@ -48,7 +48,7 @@ def run_comparison(
 
     # --- Full comparison (all trials) ---
     print("Running LOO comparison (all trials)...", flush=True)
-    compare_df = az.compare(loo_dict, ic="loo")   # FIX: loo_dict, not waic_dict
+    compare_df = az.compare(loo_dict, ic="loo")  
     compare_df.index.name = "model"
     compare_df.reset_index().to_csv(
         summary_dir / f"{dataset}_model_comparison_loo.csv", index=False
