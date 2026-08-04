@@ -70,6 +70,12 @@ def load_choicehistory_betas():
     return pd.read_csv(path)
 
 
+def load_choicehistorypersubject_betas():
+    path = (REPO_ROOT / "results" / "analysis_acceptglme"
+            / "6_choicehistorypersubject_betas.csv")
+    return pd.read_csv(path)
+
+
 def load_choicehistory_permutation():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
             / "5_choicehistory_permutation.csv")
@@ -154,6 +160,12 @@ def load_rtlme_interaction_emmeans():
 def load_rtlme_interaction_contrasts():
     path = (REPO_ROOT / "results" / "analysis_rtlme"
             / "2_rtlme_interaction_contrasts.csv")
+    return pd.read_csv(path)
+
+
+def load_rtlme_switchpersubject_betas():
+    path = (REPO_ROOT / "results" / "analysis_rtlme"
+            / "3_rtlme_switchpersubject_betas.csv")
     return pd.read_csv(path)
 
 

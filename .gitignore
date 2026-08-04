@@ -16,6 +16,7 @@ src/riskhistory/trash/*
 
 figures
 figures_draft*
+figures_official/saved/*
 
 results/*
 sections/*
@@ -29,3 +30,5 @@ src/riskhistory/setup_pupilbetas/archive/*
 src/riskhistory/analysis_acceptglme/archive/*
 
 logs/*
+
+
