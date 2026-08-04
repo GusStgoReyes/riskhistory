@@ -2,10 +2,6 @@
 set -euo pipefail
 
 # Usage: bash sbatch/compare_hddm.bash [dataset_name] [diagnostics_job_id]
-#
-# Runs az.compare() over pre-computed WAIC files from compute_diagnostics.bash.
-# Pass the array job ID from compute_diagnostics.bash as the second argument
-# to make this job wait for all diagnostics to finish before starting.
 
 REPO_PTH=/scratch/users/gustxsr/riskhistory
 DATASET_NAME=${1:-equalIndifference}
