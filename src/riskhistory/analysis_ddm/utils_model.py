@@ -152,7 +152,7 @@ MODEL_REGISTRY = {
             {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
         ],
         "group_only_nodes": [],
-        **DEFAULT_MODEL_PARAMS,
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
 
     # -------------------------------------------------------------------------

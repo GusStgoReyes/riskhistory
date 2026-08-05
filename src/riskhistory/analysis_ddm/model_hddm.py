@@ -82,7 +82,7 @@ def fit_model(
             p_outlier=0.05,
             **shared_kwargs,
         )
-        m_reg.find_starting_values()
+
         m_reg.sample(
             sampling_iters,
             burn=burnin,
