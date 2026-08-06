@@ -2,6 +2,9 @@
 set -euo pipefail
 
 # Usage: bash sbatch/compare_hddm.bash [dataset_name] [diagnostics_job_id]
+#
+# The model list (ALL_MODELS) and comparison groups (MODEL_GROUPS) are
+# defined directly in compare_models.py, not read from a CSV here.
 
 REPO_PTH=/scratch/users/gustxsr/riskhistory
 DATASET_NAME=${1:-equalIndifference}
@@ -11,18 +14,8 @@ MODULE="riskhistory.analysis_ddm.compare_models"
 
 source "$REPO_PTH/sbatch/configs/general.sh"
 
-mapfile -t lines < <(tail -n +2 "$HDDM_MODEL_CSV")
-models=()
-pupil_cols=()
-for line in "${lines[@]}"; do
-  IFS=',' read -r m p <<< "$line"
-  models+=("$m")
-  pupil_cols+=("$p")
-done
-
 echo "-------------------------------------------------"
 echo " Dataset:     $DATASET_NAME"
-echo " N_MODELS:    ${#models[@]}"
 echo " Dependency:  ${DIAG_JOB_ID:-none}"
 echo "-------------------------------------------------"
 
@@ -45,13 +38,11 @@ singularity exec \\
   --env "OMP_NUM_THREADS=1,MKL_NUM_THREADS=1,OPENBLAS_NUM_THREADS=1,NUMEXPR_NUM_THREADS=1" \\
   "$HDDM_SIF" \\
   python -m "$MODULE" \\
-  --models ${models[*]} \\
-  --pupil_cols ${pupil_cols[*]} \\
   --dataset_name "$DATASET_NAME" \\
   --results_pth "$RESULTS_DIR"
 EOF
 
-export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE HDDM_SIF
+export REPO_PTH DATASET_NAME RESULTS_DIR PYTHONPATH MODULE HDDM_SIF
 
 DEPENDENCY_FLAG=""
 if [[ -n "$DIAG_JOB_ID" ]]; then
