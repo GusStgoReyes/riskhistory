@@ -1,23 +1,6 @@
 # =============================================================================
 # Per-subject choice-history effect (two-step GLM, no partial pooling)
 # =============================================================================
-# For each dataset and each subject, fits a standalone logistic regression
-# accept ~ gain_centered + loss_centered + choice_prev1 (family = binomial),
-# independently of every other subject. Unlike the choice_prev1 random slope
-# in 2_choicehistorymodels.R's model2_rnd (2_choicehistory_betas.csv), these
-# estimates are not shrunk toward the population mean, so they're an
-# unbiased (if noisier) per-subject effect -- useful for correlating against
-# an external per-subject quantity (e.g. a DDM parameter) without inheriting
-# shrinkage from the mixed model.
-#
-# Trials with choice_prev1 == 0 (the "no trial there yet" sentinel for the
-# first trial of a run -- see the NA-fill in 0_config.R) are dropped first,
-# since 0 there means "no history," not "previous reject."
-#
-# `converged` is FALSE if glm.fit's IRLS did not converge, or if R raises the
-# "fitted probabilities numerically 0 or 1 occurred" warning, which signals
-# (quasi-)separation and an unreliable, often huge, coefficient.
-# =============================================================================
 
 fit_choice_prev1_glm <- function(df_sub_i) {
   converged <- TRUE
@@ -81,6 +64,6 @@ message(sprintf("Per-subject choice-history GLMs: %d of %d converged cleanly.",
                 n_converged, n_total))
 
 write.csv(persubject_betas,
-          file.path(analysis_results_path, "6_choicehistorypersubject_betas.csv"),
+          file.path(analysis_results_path, "5_choicehistorypersubject_betas.csv"),
           row.names = FALSE)
-message("Saved: 6_choicehistorypersubject_betas.csv")
+message("Saved: 5_choicehistorypersubject_betas.csv")

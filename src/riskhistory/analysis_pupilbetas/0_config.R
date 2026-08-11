@@ -91,6 +91,13 @@ message("Applying pupil exclusion criteria...")
 data_betas_clean <- data_betas %>%
   filter(!exclude_startAligned)
 
+# Per-subject mean acceptance rate, computed after both the behavioral and
+# pupil exclusions above -- broadcast onto every row for that sub/dataset.
+data_betas_clean <- data_betas_clean %>%
+  group_by(sub, dataset) %>%
+  mutate(mean_accept = mean(accept, na.rm = TRUE)) %>%
+  ungroup()
+
 message(sprintf("Pupil betas data: %d rows total, %d rows after exclusion",
                 nrow(data_betas), nrow(data_betas_clean)))
 for (ds in datasets) {

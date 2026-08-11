@@ -3,11 +3,10 @@
 # =============================================================================
 # 0. Load config file
 source("0_config.R")
-
 source("1_baselinechoicemodel.R")
 source("2_choicehistorymodels.R")
 source("4_supplementarymodels.R")
-source("6_choicehistorypersubject.R")
+source("5_choicehistorypersubject.R")
 
 
 print("Extracting model comparison and fixed effects for behavior models...")

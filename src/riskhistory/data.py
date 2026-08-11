@@ -127,9 +127,18 @@ def load_model_comparison(comparison_type="behavior"):
     return pd.read_csv(path)
 
 
-def load_loo_comparison(dataset):
+def load_loo_comparison(dataset, group_name=None):
+    """LOO model comparison table for one dataset.
+
+    group_name : str, optional
+        Name of the MODEL_GROUPS entry in compare_models.py this comparison
+        was run for (e.g. "arousal_mechanisms") -- must match exactly, since
+        it's part of the output filename. Omit for the legacy, ungrouped
+        comparison file.
+    """
+    suffix = f"_{group_name}" if group_name else ""
     path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
-            / f"{dataset}_model_comparison_loo.csv")
+            / f"{dataset}{suffix}_model_comparison_loo.csv")
     return pd.read_csv(path)
 
 
