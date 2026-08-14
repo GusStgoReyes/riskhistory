@@ -4,7 +4,7 @@
 
 # Fit a single timepoint LME model
 fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
-                                emmeans_var = NULL, emmeans_contrasts = NULL) {
+                                emmeans_var = NULL, contrast_pairs = NULL) {
   if (nrow(data) < min_obs) {
     warning(sprintf("Insufficient data for timebin %.3f in %s (%d < %d), skipping...",
                     timebin, dataset, nrow(data), min_obs))
@@ -42,78 +42,56 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
   }
 
   # ---------------------------------------------------------------------
-  # Estimated marginal means + specified contrasts for emmeans_var, via
-  # marginaleffects::avg_predictions()/hypotheses() 
+  # Average predictions + pairwise avg_comparisons()
   # ---------------------------------------------------------------------
-  emmeans_result <- tryCatch({
+  marginal_result <- tryCatch({
     pred <- avg_predictions(model, by = emmeans_var, re.form = NA)
-    levels_in_order <- pred[[emmeans_var]]
 
-    emm_df <- as.data.frame(pred) %>%
-      rename(emmean = estimate, SE = std.error,
+    avgpred_df <- as.data.frame(pred) %>%
+      rename(avgpred = estimate, SE = std.error,
              asymp.LCL = conf.low, asymp.UCL = conf.high)
-    emm_df$timebin <- timebin
-    emm_df$dataset <- dataset
+    avgpred_df$timebin <- timebin
+    avgpred_df$dataset <- dataset
 
     contrasts_df <- NULL
-    if (!is.null(emmeans_contrasts) && length(emmeans_contrasts) > 0) {
-      group_expr <- function(group_levels) {
-        idx <- match(group_levels, levels_in_order)
-        paste0("(", paste(paste0("b", idx), collapse = " + "), ")/", length(idx))
-      }
+    if (!is.null(contrast_pairs) && length(contrast_pairs) > 0) {
+      comp <- avg_comparisons(model,
+                              variables = setNames(list("pairwise"), emmeans_var),
+                              re.form = NA)
+      comp_df <- as.data.frame(comp)
 
-      hyp_strings <- character(0)
-      hyp_kind    <- character(0)
-      hyp_label   <- character(0)
+      # avg_comparisons()'s internal ordering for "pairwise" doesn't
+      # necessarily match the order declared in contrast_pairs -- check
+      # both "A - B" and "B - A" and normalize to the declared order,
+      # flipping the sign of estimate/statistic when the reversed label
+      # matched (p.value is sign-invariant, unaffected).
+      matched_rows <- lapply(contrast_pairs, function(p) {
+        label_fwd <- paste(p[1], "-", p[2])
+        row_fwd <- comp_df[comp_df$contrast == label_fwd, ]
+        if (nrow(row_fwd) > 0) {
+          row_fwd$contrast <- label_fwd
+          return(row_fwd)
+        }
+        label_rev <- paste(p[2], "-", p[1])
+        row_rev <- comp_df[comp_df$contrast == label_rev, ]
+        if (nrow(row_rev) > 0) {
+          row_rev$contrast   <- label_fwd
+          row_rev$estimate   <- -row_rev$estimate
+          row_rev$statistic  <- -row_rev$statistic
+          return(row_rev)
+        }
+        NULL
+      })
+      matched_rows <- matched_rows[!vapply(matched_rows, is.null, logical(1))]
 
-      for (spec in emmeans_contrasts) {
-        pos_expr <- group_expr(spec$pos)
-        neg_expr <- group_expr(spec$neg)
-
-        # A singleton group whose label is literally the raw level itself is
-        # already present in emm_df via avg_predictions() -- echoing it again
-        # here would just be a duplicate row. Only pooled groups (length > 1)
-        # or singletons under a distinct custom label are genuinely new rows.
-        pos_is_raw_level <- length(spec$pos) == 1 &&
-          identical(spec$pos_label, spec$pos)
-        neg_is_raw_level <- length(spec$neg) == 1 &&
-          identical(spec$neg_label, spec$neg)
-
-        hyp_strings <- c(hyp_strings,
-                         paste0(pos_expr, " = 0"),
-                         paste0(neg_expr, " = 0"),
-                         paste0(pos_expr, " - ", neg_expr, " = 0"))
-        hyp_kind  <- c(hyp_kind,
-                       if (pos_is_raw_level) "group_skip" else "group",
-                       if (neg_is_raw_level) "group_skip" else "group",
-                       "contrast")
-        hyp_label <- c(hyp_label, spec$pos_label, spec$neg_label, spec$name)
-      }
-
-      hyp_results <- as.data.frame(hypotheses(pred, hypothesis = hyp_strings)) %>%
-        rename(SE = std.error, z.ratio = statistic)
-      hyp_results$kind  <- hyp_kind
-      hyp_results$label <- hyp_label
-
-      group_rows <- hyp_results[hyp_results$kind == "group", ]
-      if (nrow(group_rows) > 0) {
-        extra_emm <- setNames(
-          data.frame(group_rows$label, group_rows$estimate, group_rows$SE,
-                    group_rows$conf.low, group_rows$conf.high, timebin, dataset,
-                    stringsAsFactors = FALSE),
-          c(emmeans_var, "emmean", "SE", "asymp.LCL", "asymp.UCL", "timebin", "dataset")
-        )
-        emm_df <- bind_rows(emm_df, extra_emm)
-      }
-
-      contrast_rows <- hyp_results[hyp_results$kind == "contrast", ]
-      if (nrow(contrast_rows) > 0) {
+      if (length(matched_rows) > 0) {
+        comp_df <- do.call(rbind, matched_rows)
         contrasts_df <- data.frame(
-          contrast = contrast_rows$label,
-          estimate = contrast_rows$estimate,
-          SE       = contrast_rows$SE,
-          z.ratio  = contrast_rows$z.ratio,
-          p.value  = contrast_rows$p.value,
+          contrast = comp_df$contrast,
+          estimate = comp_df$estimate,
+          SE       = comp_df$std.error,
+          z.ratio  = comp_df$statistic,
+          p.value  = comp_df$p.value,
           stringsAsFactors = FALSE
         )
         contrasts_df$timebin <- timebin
@@ -121,7 +99,7 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
       }
     }
 
-    list(emmeans = emm_df, contrasts = contrasts_df)
+    list(avgpred = avgpred_df, contrasts = contrasts_df)
   }, error = function(e) {
     warning(sprintf("marginaleffects failed for timebin %.3f in %s: %s",
                     timebin, dataset, e$message))
@@ -130,20 +108,20 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
 
   list(
     fixed     = model_results,
-    emmeans   = if (!is.null(emmeans_result)) emmeans_result$emmeans else NULL,
-    contrasts = if (!is.null(emmeans_result)) emmeans_result$contrasts else NULL
+    avgpred   = if (!is.null(marginal_result)) marginal_result$avgpred else NULL,
+    contrasts = if (!is.null(marginal_result)) marginal_result$contrasts else NULL
   )
 }
 
 
 # Run timepoint models for a single dataset
 run_models_for_dataset <- function(data, formula, dataset, min_obs = 50,
-                                   emmeans_var = NULL, emmeans_contrasts = NULL) {
+                                   emmeans_var = NULL, contrast_pairs = NULL) {
   timebins <- sort(unique(data$timebin))
   message(sprintf("    %d timebins, %d observations", length(timebins), nrow(data)))
 
   fixed_effects_list <- list()
-  emmeans_list <- list()
+  avgpred_list <- list()
   contrasts_list <- list()
 
   for (i in seq_along(timebins)) {
@@ -151,15 +129,15 @@ run_models_for_dataset <- function(data, formula, dataset, min_obs = 50,
     tb_data <- data %>% filter(timebin == tb)
     result  <- fit_timepoint_model(tb_data, formula, tb, dataset, min_obs,
                                    emmeans_var = emmeans_var,
-                                   emmeans_contrasts = emmeans_contrasts)
+                                   contrast_pairs = contrast_pairs)
     if (is.null(result)) next
 
     if (is.null(emmeans_var)) {
       fixed_effects_list[[length(fixed_effects_list) + 1]] <- result
     } else {
       fixed_effects_list[[length(fixed_effects_list) + 1]] <- result$fixed
-      if (!is.null(result$emmeans)) {
-        emmeans_list[[length(emmeans_list) + 1]] <- result$emmeans
+      if (!is.null(result$avgpred)) {
+        avgpred_list[[length(avgpred_list) + 1]] <- result$avgpred
       }
       if (!is.null(result$contrasts)) {
         contrasts_list[[length(contrasts_list) + 1]] <- result$contrasts
@@ -171,7 +149,7 @@ run_models_for_dataset <- function(data, formula, dataset, min_obs = 50,
 
   list(
     fixed_effects = do.call(rbind, fixed_effects_list),
-    emmeans       = if (length(emmeans_list) > 0) do.call(rbind, emmeans_list) else NULL,
+    avgpred       = if (length(avgpred_list) > 0) do.call(rbind, avgpred_list) else NULL,
     contrasts     = if (length(contrasts_list) > 0) do.call(rbind, contrasts_list) else NULL
   )
 }
@@ -180,9 +158,9 @@ run_models_for_dataset <- function(data, formula, dataset, min_obs = 50,
 # Run timepoint models across all datasets with per-dataset p-value adjustment
 run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
                                      min_obs = 50, emmeans_var = NULL,
-                                     emmeans_contrasts = NULL) {
+                                     contrast_pairs = NULL) {
   fixed_effects_all <- list()
-  emmeans_all <- list()
+  avgpred_all <- list()
   contrasts_all <- list()
 
   for (ds in datasets) {
@@ -196,7 +174,7 @@ run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
 
     ds_results <- run_models_for_dataset(ds_data, formula, ds, min_obs,
                                          emmeans_var = emmeans_var,
-                                         emmeans_contrasts = emmeans_contrasts)
+                                         contrast_pairs = contrast_pairs)
 
     if (is.null(ds_results)) {
       warning(sprintf("No valid results for dataset %s", ds))
@@ -207,8 +185,8 @@ run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
     ds_fixed$p_adj_bh <- p.adjust(ds_fixed$p.value, method = p_method)
     fixed_effects_all[[length(fixed_effects_all) + 1]] <- ds_fixed
 
-    if (!is.null(ds_results$emmeans)) {
-      emmeans_all[[length(emmeans_all) + 1]] <- ds_results$emmeans
+    if (!is.null(ds_results$avgpred)) {
+      avgpred_all[[length(avgpred_all) + 1]] <- ds_results$avgpred
     }
     if (!is.null(ds_results$contrasts)) {
       ds_contrasts <- ds_results$contrasts
@@ -221,7 +199,7 @@ run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
 
   list(
     fixed_effects = do.call(rbind, fixed_effects_all),
-    emmeans       = if (length(emmeans_all) > 0) do.call(rbind, emmeans_all) else NULL,
+    avgpred       = if (length(avgpred_all) > 0) do.call(rbind, avgpred_all) else NULL,
     contrasts     = if (length(contrasts_all) > 0) do.call(rbind, contrasts_all) else NULL
   )
 }

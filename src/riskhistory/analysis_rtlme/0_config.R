@@ -1,13 +1,6 @@
 # =============================================================================
 # Choice History Under Risk: Config for RT LME Analysis
 # =============================================================================
-# Analysis-specific settings for the RT (log response time) LME models.
-# Model 1 is the baseline: RT as a function of |subjective value| alone.
-# Model 2 extends the baseline with current-trial outcome (accept/reject)
-# and whether the current trial is a switch from the previous choice, fit
-# as an interaction on the full data.
-# Paths are imported from the base config.
-# =============================================================================
 
 source(file.path(dirname(sys.frame(1)$ofile), "..", "config.R"))
 
@@ -30,14 +23,11 @@ library(lmerTest)
 library(broom.mixed)
 library(dplyr)
 library(tibble)
-library(emmeans)
+library(marginaleffects)
 
 # =============================================================================
 # Source utility functions
 # =============================================================================
-# Reuse add_subjectivevalues() (sv), extract_fixed_effects(), and the
-# convergence-report helpers from analysis_acceptglme rather than duplicating
-# them here.
 acceptglme_path <- file.path(repo_path, "src", "riskhistory", "analysis_acceptglme")
 source(file.path(acceptglme_path, "utils_createregressors.R"))
 source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
@@ -45,6 +35,12 @@ source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
 
 # check_model_diagnostics() is defined in analysis_acceptglme
 source(file.path(acceptglme_path, "utils_modelanalytics.R"))
+
+# add_transition_regressor() -- same current x previous choice transition
+# factor used in analysis_pupiltimeseries / analysis_pupilbetas
+pupiltimeseries_path <- file.path(repo_path, "src", "riskhistory",
+                                  "analysis_pupiltimeseries")
+source(file.path(pupiltimeseries_path, "utils_createtransitionregressor.R"))
 
 # =============================================================================
 # Analysis settings
@@ -73,17 +69,14 @@ pth_betas <- file.path(results_path, "analysis_acceptglme",
 rtlme_data <- add_subjectivevalues(df = behavioral_data_full, pth_betas = pth_betas)
 
 rtlme_data$logRT <- log(rtlme_data$rt)
-
-# RT scales with distance from indifference, not the sign of sv (accept vs
-# reject already carries the sign via the `accept`/`condition` terms), so the
-# RT models use |sv|.
 rtlme_data$sv_abs <- abs(rtlme_data$sv)
 
-# NOTE: choice_prev1 == 0 is a "no trial there yet" sentinel (see
-# add_exclude_trials() in setup_behavioraldata/utils_behavioraldata.py), not
-# a reject choice -- e.g. trial_run == 1 has no valid t-1 trial. These trials
-# are intentionally kept here: Model 1 doesn't use choice history at all, and
-# Model 2's `switch` term is valid for all of them.
+# 4-level current x previous choice transition factor (accept_to_accept,
+# accept_to_reject, reject_to_accept, reject_to_reject). Rows with
+# choice_prev1 == 0 (no valid t-1 trial, see NOTE below) get transition = NA
+# and are dropped by lm()'s default na.action in any model using this term.
+message("Creating transition (current x previous choice) regressor...")
+rtlme_data <- add_transition_regressor(rtlme_data)
 
 message("Config loaded successfully.")
 for (ds in datasets) {

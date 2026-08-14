@@ -1,26 +1,6 @@
 # =============================================================================
 # Per-subject switch effect on RT (two-step lm, no partial pooling)
 # =============================================================================
-# For each dataset and each subject, fits a standalone linear model
-# log(rt) ~ sv_abs + switch, independently of every other subject. Mirrors
-# analysis_acceptglme/6_choicehistorypersubject.R's two-step design: unlike
-# the switch/condition term in 2_rtlme_interactionmodel.R's mixed model,
-# these per-subject estimates are not shrunk toward the population mean, so
-# they're an unbiased (if noisier) per-subject effect -- useful for
-# correlating against an external per-subject quantity without inheriting
-# shrinkage from the mixed model.
-#
-# `switch` has no NA/sentinel values left in rtlme_data (unlike choice_prev1
-# in the acceptglme two-step script) -- the exclusion criteria in
-# setup_behavioraldata already drop every trial where switch would be
-# undefined (see the NOTE in 0_config.R), so no extra filtering is needed
-# here.
-#
-# `converged` is FALSE if lm() errors outright, or if the switch coefficient
-# comes back NA -- which happens when a subject's design matrix is rank
-# deficient (e.g. a subject who never switches, so `switch` has zero
-# variance for them).
-# =============================================================================
 
 fit_switch_lm <- function(df_sub_i) {
   converged <- TRUE

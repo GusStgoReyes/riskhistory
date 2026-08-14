@@ -1,12 +1,6 @@
 # =============================================================================
 # Choice-history transition regressor for the pupil timeseries models
 # =============================================================================
-# Adds a 4-level `transition` factor (current choice x previous choice),
-# combining `accept` and `choice_prev1` directly, as a categorical alternative
-# to fitting accept + switch + accept:switch (same information, since both
-# are binary and fully saturate the 2x2 combination -- this just reads more
-# directly as "the four transition types").
-# =============================================================================
 
 add_transition_regressor <- function(df) {
   df <- df %>%

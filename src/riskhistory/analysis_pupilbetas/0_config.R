@@ -127,4 +127,47 @@ data_betas_clean <- create_pupil_regressors(data_betas_clean)
 message("Creating transition (current x previous choice) regressor...")
 data_betas_clean <- add_transition_regressor(data_betas_clean)
 
+message("Creating choice alteration regressor...")
+data_betas_clean <- data_betas_clean %>%
+  mutate(
+    choice_prev1_01 = ifelse(choice_prev1 == 0, NA_real_, (choice_prev1 + 1) / 2),
+    choice_prev2_01 = ifelse(choice_prev2 == 0, NA_real_, (choice_prev2 + 1) / 2),
+    # Continuous version (0, 0.5, 1) for the fixed-effects model.
+    choice_alteration_num = abs(accept - (choice_prev1_01 + choice_prev2_01) / 2),
+    # Categorical version (Low/Medium/High) for avg_predictions/avg_comparisons.
+    choice_alteration = case_when(
+      is.na(choice_alteration_num) ~ NA_character_,
+      choice_alteration_num == 0 ~ "Low",
+      choice_alteration_num == 1 ~ "High",
+      TRUE ~ "Medium"
+    ),
+    choice_alteration = factor(choice_alteration, levels = c("Low", "Medium", "High"))
+  ) %>%
+  select(-choice_prev1_01, -choice_prev2_01)
+
+n_na_alteration <- sum(is.na(data_betas_clean$choice_alteration))
+message(sprintf("  %d row(s) have NA choice_alteration (fewer than 2 valid previous trials in that run)",
+                n_na_alteration))
+
+data_betas_clean <- data_betas_clean %>%
+  mutate(
+    choice_alteration_accept = factor(
+      ifelse(accept == 1, as.character(choice_alteration), "Low"),
+      levels = c("Low", "Medium", "High")
+    ),
+    choice_alteration_reject = factor(
+      ifelse(accept == 0, as.character(choice_alteration), "Low"),
+      levels = c("Low", "Medium", "High")
+    ),
+    choice_alteration_accept_num = ifelse(accept == 1, choice_alteration_num, 0),
+    choice_alteration_reject_num = ifelse(accept == 0, choice_alteration_num, 0),
+    # 6-category grouping label for avg_predictions() -- not a model term,
+    # just used to group predictions by (choice_alteration x accept).
+    choice_alteration_combo = case_when(
+      is.na(choice_alteration) ~ NA_character_,
+      accept == 1 ~ paste0(as.character(choice_alteration), "_Accept"),
+      TRUE ~ paste0(as.character(choice_alteration), "_Reject")
+    )
+  )
+
 message("Config loaded successfully.")

@@ -26,12 +26,10 @@ ALL_MODELS = [
     "HDDM_Base_Pupil",
     "HDDM_Base_Lag1-stpdrift_Pupil",
     "HDDM_Base_Lag1-stpdrift_Pupil_stp",
-    "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
     "HDDM_Base_Lag1-stpdrift_Pupil_drift",
-    "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
-    "HDDM_Base_Lag1-stpdrift_Pupil_ndt",
+    "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift",
 ]
-
+    
 
 MODEL_GROUPS = {
     "choicehistory_onemechanism" : ["HDDM_Base",
@@ -39,17 +37,17 @@ MODEL_GROUPS = {
                                     "HDDM_Base_Lag1-drift",
                                     "HDDM_Base_Lag1-stim"],
 
-    "choicehistory_multimechanism" : ["HDDM_Base",
+    "choicehistory_bestmodel" : ["HDDM_Base",
                                       "HDDM_Base_Lag1-full",
                                       "HDDM_Base_Lag1-stpdrift"],
-    "arousal_choicehistory_bestmodel": ["HDDM_Base_Pupil",
-                                      "HDDM_Base_Lag1-stpdrift_Pupil"],
-    "arousal_mechanisms" : ["HDDM_Base_Lag1-stpdrift_Pupil",
-                         "HDDM_Base_Lag1-stpdrift_Pupil_stp",
-                         "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
-                         "HDDM_Base_Lag1-stpdrift_Pupil_drift",
-                         "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
-                         "HDDM_Base_Lag1-stpdrift_Pupil_ndt",]
+
+    "choicehistory_bestmodel_arousal": ["HDDM_Base_Pupil",
+                                        "HDDM_Base_Lag1-stpdrift_Pupil"],
+
+    "mechanisms_arousal" : ["HDDM_Base_Lag1-stpdrift_Pupil",
+                            "HDDM_Base_Lag1-stpdrift_Pupil_stp",
+                            "HDDM_Base_Lag1-stpdrift_Pupil_drift",
+                            "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift"]
 }
 
 

@@ -1,13 +1,7 @@
 # =============================================================================
 # Model 1: log(rt) ~ sv_abs (baseline)
 # =============================================================================
-# Baseline RT model: response time as a function of |subjective value| only,
-# with no choice-history predictors. Later models in this analysis build on
-# this baseline by adding choice-history terms.
-#
-# Fits the maximal (1 + sv_abs | sub) random-effects structure, with no
-# fallback on non-convergence/singular fit -- convergence/singularity is
-# still checked and recorded per dataset.
+# Baseline RT model: response time as a function of |subjective value| only
 # =============================================================================
 
 rtlme_baseline_models_list <- list()

@@ -1,14 +1,6 @@
 # =============================================================================
 # Model 2: log(rt) ~ sv_abs + condition
 # =============================================================================
-# Extends the Model 1 baseline (1_rtlme_baselinemodel.R) with a switch/repeat
-# x accept/reject condition factor.
-#
-# Fits the maximal correlated random-effects structure implied by the fixed
-# effects; falls back to a decorrelated structure (||) on non-convergence/
-# singular fit (see check_model_diagnostics() in
-# analysis_acceptglme/utils_modelanalytics.R).
-# =============================================================================
 
 rtlme_data$condition <- factor(
   paste0(ifelse(rtlme_data$accept == 1, "accept", "reject"), "_",
@@ -16,9 +8,14 @@ rtlme_data$condition <- factor(
   levels = c("reject_repeat", "reject_switch", "accept_repeat", "accept_switch")
 )
 
+CONDITION_PAIRS <- list(
+  c("reject_switch", "reject_repeat"),
+  c("accept_switch", "accept_repeat")
+)
+
 rtlme_models_list <- list()
 rtlme_interaction_ranef_structure <- list()
-rtlme_emmeans_list <- list()
+rtlme_avgpred_list <- list()
 rtlme_contrasts_list <- list()
 
 for (ds in datasets) {
@@ -26,21 +23,11 @@ for (ds in datasets) {
   df_sub <- rtlme_data[rtlme_data$dataset == ds, ]
 
   m <- lmer(
-    log(rt) ~ sv_abs + condition + (1 + sv_abs + condition | sub),
+    log(rt) ~ sv_abs + condition + (1 + sv_abs | sub),
     data = df_sub, control = LMER_CONTROL
   )
   diag <- check_model_diagnostics(m)
-  ranef_structure <- "(1 + sv_abs + condition | sub)"
-
-  if (!diag$converged || diag$singular) {
-    message("  Full correlated random-effects structure did not converge cleanly; falling back to decorrelated (||)")
-    m <- lmer(
-      log(rt) ~ sv_abs + condition + (1 + sv_abs | sub),
-      data = df_sub, control = LMER_CONTROL
-    )
-    diag <- check_model_diagnostics(m)
-    ranef_structure <- "(1 + sv_abs | sub)"
-  }
+  ranef_structure <- "(1 + sv_abs | sub)"
 
   message(sprintf("  converged: %s, singular: %s, random effects: %s",
                   diag$converged, diag$singular, ranef_structure))
@@ -48,13 +35,28 @@ for (ds in datasets) {
   rtlme_models_list[[ds]] <- list(rtlme_interaction = m)
   rtlme_interaction_ranef_structure[[ds]] <- ranef_structure
 
-  message(sprintf("  Computing emmeans for dataset: %s", ds))
-  emm <- emmeans(m, specs = pairwise ~ condition, type = "response",
-                 adjust = p_method)
-  rtlme_emmeans_list[[ds]] <- as.data.frame(summary(emm$emmeans, type = "response")) %>%
-    mutate(dataset = ds)
-  rtlme_contrasts_list[[ds]] <- as.data.frame(summary(emm$contrasts, type = "response")) %>%
-    mutate(dataset = ds)
+  message(sprintf("  Computing avg_predictions for dataset: %s", ds))
+  pred <- avg_predictions(m, by = "condition", re.form = NA, transform = "exp")
+
+  rtlme_avgpred_list[[ds]] <- as.data.frame(pred) %>%
+    rename(avgpred = estimate, asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
+    mutate(dataset = ds) %>%
+    select(dataset, condition, avgpred, asymp.LCL, asymp.UCL, p.value)
+
+  message(sprintf("  Computing avg_comparisons for dataset: %s", ds))
+  condition_labels <- vapply(CONDITION_PAIRS, function(p) paste(p[1], "-", p[2]), character(1))
+  comp <- avg_comparisons(m, variables = list(condition = "pairwise"),
+                          re.form = NA, transform = "exp")
+  comp_df <- as.data.frame(comp)
+  comp_df <- comp_df[comp_df$contrast %in% condition_labels, ]
+
+  rtlme_contrasts_list[[ds]] <- data.frame(
+    dataset  = ds,
+    contrast = comp_df$contrast,
+    estimate = comp_df$estimate,
+    p.value  = comp_df$p.value,
+    stringsAsFactors = FALSE
+  )
 }
 
 # =============================================================================
@@ -72,19 +74,24 @@ write.csv(interaction_fixed_effects,
           row.names = FALSE)
 message("Saved: 2_rtlme_interaction_fixed_effects.csv")
 
-# =============================================================================
-# Estimated marginal means (response scale: geometric-mean RT in seconds)
-# =============================================================================
-rtlme_emmeans_df <- bind_rows(rtlme_emmeans_list)
-write.csv(rtlme_emmeans_df,
-          file.path(analysis_results_path, "2_rtlme_interaction_emmeans.csv"),
+
+rtlme_avgpred_df <- bind_rows(rtlme_avgpred_list)
+write.csv(rtlme_avgpred_df,
+          file.path(analysis_results_path, "2_rtlme_interaction_avgpred.csv"),
           row.names = FALSE)
-message("Saved: 2_rtlme_interaction_emmeans.csv")
+message("Saved: 2_rtlme_interaction_avgpred.csv")
 
 # =============================================================================
-# Pairwise contrasts among the 4 condition levels (response scale: ratios)
+# Switch-effect contrasts (ratio scale, from avg_comparisons() with
+# transform = "exp"): reject_switch - reject_repeat and accept_switch -
+# accept_repeat. p_adj_bh is one p.adjust() call per dataset, across both
+# contrasts together.
 # =============================================================================
 rtlme_contrasts_df <- bind_rows(rtlme_contrasts_list)
+rtlme_contrasts_df$p_adj_bh <- ave(
+  rtlme_contrasts_df$p.value, rtlme_contrasts_df$dataset,
+  FUN = function(p) p.adjust(p, method = p_method)
+)
 write.csv(rtlme_contrasts_df,
           file.path(analysis_results_path, "2_rtlme_interaction_contrasts.csv"),
           row.names = FALSE)

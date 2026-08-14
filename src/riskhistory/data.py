@@ -18,9 +18,9 @@ DATASET_RUNS = {
 }
 
 DATASET_LABELS = {
-    "equalIndifference": "equalIndifference",
-    "equalRange": "equalRange",
-    "sheng2020": "sheng2020",
+    "equalIndifference": "EqualIndifference",
+    "equalRange": "EqualRange",
+    "sheng2020": "Sheng2020",
 }
 
 DATASET_CURRENCY = {
@@ -160,9 +160,9 @@ def load_rtlme_interaction_fixed_effects():
     return pd.read_csv(path)
 
 
-def load_rtlme_interaction_emmeans():
+def load_rtlme_interaction_avgpred():
     path = (REPO_ROOT / "results" / "analysis_rtlme"
-            / "2_rtlme_interaction_emmeans.csv")
+            / "2_rtlme_interaction_avgpred.csv")
     return pd.read_csv(path)
 
 
@@ -293,13 +293,31 @@ def load_pupilbetas_transition_fixed_effects():
 
 def load_pupilbetas_transition_emmeans():
     path = (REPO_ROOT / "results" / "analysis_pupilbetas"
-            / "3_pupilbetas_transition_emmeans.csv")
+            / "2_pupilbetas_transition_emmeans.csv")
     return pd.read_csv(path)
 
 
 def load_pupilbetas_transition_contrasts():
     path = (REPO_ROOT / "results" / "analysis_pupilbetas"
-            / "3_pupilbetas_transition_contrasts.csv")
+            / "2_pupilbetas_transition_contrasts.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilbetas_choicealteration_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
+            / "3_pupilbetas_choicealteration_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilbetas_choicealteration_avgpred():
+    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
+            / "3_pupilbetas_choicealteration_avgpred.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilbetas_choicealteration_contrasts():
+    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
+            / "3_pupilbetas_choicealteration_contrasts.csv")
     return pd.read_csv(path)
 
 
