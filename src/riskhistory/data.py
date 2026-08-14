@@ -72,7 +72,7 @@ def load_choicehistory_betas():
 
 def load_choicehistorypersubject_betas():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "6_choicehistorypersubject_betas.csv")
+            / "5_choicehistorypersubject_betas.csv")
     return pd.read_csv(path)
 
 

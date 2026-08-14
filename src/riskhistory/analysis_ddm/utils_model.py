@@ -181,20 +181,7 @@ MODEL_REGISTRY = {
         # Does pupil moderate the starting-point choice-history bias?
         "reg_descr": [
             {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1", "link_func": lambda x: x},
-            {"model": "z ~ 1 + choice_prev1 + choice_prev1:pupil", "link_func": z_link_func},
-        ],
-        "group_only_nodes": [],
-        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
-    },
-
-    "HDDM_Base_Lag1-stpdrift_Pupil_valuation": {
-        # Does pupil moderate value sensitivity (gain/loss weighting) in drift?
-        "reg_descr": [
-            {
-                "model": "v ~ 1 + gain_centered * pupil + loss_centered * pupil + choice_prev1",
-                "link_func": lambda x: x,
-            },
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
+            {"model": "z ~ 1 + choice_prev1*pupil", "link_func": z_link_func},
         ],
         "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
@@ -204,48 +191,22 @@ MODEL_REGISTRY = {
         # Does pupil moderate fixed drift differences associated to choice history bias?
         "reg_descr": [
             {
-                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1 + choice_prev1:pupil",
+                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1*pupil",
                 "link_func": lambda x: x,
             },
             {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
-        ],
-        "group_only_nodes": [],
-        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
-    },
-
-    "HDDM_Base_Lag1-stpdrift_Pupil_boundary": {
-        # Does pupil moderate the starting-point choice-history bias?
-        "reg_descr": [
-            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1", "link_func": lambda x: x},
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
-            {"model": "a ~ 1 + pupil", "link_func": lambda x: x},
-        ],
-        "group_only_nodes": [],
-        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
-    },
-
-    "HDDM_Base_Lag1-stpdrift_Pupil_ndt": {
-        # Does pupil moderate value sensitivity (gain/loss weighting) in drift?
-        "reg_descr": [
-            {
-                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1",
-                "link_func": lambda x: x,
-            },
-            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
-            {"model": "t ~ 1 + pupil", "link_func": lambda x: x},
         ],
         "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
 
     "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift": {
-        # Does pupil moderate value sensitivity (gain/loss weighting) in drift?
         "reg_descr": [
             {
-                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1 + choice_prev1:pupil",
+                "model": "v ~ 1 + gain_centered + loss_centered + choice_prev1*pupil",
                 "link_func": lambda x: x,
             },
-            {"model": "z ~ 1 + choice_prev1 + choice_prev1:pupil", "link_func": z_link_func},
+            {"model": "z ~ 1 + choice_prev1*pupil", "link_func": z_link_func},
         ],
         "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
