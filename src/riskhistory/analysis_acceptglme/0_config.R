@@ -1,9 +1,6 @@
 # =============================================================================
 # Choice History Under Risk: Config for Accept GLME Analysis
 # =============================================================================
-# This file contains analysis-specific settings for the accept/reject GLME
-# analysis. Paths are imported from the base config.
-# =============================================================================
 
 # Source the base config to get repo_path and standard paths
 source(file.path(dirname(sys.frame(1)$ofile), "..", "config.R"))
@@ -27,6 +24,7 @@ library(dplyr)
 library(tibble)
 library(lmerTest)
 library(bayestestR)
+library(marginaleffects)
 
 # Source utility functions
 source(file.path(utils_path, "utils_createregressors.R"))
@@ -64,8 +62,8 @@ behavioral_data_full$log_rt <- log(behavioral_data_full$rt)
 # Filter out excluded trials for behavioral analyses
 behavioral_data <- subset(behavioral_data_full, !exclude)
 
-# Fill any residual NAs in choice_prev1 (first trial of each run) with 0
-behavioral_data[["choice_prev1"]][is.na(behavioral_data[["choice_prev1"]])] <- 0
+# Add low/medium/high ev_partition (see utils_createregressors.R)
+behavioral_data <- add_ev_partition(behavioral_data)
 
 # =============================================================================
 # Initialize model storage lists

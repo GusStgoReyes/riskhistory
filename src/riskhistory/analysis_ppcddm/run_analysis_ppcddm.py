@@ -85,11 +85,13 @@ def _append_with_lock(out_path: Path, new_rows: pd.DataFrame) -> None:
 # Single-subject entry point (called by each array job)
 # ---------------------------------------------------------------------------
 
-def run_subject(dataset_name: str, sub: int, behavioral_data: pd.DataFrame) -> None:
-    """Run all models for one (dataset, sub) pair and append results to shared CSVs."""
+def run_subject(dataset_name: str, sub: int, behavioral_data: pd.DataFrame,
+                models: dict = MODELS) -> None:
+    """Run each model in `models` for one (dataset, sub) pair and append
+    results to shared CSVs."""
     dataset_behavioral_data = behavioral_data.query(f"dataset == '{dataset_name}'")
 
-    for model_name, model_id in MODELS.items():
+    for model_name, model_id in models.items():
         print(f"  [{dataset_name} / sub-{sub}] model: {model_name}")
 
         sub_params_pth   = results_pth / "analysis_ddm" / "hddm_params" / f"{model_id}_{dataset_name}_subj_params.csv"
@@ -118,11 +120,25 @@ if __name__ == "__main__":
                         help="SLURM_ARRAY_TASK_ID: index into (dataset, sub) manifest")
     parser.add_argument("--print_njobs", action="store_true",
                         help="Print total number of jobs and exit (for sbatch array sizing)")
+    parser.add_argument("--models", type=str, default=None,
+                        help="Comma-separated model_ids to simulate, e.g. 'HDDM_Base' "
+                             "or 'HDDM_Base,HDDM_Base_Lag1-full' (default: all in MODELS)")
     args = parser.parse_args()
+
+    if args.models:
+        selected_ids = [m.strip() for m in args.models.split(",")]
+        models = {name: model_id for name, model_id in MODELS.items()
+                 if model_id in selected_ids}
+        unknown = set(selected_ids) - set(models.values())
+        if unknown:
+            raise ValueError(f"Unknown model_id(s) in --models: {sorted(unknown)}. "
+                             f"Valid options: {sorted(MODELS.values())}")
+    else:
+        models = MODELS
 
     behavioral_data = (
         pd.read_csv(behavioral_data_pth)
-        [["sub", "dataset", "gain_centered", "loss_centered", "choice_prev1", "accept", "repeat", "rt", "exclude"]]
+        [["sub", "dataset", "trial", "gain_centered", "loss_centered", "choice_prev1", "accept", "repeat", "rt", "exclude"]]
         .query("exclude == False")
     )
     # Rename gain_centered/loss_centered (no _centered)
@@ -143,6 +159,6 @@ if __name__ == "__main__":
 
     for dataset_name, sub in jobs:
         print(f"\nProcessing dataset={dataset_name}, sub={sub}")
-        run_subject(dataset_name, sub, behavioral_data)
+        run_subject(dataset_name, sub, behavioral_data, models)
 
     print("\nDone.")

@@ -8,9 +8,15 @@
 # This wrapper:
 #   1. Queries the Python script for the exact number of jobs.
 #   2. Submits a SLURM array of that size (max 20 concurrent).
+#
+# MODELS below controls which model_id(s) get simulated (comma-separated,
+# passed through to --models). Leave empty ("") to simulate all 5 models
+# defined in run_analysis_ppcddm.py's MODELS dict.
 # =============================================================================
 
 set -euo pipefail
+
+MODELS="HDDM_Base"
 
 REPO_PTH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$REPO_PTH/sbatch/configs/general.sh"
@@ -18,9 +24,14 @@ source "$REPO_PTH/sbatch/configs/general.sh"
 LOG_DIR="$REPO_PTH/logs/ppcddm"
 mkdir -p "$LOG_DIR"
 
+MODELS_FLAG=""
+if [ -n "$MODELS" ]; then
+  MODELS_FLAG="--models $MODELS"
+fi
+
 # Resolve number of jobs from the manifest
 N_JOBS=$(cd "$REPO_PTH" && uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm --print_njobs)
-echo "Submitting array of $N_JOBS jobs (max 20 concurrent)..."
+echo "Submitting array of $N_JOBS jobs (max 20 concurrent), models: ${MODELS:-all}..."
 
 sbatch <<EOF
 #!/bin/bash
@@ -39,5 +50,5 @@ ml openblas/0.3.28
 cd /scratch/users/gustxsr/riskhistory
 
 uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm \\
-    --job_index \$SLURM_ARRAY_TASK_ID
+    --job_index \$SLURM_ARRAY_TASK_ID $MODELS_FLAG
 EOF

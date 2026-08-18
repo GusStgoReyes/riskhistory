@@ -27,6 +27,7 @@ library(lmerTest)
 library(broom.mixed)
 library(dplyr)
 library(tibble)
+library(marginaleffects)
 
 # Source utility functions from analysis_acceptglme
 source(file.path(acceptglme_path, "utils_createregressors.R"))
@@ -86,6 +87,20 @@ data_pupilbehavior <- merge(behavioral_data, pupil_betas,
 message("Applying pupil exclusion criteria...")
 data_pupilbehavior <- data_pupilbehavior %>%
   filter(!exclude_startAligned)
+
+# Switch dummies split by the direction of the switch (same
+# accept_to_accept/accept_to_reject/reject_to_accept/reject_to_reject
+# transitions as analysis_pupiltimeseries/utils_createtransitionregressor.R):
+# switch_AA_RA is 1 for reject-to-accept (switched into accept), 0 for
+# accept-to-accept (repeated into accept); switch_RR_AR is 1 for
+# accept-to-reject (switched into reject), 0 for reject-to-reject (repeated
+# into reject). Repeat trials (AA, RR) are 0 on both, the same shared
+# reference level the single `switch` regressor already collapsed them into.
+data_pupilbehavior <- data_pupilbehavior %>%
+  mutate(
+    switch_AA_RA = ifelse(accept == 1 & choice_prev1 == -1, 1, 0),
+    switch_RR_AR = ifelse(accept == 0 & choice_prev1 == 1, 1, 0)
+  )
 
 message(sprintf("Pupil-behavior data: %d rows after behavioral + pupil exclusion",
                 nrow(data_pupilbehavior)))

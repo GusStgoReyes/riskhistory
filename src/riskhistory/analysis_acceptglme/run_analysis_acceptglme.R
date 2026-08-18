@@ -5,6 +5,7 @@
 source("0_config.R")
 source("1_baselinechoicemodel.R")
 source("2_choicehistorymodels.R")
+source("2_choicehistoryeffect.R")
 source("4_supplementarymodels.R")
 source("5_choicehistorypersubject.R")
 

@@ -203,6 +203,7 @@ class PTDDM(Model):
 
         artificial_data = {"gain" : [],
                            "loss" : [],
+                           "trial" : [],
                            "mean_rt" : [],
                            "mean_accept" : [],
                            "pred_repeat" : [],
@@ -231,6 +232,7 @@ class PTDDM(Model):
 
             artificial_data["gain"].extend([row["gain"]])
             artificial_data["loss"].extend([row["loss"]])
+            artificial_data["trial"].extend([row["trial"]])
             artificial_data["mean_rt"].extend([mean_rt])
             artificial_data["mean_accept"].extend([mean_accept])
             artificial_data["pred_repeat"].extend([pred_repeat])

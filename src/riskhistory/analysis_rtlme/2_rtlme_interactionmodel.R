@@ -36,7 +36,7 @@ for (ds in datasets) {
   rtlme_interaction_ranef_structure[[ds]] <- ranef_structure
 
   message(sprintf("  Computing avg_predictions for dataset: %s", ds))
-  pred <- avg_predictions(m, by = "condition", re.form = NA, transform = "exp")
+  pred <- avg_predictions(m, by = "condition", transform = "exp")
 
   rtlme_avgpred_list[[ds]] <- as.data.frame(pred) %>%
     rename(avgpred = estimate, asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
@@ -46,7 +46,7 @@ for (ds in datasets) {
   message(sprintf("  Computing avg_comparisons for dataset: %s", ds))
   condition_labels <- vapply(CONDITION_PAIRS, function(p) paste(p[1], "-", p[2]), character(1))
   comp <- avg_comparisons(m, variables = list(condition = "pairwise"),
-                          re.form = NA, transform = "exp")
+                          transform = "exp")
   comp_df <- as.data.frame(comp)
   comp_df <- comp_df[comp_df$contrast %in% condition_labels, ]
 

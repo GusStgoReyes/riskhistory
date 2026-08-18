@@ -1,10 +1,15 @@
 # =============================================================================
 # Pupil-Behavior — RT Model
 # =============================================================================
-# log(rt) ~ sv_abs + switch * pupil + (1 + sv_abs | sub)
+# log(rt) ~ sv_abs + switch_AA_RA * pupil + switch_RR_AR * pupil +
+#   (1 + sv_abs | sub)
+# switch_AA_RA/switch_RR_AR (0_config.R) split the single switch * pupil
+# interaction by switch direction, so switching into accept and switching
+# into reject each get their own effect and pupil interaction instead of
+# being pooled under one switch term.
 
-formula_pupilbehavior_rt <- log(rt) ~ sv_abs + switch * pupil +
-  (1 + sv_abs | sub)
+formula_pupilbehavior_rt <- log(rt) ~ sv_abs + switch_AA_RA * pupil +
+  switch_RR_AR * pupil + (1 + sv_abs | sub)
 
 rtmodel_list <- list()
 

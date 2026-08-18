@@ -106,15 +106,33 @@ def load_fixed_effects():
     return pd.read_csv(path)
 
 
-def load_pupilbins_choiceprev1_predicted():
+def load_pupilbehavior_acceptmodel_historyeffect():
     path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
-            / "2b_pupilbins_choiceprev1_predicted.csv")
+            / "1_pupilbehavior_acceptmodel_historyeffect.csv")
     return pd.read_csv(path)
 
 
-def load_pupilbins_choiceprev1_contrasts():
+def load_pupilbehavior_acceptmodel_historyeffect_contrasts():
     path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
-            / "2b_pupilbins_choiceprev1_contrasts.csv")
+            / "1_pupilbehavior_acceptmodel_historyeffect_contrasts.csv")
+    return pd.read_csv(path)
+
+
+def load_choicehistoryeffect_predictions():
+    path = (REPO_ROOT / "results" / "analysis_acceptglme"
+            / "2_choicehistoryeffect_predictions.csv")
+    return pd.read_csv(path)
+
+
+def load_choicehistoryeffect_contrasts():
+    path = (REPO_ROOT / "results" / "analysis_acceptglme"
+            / "2_choicehistoryeffect_contrasts.csv")
+    return pd.read_csv(path)
+
+
+def load_choicehistoryeffect_pairwise():
+    path = (REPO_ROOT / "results" / "analysis_acceptglme"
+            / "2_choicehistoryeffect_pairwise.csv")
     return pd.read_csv(path)
 
 

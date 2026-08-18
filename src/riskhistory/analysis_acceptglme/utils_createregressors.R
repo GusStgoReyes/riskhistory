@@ -44,6 +44,27 @@ add_subjectivevalues <- function(df, pth_betas) {
   return(data)
 }
 
+# Adds a low/medium/high ev_partition factor, within dataset. Breakpoints
+# (33rd/66th percentile) are computed over the dataset's unique gain/loss
+# design cells rather than trial-level ev, so a cell presented on many
+# trials doesn't pull the thresholds toward it.
+add_ev_partition <- function(df) {
+  df <- df %>%
+    group_by(dataset) %>%
+    mutate(
+      ev = 0.5 * gain_centered - 0.5 * loss_centered,
+      ev_partition = {
+        design_ev <- unique(ev)
+        breaks    <- quantile(design_ev, probs = c(1 / 3, 2 / 3), names = FALSE)
+        cut(ev, breaks = c(-Inf, breaks, Inf),
+            labels = c("low", "medium", "high"))
+      }
+    ) %>%
+    ungroup()
+
+  return(df)
+}
+
 # Standardize behavioral regressors within dataset/subject
 create_behavioral_regressors <- function(df) {
   df <- df %>%
