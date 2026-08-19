@@ -1,9 +1,11 @@
 # =============================================================================
 # DDM PPC Behavior: Accept GLME
 # =============================================================================
-# Per dataset: (1) baseline model accept ~ gain + loss + (1 + gain + loss |
-# sub), used only to save per-subject BLUPs; (2) full model adding
-# choice_prev1, whose fixed effects are saved.
+# Per dataset: (1) baseline model logit(mean_accept) ~ gain + loss +
+# (1 + gain + loss | sub), used only to save per-subject BLUPs; (2) full
+# model adding real_choice_prev1, whose fixed effects are saved. Response is
+# the DDM's own predicted acceptance probability (logit-transformed, see
+# 0_config.R), not a thresholded binary choice -- see 0_config.R for why.
 
 models_list <- list()
 baseline_betas <- list()
@@ -13,13 +15,13 @@ for (ds in datasets) {
   df_sub <- ddm_data[ddm_data$dataset == ds, ]
 
   # BASELINE MODEL (used only for per-subject betas)
-  baseline_model <- glmer(accept ~ gain + loss + (1 + gain + loss | sub),
-                          data = df_sub, family = binomial, control = GLMER_CONTROL)
+  baseline_model <- lmer(logit_mean_accept ~ gain + loss + (1 + gain + loss | sub),
+                         data = df_sub, control = LMER_CONTROL)
   baseline_betas[[ds]] <- extract_random_effects_baseline(baseline_model, ds)
-
+  message(sprintf("\nDone baseline: %s", ds))
   # FULL MODEL (choice-history effect)
-  full_model <- glmer(accept ~ gain + loss + choice_prev1 + (1 + gain + loss | sub),
-                      data = df_sub, family = binomial, control = GLMER_CONTROL)
+  full_model <- lmer(logit_mean_accept ~ gain + loss + real_choice_prev1 + (1 + gain + loss | sub),
+                     data = df_sub, control = LMER_CONTROL)
 
   models <- list(
     baseline = baseline_model,

@@ -160,6 +160,17 @@ def load_loo_comparison(dataset, group_name=None):
     return pd.read_csv(path)
 
 
+def load_robustness_loo(dataset, group_name=None):
+    """PSIS-LOO robustness check for one dataset: elpd_loo_all (all
+    observations) vs elpd_loo_reliable_only (excluding observations with
+    unreliable Pareto-k diagnostics). group_name as in load_loo_comparison().
+    """
+    suffix = f"_{group_name}" if group_name else ""
+    path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
+            / f"{dataset}{suffix}_robustness_loo.csv")
+    return pd.read_csv(path)
+
+
 def load_eta_profile():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
             / "3_choicehistoryprofile.csv")

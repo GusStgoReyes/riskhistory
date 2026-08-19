@@ -18,7 +18,7 @@ MODELS = {
 }
 
 DATASET_NAMES = ["equalIndifference", "equalRange", "sheng2020"]
-NUM_SAMPLES_PER_CONDITION = 1000
+NUM_SAMPLES_PER_CONDITION = 3000
 
 
 # ---------------------------------------------------------------------------

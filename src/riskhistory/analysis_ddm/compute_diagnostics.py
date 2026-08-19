@@ -3,6 +3,9 @@
 Run one instance per model (e.g. as a SLURM array job) so each job holds
 only one ~20 GB InferenceData file in memory at a time.
 Results are saved as small intermediate files for compare_models.py to aggregate.
+
+Seems that the loglikelihood has to be injected the poutliers because version of the 
+pymc.
 """
 import argparse
 import pickle
