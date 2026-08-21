@@ -60,7 +60,7 @@ for (ds in datasets) {
   message(sprintf("\nComputing transition avg_predictions/avg_comparisons for dataset: %s", ds))
   m <- transitionmodel_list[[ds]][["pupilbetas_transition"]]
 
-  pred <- avg_predictions(m, by = "transition", re.form = NA)
+  pred <- avg_predictions(m, by = "transition")
 
   avgpred_rows[[ds]] <- as.data.frame(pred) %>%
     rename(avgpred = estimate, SE = std.error,
@@ -68,8 +68,7 @@ for (ds in datasets) {
     mutate(dataset = ds) %>%
     select(dataset, transition, avgpred, SE, asymp.LCL, asymp.UCL)
 
-  comp <- avg_comparisons(m, variables = list(transition = "pairwise"),
-                          re.form = NA)
+  comp <- avg_comparisons(m, variables = list(transition = "pairwise"))
   comp_df <- as.data.frame(comp)
 
   contrasts_rows[[ds]] <- data.frame(

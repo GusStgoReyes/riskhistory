@@ -284,10 +284,10 @@ def load_pupiltimeseries_fixed_effects(alignment: str = "start") -> pd.DataFrame
     return pd.read_csv(path)
 
 
-def load_pupiltimeseries_emmeans(alignment: str = "start") -> pd.DataFrame:
+def load_pupiltimeseries_avgpred(alignment: str = "start") -> pd.DataFrame:
     filenames = {
-        "start":    "1_timeseries_start_emmeans.csv",
-        "response": "1_timeseries_response_emmeans.csv",
+        "start":    "1_timeseries_start_avgpred.csv",
+        "response": "1_timeseries_response_avgpred.csv",
     }
     path = (REPO_ROOT / "results" / "analysis_pupiltimeseries" / filenames[alignment])
     return pd.read_csv(path)

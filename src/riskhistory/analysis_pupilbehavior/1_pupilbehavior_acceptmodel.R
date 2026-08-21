@@ -1,8 +1,6 @@
 # =============================================================================
 # Pupil-Behavior — Accept Model
 # =============================================================================
-# accept ~ gain_centered + loss_centered + choice_prev1 * pupil +
-#   (1 + gain_centered + loss_centered | sub)
 
 formula_pupilbehavior_accept <- accept ~ gain_centered + loss_centered +
   choice_prev1 * pupil +
@@ -53,7 +51,7 @@ for (ds in datasets) {
   history_effect <- avg_comparisons(
     m, variables = list(choice_prev1 = c(-1, 1)),
     newdata = datagrid(pupil = pupil_tertiles, grid_type = "counterfactual"),
-    by = "pupil", re.form = NA
+    by = "pupil"
   )
   history_effect_df <- as.data.frame(history_effect) %>%
     mutate(dataset = ds, pupil_tertile = PUPIL_TERTILE_LABELS[rank(pupil)]) %>%

@@ -1,4 +1,6 @@
 model_id,pupil_col
 HDDM_Base_Lag1-stpdrift_Pupil_stp,pupil
 HDDM_Base_Lag1-stpdrift_Pupil_drift,pupil
-HDDM_Base_Lag1-stpdrift_Pupil_stpdrift,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_valuation,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_boundary,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_ndt,pupil

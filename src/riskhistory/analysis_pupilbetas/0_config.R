@@ -133,11 +133,11 @@ data_betas_clean <- data_betas_clean %>%
     choice_prev1_01 = ifelse(choice_prev1 == 0, NA_real_, (choice_prev1 + 1) / 2),
     choice_prev2_01 = ifelse(choice_prev2 == 0, NA_real_, (choice_prev2 + 1) / 2),
     # Continuous version (0, 0.5, 1) for the fixed-effects model.
-    choice_alteration_num = abs(accept - (choice_prev1_01 + choice_prev2_01) / 2),
+    choice_alteration_num = 2*(abs(accept - (choice_prev1_01 + choice_prev2_01) / 2)- 0.5),
     # Categorical version (Low/Medium/High) for avg_predictions/avg_comparisons.
     choice_alteration = case_when(
       is.na(choice_alteration_num) ~ NA_character_,
-      choice_alteration_num == 0 ~ "Low",
+      choice_alteration_num == -1 ~ "Low",
       choice_alteration_num == 1 ~ "High",
       TRUE ~ "Medium"
     ),

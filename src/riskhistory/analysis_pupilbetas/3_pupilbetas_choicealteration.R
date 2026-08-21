@@ -86,7 +86,7 @@ for (ds in datasets) {
   m <- choicealterationmodel_list[[ds]][["pupilbetas_choicealteration_categorical"]]
   df <- data_betas_clean %>% filter(dataset == ds)
 
-  pred <- avg_predictions(m, by = "choice_alteration_combo", re.form = NA)
+  pred <- avg_predictions(m, by = "choice_alteration_combo")
 
   avgpred_rows[[ds]] <- as.data.frame(pred) %>%
     rename(avgpred = estimate, SE = std.error,
@@ -96,14 +96,14 @@ for (ds in datasets) {
 
   comp_accept <- avg_comparisons(
     m, variables = list(choice_alteration_accept = "pairwise"),
-    newdata = df[df$accept == 1, ], re.form = NA
+    newdata = df[df$accept == 1, ]
   )
   comp_accept_df <- as.data.frame(comp_accept)
   comp_accept_df$contrast <- paste0(comp_accept_df$contrast, " (Accept)")
 
   comp_reject <- avg_comparisons(
     m, variables = list(choice_alteration_reject = "pairwise"),
-    newdata = df[df$accept == 0, ], re.form = NA
+    newdata = df[df$accept == 0, ]
   )
   comp_reject_df <- as.data.frame(comp_reject)
   comp_reject_df$contrast <- paste0(comp_reject_df$contrast, " (Reject)")

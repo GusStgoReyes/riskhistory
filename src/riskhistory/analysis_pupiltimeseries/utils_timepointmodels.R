@@ -2,6 +2,48 @@
 # Utility functions for fitting timepoint models on pupil data
 # =============================================================================
 
+# avg_comparisons(model, variables = list(<factor> = "pairwise")) returns all
+# pairwise contrasts between factor levels, but its contrast labels follow
+# marginaleffects' own internal level ordering, not the order the caller
+# wants. For each (A, B) pair in contrast_pairs, find whichever of "A - B" /
+# "B - A" is present and change it to "A - B", flipping the sign of
+# estimate/statistic when the reversed label was the one found (p.value is
+# sign-invariant, from a two-tailed test).
+normalize_pairwise_contrasts <- function(comp_df, contrast_pairs) {
+  matched_rows <- lapply(contrast_pairs, function(pair) {
+    label_fwd <- paste(pair[1], "-", pair[2])
+    row_fwd <- comp_df[comp_df$contrast == label_fwd, ]
+    if (nrow(row_fwd) > 0) {
+      row_fwd$contrast <- label_fwd
+      return(row_fwd)
+    }
+
+    label_rev <- paste(pair[2], "-", pair[1])
+    row_rev <- comp_df[comp_df$contrast == label_rev, ]
+    if (nrow(row_rev) > 0) {
+      row_rev$contrast  <- label_fwd
+      row_rev$estimate  <- -row_rev$estimate
+      row_rev$statistic <- -row_rev$statistic
+      return(row_rev)
+    }
+
+    NULL
+  })
+  matched_rows <- matched_rows[!vapply(matched_rows, is.null, logical(1))]
+  if (length(matched_rows) == 0) return(NULL)
+
+  comp_df <- do.call(rbind, matched_rows)
+  data.frame(
+    contrast = comp_df$contrast,
+    estimate = comp_df$estimate,
+    SE       = comp_df$std.error,
+    z.ratio  = comp_df$statistic,
+    p.value  = comp_df$p.value,
+    stringsAsFactors = FALSE
+  )
+}
+
+
 # Fit a single timepoint LME model
 fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
                                 emmeans_var = NULL, contrast_pairs = NULL) {
@@ -45,7 +87,7 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
   # Average predictions + pairwise avg_comparisons()
   # ---------------------------------------------------------------------
   marginal_result <- tryCatch({
-    pred <- avg_predictions(model, by = emmeans_var, re.form = NA)
+    pred <- avg_predictions(model, by = emmeans_var)
 
     avgpred_df <- as.data.frame(pred) %>%
       rename(avgpred = estimate, SE = std.error,
@@ -55,45 +97,11 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
 
     contrasts_df <- NULL
     if (!is.null(contrast_pairs) && length(contrast_pairs) > 0) {
-      comp <- avg_comparisons(model,
-                              variables = setNames(list("pairwise"), emmeans_var),
-                              re.form = NA)
+      comp <- avg_comparisons(model, variables = setNames(list("pairwise"), emmeans_var))
       comp_df <- as.data.frame(comp)
 
-      # avg_comparisons()'s internal ordering for "pairwise" doesn't
-      # necessarily match the order declared in contrast_pairs -- check
-      # both "A - B" and "B - A" and normalize to the declared order,
-      # flipping the sign of estimate/statistic when the reversed label
-      # matched (p.value is sign-invariant, unaffected).
-      matched_rows <- lapply(contrast_pairs, function(p) {
-        label_fwd <- paste(p[1], "-", p[2])
-        row_fwd <- comp_df[comp_df$contrast == label_fwd, ]
-        if (nrow(row_fwd) > 0) {
-          row_fwd$contrast <- label_fwd
-          return(row_fwd)
-        }
-        label_rev <- paste(p[2], "-", p[1])
-        row_rev <- comp_df[comp_df$contrast == label_rev, ]
-        if (nrow(row_rev) > 0) {
-          row_rev$contrast   <- label_fwd
-          row_rev$estimate   <- -row_rev$estimate
-          row_rev$statistic  <- -row_rev$statistic
-          return(row_rev)
-        }
-        NULL
-      })
-      matched_rows <- matched_rows[!vapply(matched_rows, is.null, logical(1))]
-
-      if (length(matched_rows) > 0) {
-        comp_df <- do.call(rbind, matched_rows)
-        contrasts_df <- data.frame(
-          contrast = comp_df$contrast,
-          estimate = comp_df$estimate,
-          SE       = comp_df$std.error,
-          z.ratio  = comp_df$statistic,
-          p.value  = comp_df$p.value,
-          stringsAsFactors = FALSE
-        )
+      contrasts_df <- normalize_pairwise_contrasts(comp_df, contrast_pairs)
+      if (!is.null(contrasts_df)) {
         contrasts_df$timebin <- timebin
         contrasts_df$dataset <- dataset
       }
@@ -202,25 +210,4 @@ run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
     avgpred       = if (length(avgpred_all) > 0) do.call(rbind, avgpred_all) else NULL,
     contrasts     = if (length(contrasts_all) > 0) do.call(rbind, contrasts_all) else NULL
   )
-}
-
-
-# Print summary of timepoint model results
-print_results_summary <- function(results, datasets) {
-  if (is.list(results) && "fixed_effects" %in% names(results)) {
-    results <- results$fixed_effects
-  }
-
-  message("\n=== Summary ===")
-  message(sprintf("Total results: %d rows", nrow(results)))
-
-  for (ds in datasets) {
-    ds_results <- results %>% filter(dataset == ds)
-    if (nrow(ds_results) == 0) next
-    n_timebins  <- length(unique(ds_results$timebin))
-    n_terms     <- length(unique(ds_results$term))
-    n_converged <- sum(ds_results$converged) / n_terms
-    message(sprintf("  %s: %d timebins, %.0f%% converged",
-                    ds, n_timebins, 100 * n_converged / n_timebins))
-  }
 }

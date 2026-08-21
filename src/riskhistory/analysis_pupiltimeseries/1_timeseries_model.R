@@ -39,9 +39,9 @@ message("Saved: 1_timeseries_start_fixed_effects.csv")
 
 write.csv(results_start$avgpred,
           file.path(analysis_results_path,
-                    "1_timeseries_start_emmeans.csv"),
+                    "1_timeseries_start_avgpred.csv"),
           row.names = FALSE)
-message("Saved: 1_timeseries_start_emmeans.csv")
+message("Saved: 1_timeseries_start_avgpred.csv")
 
 write.csv(results_start$contrasts,
           file.path(analysis_results_path,
@@ -74,9 +74,9 @@ message("Saved: 1_timeseries_response_fixed_effects.csv")
 
 write.csv(results_response$avgpred,
           file.path(analysis_results_path,
-                    "1_timeseries_response_emmeans.csv"),
+                    "1_timeseries_response_avgpred.csv"),
           row.names = FALSE)
-message("Saved: 1_timeseries_response_emmeans.csv")
+message("Saved: 1_timeseries_response_avgpred.csv")
 
 write.csv(results_response$contrasts,
           file.path(analysis_results_path,
