@@ -20,4 +20,4 @@ N_CPUS=8
 # Sbatch setting hddm
 TIME_HDDM="24:00:00"
 MEM_HDDM="120G"
-N_CPUS_HDDM=4
+N_CPUS_HDDM=8

@@ -248,6 +248,80 @@ MODEL_REGISTRY = {
         "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
+    "HDDM_Base_Lag1-drift_Pupil": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1", "link_func": lambda x: x}
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-drift_Pupil_drift": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1*pupil", "link_func": lambda x: x}
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-stp_Pupil": {
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain_centered + loss_centered", 
+                "link_func": lambda x: x
+            },
+            {
+                "model": "z ~ 1 + choice_prev1",
+                "link_func": z_link_func
+             },
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-stp_Pupil_stp": {
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain_centered + loss_centered", 
+                "link_func": lambda x: x
+            },
+            {
+                "model": "z ~ 1 + choice_prev1*pupil",
+                "link_func": z_link_func
+             },
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Pupil_boundary": {
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain_centered + loss_centered",
+                "link_func": lambda x: x,
+            },
+            {"model": "a ~ 1 + pupil", "link_func": lambda x: x}
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Pupil_valuation": {
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain_centered*pupil + loss_centered*pupil",
+                "link_func": lambda x: x,
+            },
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Pupil_ndt": {
+        "reg_descr": [
+            {
+                "model": "v ~ 1 + gain_centered + loss_centered",
+                "link_func": lambda x: x,
+            },
+            {"model": "t ~ 1 + pupil", "link_func": lambda x: x}
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
 }
 
 # =============================================================================
