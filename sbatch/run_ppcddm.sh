@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-MODELS="HDDM_Base_Lag1-stpdrift_Pupil,HDDM_Base_Lag1-stpdrift_Pupil_valuation,HDDM_Base_Lag1-stpdrift_Pupil_boundary,HDDM_Base_Lag1-stpdrift_Pupil_drift,HDDM_Base_Lag1-stpdrift_Pupil_stp,HDDM_Base_Lag1-stpdrift_Pupil_ndt"
+MODELS="HDDM_Base,HDDM_Base_Lag1-drift,HDDM_Base_Lag1-stp,HDDM_Base_Lag1-stpdrift,HDDM_Base_Lag1-stpdrift_Pupil,HDDM_Base_Lag1-stpdrift_Pupil_valuation,HDDM_Base_Lag1-stpdrift_Pupil_boundary,HDDM_Base_Lag1-stpdrift_Pupil_drift,HDDM_Base_Lag1-stpdrift_Pupil_stp,HDDM_Base_Lag1-stpdrift_Pupil_ndt"
 
 REPO_PTH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$REPO_PTH/sbatch/configs/general.sh"
