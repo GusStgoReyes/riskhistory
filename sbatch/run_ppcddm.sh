@@ -36,7 +36,7 @@ echo "Submitting array of $N_JOBS jobs (max 20 concurrent), models: ${MODELS:-al
 sbatch <<EOF
 #!/bin/bash
 #SBATCH --job-name=ppcddm
-#SBATCH --time=00:15:00
+#SBATCH --time=00:30:00
 #SBATCH --partition=normal,russpold
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=1
