@@ -1,3 +1,5 @@
 source("0_config.R")
-source("1_pupilbehavior_acceptmodel.R")
-source("2_pupilbehavior_rtmodel.R")
+source("1_replicate_acceptmodel.R")
+source("1_replicate_rtmodel.R")
+source("3_pupilacceptmodel.R")
+source("4_pupilrtmodel.R")

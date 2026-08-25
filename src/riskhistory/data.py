@@ -58,6 +58,33 @@ def load_behavioral_data(exclude=True):
     return df
 
 
+def load_behavioral_data_pupilclean(alignment="start", exclude=True):
+    """Behavioral data restricted to trials that also pass pupil exclusion.
+
+    Applies the standard behavioral exclusion (load_behavioral_data()'s
+    default) first, then filters to trials with exclude_{alignment}Aligned
+    == False in pupil_data_statistics_with_exclusions.csv -- the same
+    trial-level exclusion decision already reflected in
+    pupil_data_alignedStartTime.csv / pupil_data_alignedResponseTime.csv's
+    own per-timebin exclude column, just at trial grain instead of
+    per-timebin.
+
+    alignment : "start" or "response"
+    """
+    df = load_behavioral_data(exclude=exclude)
+
+    stats_path = (REPO_ROOT / "results" / "setup_pupildata"
+                  / "pupil_data_statistics_with_exclusions.csv")
+    stats = pd.read_csv(stats_path)
+
+    excl_col = f"exclude_{alignment}Aligned"
+    stats[excl_col] = stats[excl_col].astype(str).str.lower() == "true"
+    stats = stats[["sub", "dataset", "trial", excl_col]].drop_duplicates()
+
+    merged = df.merge(stats, on=["sub", "dataset", "trial"], how="inner")
+    return merged[merged[excl_col] == False].drop(columns=[excl_col])
+
+
 def load_baseline_betas():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
             / "1_baselinebehavior_betas.csv")
@@ -106,18 +133,6 @@ def load_fixed_effects():
     return pd.read_csv(path)
 
 
-def load_pupilbehavior_acceptmodel_historyeffect():
-    path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
-            / "1_pupilbehavior_acceptmodel_historyeffect.csv")
-    return pd.read_csv(path)
-
-
-def load_pupilbehavior_acceptmodel_historyeffect_contrasts():
-    path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
-            / "1_pupilbehavior_acceptmodel_historyeffect_contrasts.csv")
-    return pd.read_csv(path)
-
-
 def load_choicehistoryeffect_predictions():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
             / "2_choicehistoryeffect_predictions.csv")
@@ -133,6 +148,18 @@ def load_choicehistoryeffect_contrasts():
 def load_choicehistoryeffect_pairwise():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
             / "2_choicehistoryeffect_pairwise.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilacceptmodel_historyeffect_by_pupilbin():
+    path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
+            / "3_pupilacceptmodel_historyeffect_by_pupilbin.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilacceptmodel_pupilbin_contrast():
+    path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
+            / "3_pupilacceptmodel_pupilbin_contrast.csv")
     return pd.read_csv(path)
 
 

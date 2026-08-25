@@ -55,7 +55,11 @@ N_PPC_SAMPLES <- 1000
 
 message("Loading DDM posterior predictive data...")
 ddm_data <- read.csv(file.path(results_path, "analysis_ppcddm",
-                               "HDDM_Base_simulated_data.csv"))
+                               "HDDM_Base_Lag1-drift_simulated_data.csv"))
+                               #HDDM_Base_simulated_data.csv
+                               #HDDM_Base_Lag1-stp_simulated_data
+                               
+
 
 ddm_data <- ddm_data %>%
   mutate(

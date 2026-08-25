@@ -29,12 +29,14 @@ library(broom.mixed)
 library(dplyr)
 library(tibble)
 library(marginaleffects)
+library(bayestestR)
 
 # Source utility functions from analysis_acceptglme
 source(file.path(acceptglme_path, "utils_createregressors.R"))
 source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
 source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
 source(file.path(acceptglme_path, "utils_modelanalytics.R"))
+source(file.path(acceptglme_path, "utils_modelcomparison.R"))
 source(file.path(pupiltimeseries_path, "utils_createtransitionregressor.R"))
 
 # =============================================================================
@@ -92,6 +94,15 @@ data_pupilbehavior <- data_pupilbehavior %>%
 
 message("Adding choice-history transition regressor...")
 data_pupilbehavior <- add_transition_regressor(data_pupilbehavior)
+
+# log(rt), z-scored within sub/dataset (not just sub -- subject IDs repeat
+# across datasets, so grouping by sub alone would pool RTs across different
+# actual participants).
+message("Adding logRT_z regressor (log(rt), z-scored within sub/dataset)...")
+data_pupilbehavior <- data_pupilbehavior %>%
+  group_by(sub, dataset) %>%
+  mutate(logRT_z = scale(log(rt), center = TRUE, scale = TRUE)[, 1]) %>%
+  ungroup()
 
 message(sprintf("Pupil-behavior data: %d rows after behavioral + pupil exclusion",
                 nrow(data_pupilbehavior)))

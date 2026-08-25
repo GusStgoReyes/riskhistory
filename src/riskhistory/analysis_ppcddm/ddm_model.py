@@ -186,18 +186,24 @@ class PTDDM(Model):
         self.model.set_model_parameters(parameters_values)
         self.model_parameters_set = True
     
-    def generate_data(self, 
-                      conditions, 
+    def generate_data(self,
+                      conditions,
                       samples_per_condition=1,
                       rt_column_name="rt",
-                      choice_column_name="accept"):
+                      choice_column_name="accept",
+                      extra_columns=None):
         """
-            Generate artificial data based on a set of model parameters. Only allows for mixed gamble task. 
+            Generate artificial data based on a set of model parameters. Only allows for mixed gamble task.
                 - conditions: pandas DataFrame containing the conditions (gain, loss)
+                - extra_columns: names of columns in `conditions` to carry through
+                  to the output as-is, purely for downstream bookkeeping (e.g.
+                  "pupil_bin") -- unlike self.conditions, these are never passed
+                  to model.solve(), since the drift/bound/starting-position/
+                  nondecision functions don't take them as arguments.
         """
         if not self.model_parameters_set:
             raise ValueError("Model parameters not set. Please fit the model using fit_model() method before generating data.")
-        
+
         self.rt_column_name = rt_column_name
         self.choice_column_name = choice_column_name
 
@@ -210,12 +216,22 @@ class PTDDM(Model):
                            "real_choice" : [],
                            "real_choice_prev1" : []}
 
+        already_covered = set(artificial_data) | {"choice_prev1"}
+        extra_conditions = [c for c in self.conditions
+                            if c not in already_covered and c in conditions.columns]
+        extra_metadata = [c for c in (extra_columns or [])
+                          if c not in already_covered and c not in extra_conditions
+                          and c in conditions.columns]
+        for cond in extra_conditions + extra_metadata:
+            artificial_data[cond] = []
+
         # Generate data for each gain, loss condition
         for _, row in conditions.iterrows():
-            sample = self.model.solve(
-                conditions={"gain": row["gain"], "loss": row["loss"],
-                            "choice_prev1" : row["choice_prev1"], **self.fixed_parameters}
-            ).sample(samples_per_condition)
+            solve_conditions = {
+                cond: (row[cond] if cond in row.index else self.fixed_parameters[cond])
+                for cond in self.conditions
+            }
+            sample = self.model.solve(conditions=solve_conditions).sample(samples_per_condition)
 
             accept_rts = sample.choice_upper
             reject_rts = sample.choice_lower
@@ -238,6 +254,8 @@ class PTDDM(Model):
             artificial_data["pred_repeat"].extend([pred_repeat])
             artificial_data["real_choice"].extend([real_choice])
             artificial_data["real_choice_prev1"].extend([row["choice_prev1"]])
+            for cond in extra_conditions + extra_metadata:
+                artificial_data[cond].extend([row[cond]])
 
 
         artificial_data = pd.DataFrame(artificial_data)

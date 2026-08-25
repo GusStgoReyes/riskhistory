@@ -1,24 +1,34 @@
 import argparse
+import numpy as np
 import pandas as pd
 from filelock import FileLock
 from pathlib import Path
 
 from riskhistory.analysis_ppcddm.model_factory import get_model
-from riskhistory.config import behavioral_data_pth, results_pth
+from riskhistory.config import behavioral_data_pth, preprocessed_data_pth, results_pth
 
 # ---------------------------------------------------------------------------
 # Models to simulate
 # ---------------------------------------------------------------------------
 MODELS = {
-    "Baseline":            "HDDM_Base",
-    "Starting Point Bias": "HDDM_Base_Lag1-stp",
-    "Drift Bias":          "HDDM_Base_Lag1-drift",
-    "Stimulus Bias":       "HDDM_Base_Lag1-stim",
-    "Full" :               "HDDM_Base_Lag1-full",
+    "Baseline":                    "HDDM_Base",
+    "Starting Point Bias":         "HDDM_Base_Lag1-stp",
+    "Drift Bias":                  "HDDM_Base_Lag1-drift",
+    "Starting Point + Drift Bias": "HDDM_Base_Lag1-stpdrift",
+    "Starting Point + Drift Bias (pupil-clean population)": "HDDM_Base_Lag1-stpdrift_Pupil",
+    "Pupil x Full Arousal":        "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift",
+    "Pupil x Gain/Loss Drift":     "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
+    "Pupil x Boundary":            "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
+    "Pupil x Fixed Drift":         "HDDM_Base_Lag1-stpdrift_Pupil_drift",
+    "Pupil x Starting Point":      "HDDM_Base_Lag1-stpdrift_Pupil_stp",
 }
 
+# Models whose model_id contains this marker need the pupil-merged
+# behavioral data
+PUPIL_MODEL_MARKER = "_Pupil"
+
 DATASET_NAMES = ["equalIndifference", "equalRange", "sheng2020"]
-NUM_SAMPLES_PER_CONDITION = 3000
+NUM_SAMPLES_PER_CONDITION = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -32,6 +42,40 @@ def _build_job_manifest(behavioral_data):
         subs = sorted(behavioral_data[behavioral_data["dataset"] == ds]["sub"].unique())
         jobs.extend((ds, int(s)) for s in subs)
     return jobs
+
+
+def load_behavioral_data_pupilclean():
+    """Behavioral data with the pupil GLM amplitude merged in as a `pupil` column
+    """
+    behavioral_data = (
+        pd.read_csv(behavioral_data_pth)
+        [["sub", "dataset", "trial", "run", "gain_centered", "loss_centered",
+          "choice_prev1", "accept", "repeat", "rt", "exclude"]]
+        .query("exclude == False")
+    )
+    # Rename gain_centered/loss_centered (no _centered)
+    behavioral_data["gain"] = behavioral_data["gain_centered"]
+    behavioral_data["loss"] = behavioral_data["loss_centered"]
+
+    pupil_betas = (
+        pd.read_csv(preprocessed_data_pth / "pupilbetas_glm_preprocessed.csv")
+        [["sub", "trial", "run", "dataset", "pupil", "exclude_startAligned"]]
+        .query("exclude_startAligned == False")
+        .drop(columns="exclude_startAligned")
+    )
+
+    merged = behavioral_data.merge(pupil_betas, on=["sub", "trial", "run", "dataset"], how="inner")
+
+    # Binary pupil_bin (median split within sub/dataset -- not sub alone,
+    # since subject IDs repeat across datasets), same convention as
+    # analysis_pupilbehavior/3_pupilacceptmodel.R: ties (pupil == median) go
+    # to "Low".
+    merged["pupil_bin"] = (
+        merged.groupby(["sub", "dataset"])["pupil"]
+        .transform(lambda s: np.where(s > s.median(), "High", "Low"))
+    )
+
+    return merged
 
 
 def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
@@ -52,9 +96,14 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
     
     param_dict = dict(zip(combined["param_name"], combined["param_value"]))
 
-    # PyDDM Boundary is half of HDDM's a
-    if "a" in param_dict:
-        param_dict["a"] = param_dict["a"] / 2.0
+    # PyDDM Boundary is half of HDDM's a -- for the pupil-arousal _boundary
+    # mechanism, a_Intercept/a_pupil replace "a" on the same scale, so both
+    # need the same halving (linear in the boundary function, so halving
+    # each term is equivalent to halving the whole a_Intercept + a_pupil *
+    # pupil expression).
+    for key in ("a", "a_Intercept", "a_pupil"):
+        if key in param_dict:
+            param_dict[key] = param_dict[key] / 2.0
         
     model.set_parameters(param_dict)
     return model
@@ -63,7 +112,12 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
 def generate_simulated_data(model, dataset, sub, behavioral_data,
                              num_samples_per_condition=NUM_SAMPLES_PER_CONDITION):
     sub_data   = behavioral_data.query(f"sub == {sub} & dataset == '{dataset}'")
-    trials_df  = model.generate_data(sub_data, samples_per_condition=num_samples_per_condition)
+    # pupil_bin isn't a DDM condition (only in behavioral_data_pupilclean),
+    # just metadata carried through so simulated trials can be grouped by it
+    # the same way the real data is.
+    extra_columns = ["pupil_bin"] if "pupil_bin" in behavioral_data.columns else []
+    trials_df  = model.generate_data(sub_data, samples_per_condition=num_samples_per_condition,
+                                     extra_columns=extra_columns)
     trials_df["sub"]     = sub
     trials_df["dataset"] = dataset
     return trials_df
@@ -86,12 +140,28 @@ def _append_with_lock(out_path: Path, new_rows: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 
 def run_subject(dataset_name: str, sub: int, behavioral_data: pd.DataFrame,
+                behavioral_data_pupilclean: pd.DataFrame,
                 models: dict = MODELS) -> None:
     """Run each model in `models` for one (dataset, sub) pair and append
-    results to shared CSVs."""
-    dataset_behavioral_data = behavioral_data.query(f"dataset == '{dataset_name}'")
+    results to shared CSVs. Pupil-arousal models (model_id containing
+    PUPIL_MODEL_MARKER) use behavioral_data_pupilclean instead of
+    behavioral_data, since they need a "pupil" condition column and a
+    trial population restricted to pupil-clean trials."""
+    dataset_behavioral_data = behavioral_data.query(f"dataset == '{dataset_name}' & sub == {sub}")
+    dataset_behavioral_data_pupilclean = behavioral_data_pupilclean.query(
+        f"dataset == '{dataset_name}' & sub == {sub}"
+    )
 
     for model_name, model_id in models.items():
+        is_pupil_model = PUPIL_MODEL_MARKER in model_id
+        sub_data = dataset_behavioral_data_pupilclean if is_pupil_model else dataset_behavioral_data
+
+        if sub_data.empty:
+            population = "pupil-clean" if is_pupil_model else "behavioral"
+            print(f"  [{dataset_name} / sub-{sub}] model: {model_name} -- "
+                 f"no {population} trials for this subject, skipping")
+            continue
+
         print(f"  [{dataset_name} / sub-{sub}] model: {model_name}")
 
         sub_params_pth   = results_pth / "analysis_ddm" / "hddm_params" / f"{model_id}_{dataset_name}_subj_params.csv"
@@ -102,8 +172,7 @@ def run_subject(dataset_name: str, sub: int, behavioral_data: pd.DataFrame,
 
         model_instance = setup_model_parameters(model_id, sub_params, group_params,
                                                 dataset_name, sub)
-        trials_df = generate_simulated_data(model_instance, dataset_name, sub,
-                                            dataset_behavioral_data)
+        trials_df = generate_simulated_data(model_instance, dataset_name, sub, sub_data)
 
         out_path = results_pth / "analysis_ppcddm" / f"{model_id}_simulated_data.csv"
         _append_with_lock(out_path, trials_df)
@@ -145,7 +214,14 @@ if __name__ == "__main__":
     behavioral_data["gain"] = behavioral_data["gain_centered"]
     behavioral_data["loss"] = behavioral_data["loss_centered"]
 
-    jobs = _build_job_manifest(behavioral_data)
+    behavioral_data_pupilclean = load_behavioral_data_pupilclean()
+
+    # Union of both populations' (dataset, sub) pairs -- pupil-clean is
+    # expected to be a subset of the plain population (extra pupil
+    # exclusion on top of the same behavioral exclusion), but the union is
+    # taken defensively rather than assumed.
+    jobs = sorted(set(_build_job_manifest(behavioral_data))
+                 | set(_build_job_manifest(behavioral_data_pupilclean)))
 
     if args.print_njobs:
         print(len(jobs))
@@ -159,6 +235,6 @@ if __name__ == "__main__":
 
     for dataset_name, sub in jobs:
         print(f"\nProcessing dataset={dataset_name}, sub={sub}")
-        run_subject(dataset_name, sub, behavioral_data, models)
+        run_subject(dataset_name, sub, behavioral_data, behavioral_data_pupilclean, models)
 
     print("\nDone.")

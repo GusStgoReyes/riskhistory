@@ -57,7 +57,7 @@ class FullDDMParameters(DDMParameters):
         self.parameters_names += [f"z_choice_prev{i}" for i in range(1,7)]    # Lag parameters for starting point
         self.parameters_names += [f"v_loss_choice_prev{i}" for i in range(1,7)] # Lag parameters for loss effects
         self.parameters_names += [f"v_gain_choice_prev{i}" for i in range(1,7)] # Lag parameters for gain effects
-        
+
         self.num_parameters = len(self.parameters_names)
 
         self.parameters_bounds = {"v_scale" : (0.1, 5),
@@ -91,11 +91,51 @@ class FullDDMParameters(DDMParameters):
         self.parameters_constant.update({f"v_loss_choice_prev{i}" : 0 for i in range(1,7)})
         self.parameters_constant.update({f"v_gain_choice_prev{i}" : 0 for i in range(1,7)})
 
-        self.conditions = ["gain", 
-                           "loss", 
-                           "choice_prev1", 
-                           "choice_prev2", 
-                           "choice_prev3", 
-                           "choice_prev4", 
-                           "choice_prev5", 
+        self.conditions = ["gain",
+                           "loss",
+                           "choice_prev1",
+                           "choice_prev2",
+                           "choice_prev3",
+                           "choice_prev4",
+                           "choice_prev5",
                            "choice_prev6"]
+
+
+class PupilDDMParameters(FullDDMParameters):
+    def __init__(self):
+        super().__init__()
+
+        self.parameters_names += ["v_pupil", "v_gain_pupil", "v_loss_pupil",
+                                  "v_choice_prev1_pupil", "z_pupil",
+                                  "z_choice_prev1_pupil",
+                                  "a_Intercept", "a_pupil",
+                                  "t_Intercept", "t_pupil"]
+        self.num_parameters = len(self.parameters_names)
+
+        self.parameters_bounds.update({
+            "v_pupil": (-4, 4),
+            "v_gain_pupil": (-4, 4),
+            "v_loss_pupil": (-8, 8),
+            "v_choice_prev1_pupil": (-4, 4),
+            "z_pupil": (-0.5, 0.5),
+            "z_choice_prev1_pupil": (-0.5, 0.5),
+            "a_Intercept": (0.5, 5),
+            "a_pupil": (-2, 2),
+            "t_Intercept": (0.2, 1.3),
+            "t_pupil": (-0.5, 0.5),
+        })
+
+        self.parameters_constant.update({
+            "v_pupil": 0,
+            "v_gain_pupil": 0,
+            "v_loss_pupil": 0,
+            "v_choice_prev1_pupil": 0,
+            "z_pupil": 0,
+            "z_choice_prev1_pupil": 0,
+            "a_Intercept": 1,
+            "a_pupil": 0,
+            "t_Intercept": 0.6,
+            "t_pupil": 0,
+        })
+
+        self.conditions.append("pupil")

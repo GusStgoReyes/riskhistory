@@ -6,7 +6,7 @@
 # following an accept and a switch following a reject are qualitatively
 # different events.
 
-formula_pupilbehavior_rt <- log(rt) ~ sv_abs + switch * pupil + (1 + sv_abs | sub)
+formula_pupilbehavior_rt <- log(rt) ~ sv_abs * pupil + switch * pupil + (1 + sv_abs | sub)
 
 RT_MODEL_NAMES <- c(
   accept = "pupilbehavior_rt_accept",
@@ -43,9 +43,9 @@ convergence_df <- check_convergence_all_models(
 
 write.csv(convergence_df,
           file.path(analysis_results_path,
-                    "2_pupilbehavior_rtmodel_convergence.csv"),
+                    "4_pupilrtmodel_convergence.csv"),
           row.names = FALSE)
-message("Saved: 2_pupilbehavior_rtmodel_convergence.csv")
+message("Saved: 4_pupilrtmodel_convergence.csv")
 
 # =============================================================================
 # Fixed effects
@@ -59,8 +59,8 @@ fixed_effects <- extract_fixed_effects(
 
 write.csv(fixed_effects,
           file.path(analysis_results_path,
-                    "2_pupilbehavior_rtmodel_fixed_effects.csv"),
+                    "4_pupilrtmodel_fixed_effects.csv"),
           row.names = FALSE)
-message("Saved: 2_pupilbehavior_rtmodel_fixed_effects.csv")
+message("Saved: 4_pupilrtmodel_fixed_effects.csv")
 
 message("\nPupil-behavior RT model analysis complete.")
