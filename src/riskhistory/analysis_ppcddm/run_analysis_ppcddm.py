@@ -1,5 +1,4 @@
 import argparse
-import numpy as np
 import pandas as pd
 from filelock import FileLock
 from pathlib import Path
@@ -64,18 +63,7 @@ def load_behavioral_data_pupilclean():
         .drop(columns="exclude_startAligned")
     )
 
-    merged = behavioral_data.merge(pupil_betas, on=["sub", "trial", "run", "dataset"], how="inner")
-
-    # Binary pupil_bin (median split within sub/dataset -- not sub alone,
-    # since subject IDs repeat across datasets), same convention as
-    # analysis_pupilbehavior/3_pupilacceptmodel.R: ties (pupil == median) go
-    # to "Low".
-    merged["pupil_bin"] = (
-        merged.groupby(["sub", "dataset"])["pupil"]
-        .transform(lambda s: np.where(s > s.median(), "High", "Low"))
-    )
-
-    return merged
+    return behavioral_data.merge(pupil_betas, on=["sub", "trial", "run", "dataset"], how="inner")
 
 
 def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
@@ -112,10 +100,13 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
 def generate_simulated_data(model, dataset, sub, behavioral_data,
                              num_samples_per_condition=NUM_SAMPLES_PER_CONDITION):
     sub_data   = behavioral_data.query(f"sub == {sub} & dataset == '{dataset}'")
-    # pupil_bin isn't a DDM condition (only in behavioral_data_pupilclean),
-    # just metadata carried through so simulated trials can be grouped by it
-    # the same way the real data is.
-    extra_columns = ["pupil_bin"] if "pupil_bin" in behavioral_data.columns else []
+    # "pupil" is already carried through automatically for models that use
+    # it as a genuine DDM condition (self.conditions); this covers the case
+    # where it isn't one (e.g. HDDM_Base_Lag1-stpdrift_Pupil, which has no
+    # pupil interaction term but is still simulated on the pupil-clean
+    # population) -- extra_columns is a no-op there since generate_data()
+    # skips names already covered by self.conditions.
+    extra_columns = ["pupil"] if "pupil" in behavioral_data.columns else []
     trials_df  = model.generate_data(sub_data, samples_per_condition=num_samples_per_condition,
                                      extra_columns=extra_columns)
     trials_df["sub"]     = sub

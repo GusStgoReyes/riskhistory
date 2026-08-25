@@ -54,33 +54,16 @@ LMER_CONTROL  <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 10000
 
 N_PPC_SAMPLES <- 1000
 
-# =============================================================================
-# DDM models to analyze (one {model_id}_simulated_data.csv per model, from
-# analysis_ppcddm). Split into two groups since they need different
-# formulas downstream:
-#   BEHAVIOR_DDM_MODELS -- no "pupil" column, used by 1_acceptglme.R /
-#     2_rtlme.R.
-#   PUPIL_DDM_MODELS -- simulated on the pupil-clean population, carry a
-#     real "pupil" column (and "pupil_bin"), used by 3_pupilaccept.R.
-#     HDDM_Base_Lag1-stpdrift_Pupil has no pupil *interaction* term in the
-#     DDM itself, but is still simulated on the pupil-clean population (so
-#     its PPC data has real pupil values too) -- it's the null-comparison
-#     baseline against the 5 true pupil-mechanism models.
-# =============================================================================
 BEHAVIOR_DDM_MODELS <- c(
   "HDDM_Base",
   "HDDM_Base_Lag1-drift",
-  "HDDM_Base_Lag1-stp",
-  "HDDM_Base_Lag1-stpdrift"
+  "HDDM_Base_Lag1-stp"
 )
 
 PUPIL_DDM_MODELS <- c(
   "HDDM_Base_Lag1-stpdrift_Pupil",
-  "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift",
   "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
-  "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
-  "HDDM_Base_Lag1-stpdrift_Pupil_drift",
-  "HDDM_Base_Lag1-stpdrift_Pupil_stp"
+  "HDDM_Base_Lag1-stpdrift_Pupil_boundary"
 )
 
 # Load one DDM model's simulated-data CSV and add logit_mean_accept.
