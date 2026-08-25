@@ -57,25 +57,27 @@ N_PPC_SAMPLES <- 1000
 BEHAVIOR_DDM_MODELS <- c(
   "HDDM_Base",
   "HDDM_Base_Lag1-drift",
-  "HDDM_Base_Lag1-stp"
+  "HDDM_Base_Lag1-stp",
+  "HDDM_Base_Lag1-stpdrift",
+  "HDDM_Base_Lag1-stpdrift_Pupil"
 )
 
 PUPIL_DDM_MODELS <- c(
   "HDDM_Base_Lag1-stpdrift_Pupil",
   "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
-  "HDDM_Base_Lag1-stpdrift_Pupil_boundary"
+  "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
+  "HDDM_Base_Lag1-stpdrift_Pupil_ndt",
+  "HDDM_Base_Lag1-stpdrift_Pupil_drift",
+  "HDDM_Base_Lag1-stpdrift_Pupil_stp"
 )
 
-# Load one DDM model's simulated-data CSV and add logit_mean_accept.
-# logit (not the raw [0,1] proportion) since mean_accept is an average of
-# N_PPC_SAMPLES simulated binary choices per condition, so it needs an
-# unbounded scale for lmer (rather than literally re-fitting a GLMM on
-# synthetic Bernoulli draws).
 load_ddm_ppc_data <- function(model_id) {
   path <- file.path(results_path, "analysis_ppcddm",
                     paste0(model_id, "_simulated_data.csv"))
   df <- read.csv(path)
-  df$logit_mean_accept <- qlogis(df$mean_accept)
+  eps <- 1 / (2 * N_PPC_SAMPLES)
+  mean_accept_clipped <- pmin(pmax(df$mean_accept, eps), 1 - eps)
+  df$logit_mean_accept <- qlogis(mean_accept_clipped)
   df
 }
 

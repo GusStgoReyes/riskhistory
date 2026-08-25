@@ -1,11 +1,6 @@
 # =============================================================================
 # DDM PPC Behavior: Accept GLME
 # =============================================================================
-# Per DDM model x dataset: (1) baseline model logit(mean_accept) ~ gain +
-# loss + (1 + gain + loss | sub), used only to save per-subject BLUPs; (2)
-# full model adding real_choice_prev1, whose fixed effects are saved.
-# Response is the DDM's own predicted acceptance probability (logit-
-# transformed, see 0_config.R), not a thresholded binary choice.
 
 all_baseline_betas <- list()
 all_convergence <- list()
@@ -28,7 +23,7 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
     baseline_betas[[ds]] <- extract_random_effects_baseline(baseline_model, ds)
 
     # FULL MODEL (choice-history effect)
-    full_model <- lmer(logit_mean_accept ~ gain + loss + real_choice_prev1 + (1 + gain + loss | sub),
+    full_model <- lmer(logit_mean_accept ~ gain + loss + real_choice_prev1 + (1 + gain + loss + real_choice_prev1 | sub),
                        data = df_sub, control = LMER_CONTROL)
 
     models <- list(
