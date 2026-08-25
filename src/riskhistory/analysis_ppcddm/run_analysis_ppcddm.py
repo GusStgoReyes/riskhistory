@@ -16,11 +16,11 @@ MODELS = {
     "Drift Bias":                  "HDDM_Base_Lag1-drift",
     "Starting Point + Drift Bias": "HDDM_Base_Lag1-stpdrift",
     "Starting Point + Drift Bias (pupil-clean population)": "HDDM_Base_Lag1-stpdrift_Pupil",
-    "Pupil x Full Arousal":        "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift",
     "Pupil x Gain/Loss Drift":     "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
     "Pupil x Boundary":            "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
     "Pupil x Fixed Drift":         "HDDM_Base_Lag1-stpdrift_Pupil_drift",
     "Pupil x Starting Point":      "HDDM_Base_Lag1-stpdrift_Pupil_stp",
+    "Pupil x Ndt":                 "HDDM_Base_Lag1-stpdrift_Pupil_ndt"
 }
 
 # Models whose model_id contains this marker need the pupil-merged
