@@ -34,6 +34,7 @@ library(marginaleffects)
 source(file.path(utils_path, "utils_savebetas.R"))
 source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
 source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
+source(file.path(acceptglme_path, "utils_modelanalytics.R"))
 
 # add_transition_regressor() -- same current x previous choice transition
 # factor used in analysis_pupiltimeseries / analysis_rtlme
@@ -53,23 +54,46 @@ LMER_CONTROL  <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 10000
 
 N_PPC_SAMPLES <- 1000
 
-message("Loading DDM posterior predictive data...")
-ddm_data <- read.csv(file.path(results_path, "analysis_ppcddm",
-                               "HDDM_Base_Lag1-drift_simulated_data.csv"))
-                               #HDDM_Base_simulated_data.csv
-                               #HDDM_Base_Lag1-stp_simulated_data
-                               
+# =============================================================================
+# DDM models to analyze (one {model_id}_simulated_data.csv per model, from
+# analysis_ppcddm). Split into two groups since they need different
+# formulas downstream:
+#   BEHAVIOR_DDM_MODELS -- no "pupil" column, used by 1_acceptglme.R /
+#     2_rtlme.R.
+#   PUPIL_DDM_MODELS -- simulated on the pupil-clean population, carry a
+#     real "pupil" column (and "pupil_bin"), used by 3_pupilaccept.R.
+#     HDDM_Base_Lag1-stpdrift_Pupil has no pupil *interaction* term in the
+#     DDM itself, but is still simulated on the pupil-clean population (so
+#     its PPC data has real pupil values too) -- it's the null-comparison
+#     baseline against the 5 true pupil-mechanism models.
+# =============================================================================
+BEHAVIOR_DDM_MODELS <- c(
+  "HDDM_Base",
+  "HDDM_Base_Lag1-drift",
+  "HDDM_Base_Lag1-stp",
+  "HDDM_Base_Lag1-stpdrift"
+)
 
+PUPIL_DDM_MODELS <- c(
+  "HDDM_Base_Lag1-stpdrift_Pupil",
+  "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift",
+  "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
+  "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
+  "HDDM_Base_Lag1-stpdrift_Pupil_drift",
+  "HDDM_Base_Lag1-stpdrift_Pupil_stp"
+)
 
-ddm_data <- ddm_data %>%
-  mutate(
-    logit_mean_accept = qlogis(mean_accept)
-  )
-
-for (ds in datasets) {
-  n_subs <- length(unique(ddm_data$sub[ddm_data$dataset == ds]))
-  n_rows <- nrow(ddm_data[ddm_data$dataset == ds, ])
-  message(sprintf("Dataset: %s, Subjects: %d, Rows: %d", ds, n_subs, n_rows))
+# Load one DDM model's simulated-data CSV and add logit_mean_accept.
+# logit (not the raw [0,1] proportion) since mean_accept is an average of
+# N_PPC_SAMPLES simulated binary choices per condition, so it needs an
+# unbounded scale for lmer (rather than literally re-fitting a GLMM on
+# synthetic Bernoulli draws).
+load_ddm_ppc_data <- function(model_id) {
+  path <- file.path(results_path, "analysis_ppcddm",
+                    paste0(model_id, "_simulated_data.csv"))
+  df <- read.csv(path)
+  df$logit_mean_accept <- qlogis(df$mean_accept)
+  df
 }
 
 message("Config loaded successfully.")

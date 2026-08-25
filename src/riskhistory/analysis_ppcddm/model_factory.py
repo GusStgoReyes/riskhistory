@@ -203,7 +203,7 @@ def get_model(model_id):
         parameters = PupilDDMParameters()
         parameters.set_parameters_to_fit(
             ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
-             "v_choice_prev1", "z_choice_prev1", "v_choice_prev1_pupil"]
+             "v_choice_prev1", "z_choice_prev1", "v_choice_prev1_pupil", "v_pupil"]
         )
         parameters.set_conditions_constant(
             [f"choice_prev{i}" for i in range(2, 7)]
@@ -215,7 +215,7 @@ def get_model(model_id):
         parameters = PupilDDMParameters()
         parameters.set_parameters_to_fit(
             ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
-             "v_choice_prev1", "z_choice_prev1", "z_choice_prev1_pupil"]
+             "v_choice_prev1", "z_choice_prev1", "z_choice_prev1_pupil", "z_pupil"]
         )
         parameters.set_conditions_constant(
             [f"choice_prev{i}" for i in range(2, 7)]
