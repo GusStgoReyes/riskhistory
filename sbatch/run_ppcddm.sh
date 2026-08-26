@@ -10,13 +10,14 @@
 #   2. Submits a SLURM array of that size (max 20 concurrent).
 #
 # MODELS below controls which model_id(s) get simulated (comma-separated,
-# passed through to --models). Leave empty ("") to simulate all 5 models
-# defined in run_analysis_ppcddm.py's MODELS dict.
+# passed through to --models). Leave empty ("") to simulate every model
+# currently in run_analysis_ppcddm.py's MODELS dict -- the recommended
+# default, so this list never needs to be kept in sync by hand.
 # =============================================================================
 
 set -euo pipefail
 
-MODELS="HDDM_Base,HDDM_Base_Lag1-drift,HDDM_Base_Lag1-stp,HDDM_Base_Lag1-stpdrift,HDDM_Base_Lag1-stpdrift_Pupil,HDDM_Base_Lag1-stpdrift_Pupil_valuation,HDDM_Base_Lag1-stpdrift_Pupil_boundary,HDDM_Base_Lag1-stpdrift_Pupil_drift,HDDM_Base_Lag1-stpdrift_Pupil_stp,HDDM_Base_Lag1-stpdrift_Pupil_ndt"
+MODELS=""
 
 REPO_PTH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$REPO_PTH/sbatch/configs/general.sh"
