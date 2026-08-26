@@ -29,7 +29,11 @@ def get_model(model_id):
                 HDDM_Base_Lag1-stpdrift_Pupil_boundary,
                 HDDM_Base_Lag1-stpdrift_Pupil_ndt,
                 HDDM_Base_Lag1-stpdrift_Pupil_drift,
-                HDDM_Base_Lag1-stpdrift_Pupil_stp
+                HDDM_Base_Lag1-stpdrift_Pupil_stp,
+                HDDM_Base_Lag1-drift_Pupil,
+                HDDM_Base_Lag1-drift_Pupil_drift,
+                HDDM_Base_Lag1-stp_Pupil,
+                HDDM_Base_Lag1-stp_Pupil_stp
     """
     # Defaults; individual branches below override whichever of these need
     # a pupil-aware variant for that arousal mechanism.
@@ -52,7 +56,12 @@ def get_model(model_id):
             [f"choice_prev{i}" for i in range(1, 7)]
         )
 
-    elif model_id == "HDDM_Base_Lag1-drift":
+    elif model_id in ("HDDM_Base_Lag1-drift", "HDDM_Base_Lag1-drift_Pupil"):
+        # HDDM_Base_Lag1-drift_Pupil is structurally identical -- no pupil
+        # interaction terms -- it's just fit/simulated on the pupil-clean
+        # trial population (routed via PUPIL_MODEL_MARKER in
+        # run_analysis_ppcddm.py) so it's a fair PPC/ELPD baseline for
+        # HDDM_Base_Lag1-drift_Pupil_drift.
         parameters = FullDDMParameters()
         parameters.set_parameters_to_fit(
             ["v_gain",
@@ -67,7 +76,12 @@ def get_model(model_id):
             [f"choice_prev{i}" for i in range(2, 7)]
         )
 
-    elif model_id == "HDDM_Base_Lag1-stp":
+    elif model_id in ("HDDM_Base_Lag1-stp", "HDDM_Base_Lag1-stp_Pupil"):
+        # HDDM_Base_Lag1-stp_Pupil is structurally identical -- no pupil
+        # interaction terms -- it's just fit/simulated on the pupil-clean
+        # trial population (routed via PUPIL_MODEL_MARKER in
+        # run_analysis_ppcddm.py) so it's a fair PPC/ELPD baseline for
+        # HDDM_Base_Lag1-stp_Pupil_stp.
         parameters = FullDDMParameters()
         parameters.set_parameters_to_fit(
             ["v_gain",
@@ -216,6 +230,34 @@ def get_model(model_id):
         parameters.set_parameters_to_fit(
             ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
              "v_choice_prev1", "z_choice_prev1", "z_choice_prev1_pupil", "z_pupil"]
+        )
+        parameters.set_conditions_constant(
+            [f"choice_prev{i}" for i in range(2, 7)]
+        )
+        startingposition_fn = startingposition_sigmoid_pupil
+
+    # -----------------------------------------------------------------------
+    # Single-mechanism pupil models: built on the drift-only / stp-only base
+    # (no combined choice-history structure, unlike the
+    # HDDM_Base_Lag1-stpdrift_Pupil_* models above), with pupil interacting
+    # with just that one mechanism.
+    # -----------------------------------------------------------------------
+    elif model_id == "HDDM_Base_Lag1-drift_Pupil_drift":
+        parameters = PupilDDMParameters()
+        parameters.set_parameters_to_fit(
+            ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
+             "v_choice_prev1", "v_choice_prev1_pupil", "v_pupil"]
+        )
+        parameters.set_conditions_constant(
+            [f"choice_prev{i}" for i in range(2, 7)]
+        )
+        drift = drift_linear_pupil
+
+    elif model_id == "HDDM_Base_Lag1-stp_Pupil_stp":
+        parameters = PupilDDMParameters()
+        parameters.set_parameters_to_fit(
+            ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
+             "z_choice_prev1", "z_choice_prev1_pupil", "z_pupil"]
         )
         parameters.set_conditions_constant(
             [f"choice_prev{i}" for i in range(2, 7)]

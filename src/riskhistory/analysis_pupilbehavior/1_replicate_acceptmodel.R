@@ -65,12 +65,12 @@ write.csv(comparison_df,
 message("Saved: 1_replicate_acceptmodel_comparison.csv")
 
 # =============================================================================
-# Fixed effects (previous-choice model only)
+# Fixed effects (both models; a "model" column distinguishes them)
 # =============================================================================
 fixed_effects <- extract_fixed_effects(
   model_list = replicateacceptmodel_list,
   datasets   = datasets,
-  models     = "replicate_prevchoice",
+  models     = c("replicate_baseline", "replicate_prevchoice"),
   p_method   = p_method
 )
 
