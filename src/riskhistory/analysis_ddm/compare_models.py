@@ -24,13 +24,13 @@ ALL_MODELS = [
     "HDDM_Base_Lag1-full",
     "HDDM_Base_Lag1-stpdrift",
     "HDDM_Base_Pupil",
-    "HDDM_Base_Lag1-stpdrift_Pupil",
-    "HDDM_Base_Lag1-stpdrift_Pupil_stp",
-    "HDDM_Base_Lag1-stpdrift_Pupil_drift",
-    "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift",
-    "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
-    "HDDM_Base_Lag1-stpdrift_Pupil_ndt",
-    "HDDM_Base_Lag1-stpdrift_Pupil_boundary"
+    "HDDM_Base_Lag1-drift_Pupil",
+    "HDDM_Base_Lag1-stp_Pupil",
+    "HDDM_Base_Lag1-drift_Pupil_drift",
+    "HDDM_Base_Lag1-stp_Pupil_stp",
+    "HDDM_Base_Pupil_boundary",
+    "HDDM_Base_Pupil_valuation",
+    "HDDM_Base_Pupil_ndt"
 ]
     
 
@@ -42,14 +42,15 @@ MODEL_GROUPS = {
                        "HDDM_Base_Lag1-full",
                        "HDDM_Base_Lag1-stpdrift"
                        ],
-    "arousal" : [ "HDDM_Base_Pupil",
-                  "HDDM_Base_Lag1-stpdrift_Pupil",
-                  "HDDM_Base_Lag1-stpdrift_Pupil_stp",
-                  "HDDM_Base_Lag1-stpdrift_Pupil_drift",
-                  "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift",
-                  "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
-                  "HDDM_Base_Lag1-stpdrift_Pupil_ndt",
-                  "HDDM_Base_Lag1-stpdrift_Pupil_boundary"
+    "arousal" : [
+                "HDDM_Base_Pupil",
+                "HDDM_Base_Lag1-drift_Pupil",
+                "HDDM_Base_Lag1-stp_Pupil",
+                "HDDM_Base_Lag1-drift_Pupil_drift",
+                "HDDM_Base_Lag1-stp_Pupil_stp",
+                "HDDM_Base_Pupil_boundary",
+                "HDDM_Base_Pupil_valuation",
+                "HDDM_Base_Pupil_ndt"
     ]
 }
 

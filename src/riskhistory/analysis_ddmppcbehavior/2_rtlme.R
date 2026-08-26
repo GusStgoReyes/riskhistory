@@ -34,7 +34,7 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
     message(sprintf("\nFitting DDM PPC RT model for dataset: %s", ds))
     df_sub <- ddm_data[ddm_data$dataset == ds, ]
 
-    rt_model <- lmer(log(mean_rt) ~ abs_sv + transition + (1 + abs_sv | sub),
+    rt_model <- lmer(log(mean_rt) ~ abs_sv + transition + (1 + abs_sv + transition | sub),
                      data = df_sub, control = LMER_CONTROL)
 
     models_list <- add_models_to_list(
