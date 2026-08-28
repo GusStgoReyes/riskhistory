@@ -23,7 +23,7 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
     baseline_betas[[ds]] <- extract_random_effects_baseline(baseline_model, ds)
 
     # FULL MODEL (choice-history effect)
-    full_model <- lmer(logit_mean_accept ~ gain + loss + real_choice_prev1 + (1 + gain + loss + real_choice_prev1 | sub),
+    full_model <- lmer(logit_mean_accept ~ gain + loss + real_choice_prev1 + (1 + gain + loss | sub),
                        data = df_sub, control = LMER_CONTROL)
 
     models <- list(

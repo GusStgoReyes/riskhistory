@@ -58,17 +58,14 @@ BEHAVIOR_DDM_MODELS <- c(
   "HDDM_Base",
   "HDDM_Base_Lag1-drift",
   "HDDM_Base_Lag1-stp",
-  "HDDM_Base_Lag1-stpdrift",
-  "HDDM_Base_Lag1-stpdrift_Pupil"
+  "HDDM_Base_Lag1-stpdrift"
 )
 
 PUPIL_DDM_MODELS <- c(
-  "HDDM_Base_Lag1-stpdrift_Pupil",
-  "HDDM_Base_Lag1-stpdrift_Pupil_valuation",
-  "HDDM_Base_Lag1-stpdrift_Pupil_boundary",
-  "HDDM_Base_Lag1-stpdrift_Pupil_ndt",
-  "HDDM_Base_Lag1-stpdrift_Pupil_drift",
-  "HDDM_Base_Lag1-stpdrift_Pupil_stp"
+  "HDDM_Base_Lag1-stp_Pupil_stp",
+  "HDDM_Base_Lag1-drift_Pupil_drift",
+  "HDDM_Base_Lag1-drift_Pupil",
+  "HDDM_Base_Lag1-stp_Pupil"
 )
 
 load_ddm_ppc_data <- function(model_id) {

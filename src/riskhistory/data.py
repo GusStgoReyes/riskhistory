@@ -163,6 +163,24 @@ def load_pupilacceptmodel_pupilbin_contrast():
     return pd.read_csv(path)
 
 
+def load_pupilacceptmodel_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
+            / "3_pupilacceptmodel_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
+def load_ddmppcbehavior_pupilaccept_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_ddmppcbehavior"
+            / "3_pupilaccept_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
+def load_ddmppcbehavior_pupilaccept_comparison_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_ddmppcbehavior"
+            / "4_pupilaccept_comparison_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
 def load_model_comparison(comparison_type="behavior"):
     filenames = {
         "behavior": "2_behavior_model_comparison_2.csv",
@@ -195,6 +213,18 @@ def load_robustness_loo(dataset, group_name=None):
     suffix = f"_{group_name}" if group_name else ""
     path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
             / f"{dataset}{suffix}_robustness_loo.csv")
+    return pd.read_csv(path)
+
+
+def load_ddm_rhat(dataset):
+    path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
+            / f"{dataset}_rhat.csv")
+    return pd.read_csv(path)
+
+
+def load_ddm_ess(dataset):
+    path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
+            / f"{dataset}_ess.csv")
     return pd.read_csv(path)
 
 
