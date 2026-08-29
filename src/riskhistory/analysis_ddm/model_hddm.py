@@ -21,8 +21,8 @@ def fit_model(
     idx_save: str = "",
     pupil: bool = False,
     pupil_col: str = "pupil",
-    burnin: int = 2000,
-    sampling_iters: int = 10000,
+    burnin: int = 10000,
+    sampling_iters: int = 40000,
     chains: int = 4,
 ) -> None:
     """Fit an HDDM model to behavioral data.
@@ -48,9 +48,9 @@ def fit_model(
         (raw GLM amplitude) or "pupil_residual" (residualized). Only relevant
         when the model formula references "pupil" (Pupil_stp/_drift/_full).
     burnin : int, optional
-        Number of burn-in samples (default: 2000).
+        Number of burn-in samples (default: 10000).
     sampling_iters : int, optional
-        Number of sampling iterations (default: 10000).
+        Number of sampling iterations (default: 40000).
     """
     ensure_output_dirs(results_pth)
 
@@ -179,8 +179,8 @@ def main():
     else:
         subj_IDs = None
         idx_save = ""
-        burnin = 2000
-        sampling_iters = 10000
+        burnin = 10000
+        sampling_iters = 40000
         chains = 4
 
     pupil = "Pupil" in args.model_id

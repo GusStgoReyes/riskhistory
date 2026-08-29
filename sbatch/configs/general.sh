@@ -10,7 +10,7 @@ MODEL_CSV="$DATASET_DIR/model_ids/pyddm.csv"
 HDDM_MODEL_CSV="$DATASET_DIR/model_ids/hddm.csv"
 
 # Singularity image for HDDM jobs
-HDDM_SIF="/home/groups/russpold/singularity_images/hddm_1.0.1.sif"
+HDDM_SIF="/home/groups/russpold/singularity_images/hddm_latest.sif"
 
 # Sbatch settings pyddm
 TIME="02:00:00"
@@ -20,4 +20,4 @@ N_CPUS=8
 # Sbatch setting hddm
 TIME_HDDM="24:00:00"
 MEM_HDDM="120G"
-N_CPUS_HDDM=8
+N_CPUS_HDDM=16

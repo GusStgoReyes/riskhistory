@@ -1,6 +1,2 @@
 model_id,pupil_col
-HDDM_Base_Lag1-drift,pupil
-HDDM_Base,pupil
-HDDM_Base_Lag1-stp,pupil
-HDDM_Base_Lag1-stim,pupil
-HDDM_Base_Lag1-full,pupil
+HDDM_Base_Pupil,pupil
