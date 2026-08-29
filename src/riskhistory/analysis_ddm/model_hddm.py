@@ -79,7 +79,7 @@ def fit_model(
             data,
             config["reg_descr"],
             model=config["model"],
-            p_outlier=0.05,
+            p_outlier=0.50,
             **shared_kwargs,
         )
 
@@ -95,7 +95,7 @@ def fit_model(
         m_reg = hddm.HDDMRegressor(
             data,
             config["reg_descr"],
-            p_outlier=0.05,
+            p_outlier=0.50,
             **shared_kwargs,
         )
         m_reg.find_starting_values()

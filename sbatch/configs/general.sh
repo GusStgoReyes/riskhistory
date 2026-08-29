@@ -2,7 +2,7 @@
 DATASET_DIR="$REPO_PTH/data"
 BEHAV_CSV="$DATASET_DIR/preprocessed/behavioral_data.csv"
 PUPIL_CSV="$DATASET_DIR/preprocessed/pupilbetas_glm_preprocessed.csv"
-RESULTS_DIR="$REPO_PTH/results/analysis_ddm"
+RESULTS_DIR="$REPO_PTH/results/analysis_ddm_poutlier50"
 
 # PyDDM Models
 MODEL_CSV="$DATASET_DIR/model_ids/pyddm.csv"
@@ -18,6 +18,6 @@ MEM="4G"
 N_CPUS=8
 
 # Sbatch setting hddm
-TIME_HDDM="24:00:00"
+TIME_HDDM="48:00:00"
 MEM_HDDM="120G"
 N_CPUS_HDDM=16
