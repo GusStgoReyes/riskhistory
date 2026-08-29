@@ -92,7 +92,7 @@ def compute_diagnostics(model_id: str,
         weights = np.array([1 - m.p_outlier, m.p_outlier])
         b = weights.reshape((2,) + (1,) * (log_terms.ndim - 1)) 
 
-        ll_mixed = logsumexp(log_terms, b=b, axis=0)
+        ll_mixed = ll #logsumexp(log_terms, b=b, axis=0)
     else:
         ll_mixed = ll
 
