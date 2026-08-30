@@ -31,8 +31,8 @@ cat > "$TEMP_SBATCH" <<EOF
 #SBATCH --time=01:00:00
 #SBATCH --partition=normal,russpold
 #SBATCH --array=${ARRAY_RANGE}
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=100G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
 
 set -euo pipefail
 EOF
@@ -57,10 +57,11 @@ singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   --data_pth "$BEHAV_CSV" \
   --pupil_pth "$PUPIL_CSV" \
   --pupil_col "$PUPIL_COL" \
-  --results_pth "$RESULTS_DIR"
+  --results_pth "$RESULTS_DIR" \
+  --p_outlier "$P_OUTLIER"
 EOF
 
-export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE BEHAV_CSV PUPIL_CSV HDDM_SIF
+export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE BEHAV_CSV PUPIL_CSV HDDM_SIF P_OUTLIER
 echo "Submitting diagnostics array job..."
 ARRAY_JOB_ID=$(sbatch --export=ALL --parsable "$TEMP_SBATCH")
 echo "Array job ID: $ARRAY_JOB_ID"

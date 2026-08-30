@@ -83,12 +83,13 @@ singularity exec \
   --pupil_pth "$PUPIL_CSV" \
   --pupil_col "$PUPIL_COL" \
   --results_pth "$RESULTS_DIR" \
+  --p_outlier "$P_OUTLIER" \
   $TEST_FLAG
 EOF
 
 # ======================
 # Submit and clean up
 # ======================
-export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV PUPIL_CSV RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE HDDM_SIF
+export REPO_PTH DATASET_NAME TEST_FLAG BEHAV_CSV PUPIL_CSV RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE HDDM_SIF P_OUTLIER
 echo "Submitting array job..."
 sbatch --export=ALL "$TEMP_SBATCH"

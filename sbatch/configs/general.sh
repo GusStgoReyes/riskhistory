@@ -2,7 +2,7 @@
 DATASET_DIR="$REPO_PTH/data"
 BEHAV_CSV="$DATASET_DIR/preprocessed/behavioral_data.csv"
 PUPIL_CSV="$DATASET_DIR/preprocessed/pupilbetas_glm_preprocessed.csv"
-RESULTS_DIR="$REPO_PTH/results/analysis_ddm_poutlier50"
+RESULTS_DIR="$REPO_PTH/results/analysis_ddm_poutlier0"
 
 # PyDDM Models
 MODEL_CSV="$DATASET_DIR/model_ids/pyddm.csv"
@@ -21,3 +21,6 @@ N_CPUS=8
 TIME_HDDM="48:00:00"
 MEM_HDDM="120G"
 N_CPUS_HDDM=16
+
+# Must match the p_outlier passed to HDDMnnRegressor/HDDMRegressor
+P_OUTLIER=0

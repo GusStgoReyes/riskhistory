@@ -24,6 +24,7 @@ def fit_model(
     burnin: int = 10000,
     sampling_iters: int = 40000,
     chains: int = 4,
+    p_outlier: float = 0.50,
 ) -> None:
     """Fit an HDDM model to behavioral data.
 
@@ -79,7 +80,7 @@ def fit_model(
             data,
             config["reg_descr"],
             model=config["model"],
-            p_outlier=0.50,
+            p_outlier=p_outlier,
             **shared_kwargs,
         )
 
@@ -95,7 +96,7 @@ def fit_model(
         m_reg = hddm.HDDMRegressor(
             data,
             config["reg_descr"],
-            p_outlier=0.50,
+            p_outlier=p_outlier,
             **shared_kwargs,
         )
         m_reg.find_starting_values()
@@ -168,6 +169,14 @@ def main():
         action="store_true",
         help="Run test fit with fewer iterations",
     )
+    parser.add_argument(
+        "--p_outlier",
+        type=float,
+        default=0.50,
+        help="Outlier mixture probability passed to HDDMnnRegressor/HDDMRegressor "
+             "(must match P_OUTLIER in sbatch/configs/general.sh, which "
+             "compute_diagnostics.py reads for the same fit)",
+    )
     args = parser.parse_args()
 
     if args.test:
@@ -202,7 +211,8 @@ def main():
         pupil_col=args.pupil_col,
         burnin=burnin,
         sampling_iters=sampling_iters,
-        chains=chains
+        chains=chains,
+        p_outlier=args.p_outlier,
     )
 
 
