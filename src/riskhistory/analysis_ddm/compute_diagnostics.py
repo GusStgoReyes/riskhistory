@@ -25,6 +25,34 @@ import pandas as pd
 import xarray as xr
 from scipy.special import logsumexp
 
+def _nc_attrs(obj) -> dict:
+    return {k: obj.getncattr(k) for k in obj.ncattrs()}
+
+
+def print_nc_structure(nc_path: str) -> None:
+    """Print every group/variable/attribute name in a netCDF file.
+
+    Metadata only (shapes, dtypes, attrs) -- never reads variable data, so
+    this is cheap and safe to run against arbitrarily large files.
+    """
+    with nc4.Dataset(nc_path, "r") as f:
+        print(f"Global attrs: {_nc_attrs(f)}", flush=True)
+
+        def walk(group, indent=""):
+            print(f"{indent}Group: {group.path}", flush=True)
+            print(f"{indent}  attrs: {_nc_attrs(group)}", flush=True)
+            for vname, var in group.variables.items():
+                print(
+                    f"{indent}  var: {vname} shape={var.shape} dtype={var.dtype} "
+                    f"attrs={_nc_attrs(var)}",
+                    flush=True,
+                )
+            for subgroup in group.groups.values():
+                walk(subgroup, indent + "  ")
+
+        walk(f)
+
+
 def idata_to_tidy(ds, model_id: str, stat_name: str) -> pd.DataFrame:
     rows = []
     for var in ds.data_vars:
@@ -45,6 +73,7 @@ def compute_diagnostics(model_id: str,
                         pupil_pth: str,
                         pupil_col: str = "pupil",
                         p_outlier: float = 0.50,
+                        inspect_only: bool = False,
                         ) -> None:
     # Must match model_hddm.py's save_name / utils_stats.py's idx_save suffix
     # exactly, so this locates the .nc file the corresponding fit wrote.
@@ -58,6 +87,10 @@ def compute_diagnostics(model_id: str,
     nc_path = hddm_dir / f"{model_id}_{dataset}{idx_save}.nc"
     if not nc_path.exists():
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
+
+    if inspect_only:
+        print_nc_structure(str(nc_path))
+        return
 
     # p_outlier is a fixed scalar set at fit time (see model_hddm.py), passed
     # in rather than recovered via hddm.load() -- unpickling the full fitted
@@ -209,6 +242,13 @@ def main():
              "(must match P_OUTLIER in sbatch/configs/general.sh / the "
              "--p_outlier passed to model_hddm.py for this fit)",
     )
+    parser.add_argument(
+        "--inspect_nc",
+        action="store_true",
+        help="Print every group/variable/attribute name in the .nc file "
+             "(metadata only, no data read) and exit without computing "
+             "diagnostics.",
+    )
     args = parser.parse_args()
 
     if "Pupil" in args.model_id:
@@ -225,6 +265,7 @@ def main():
         pupil_pth=args.pupil_pth,
         pupil_col=args.pupil_col,
         p_outlier=args.p_outlier,
+        inspect_only=args.inspect_nc,
     )
 
 
