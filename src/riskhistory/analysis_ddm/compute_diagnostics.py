@@ -4,13 +4,18 @@ Run one instance per model (e.g. as a SLURM array job) so each job holds only
 one model's diagnostics data in memory at a time. Within a job, the
 `log_likelihood` and `posterior` netCDF groups are loaded and processed one
 at a time (never the full InferenceData at once) to bound peak memory for
-40k-iteration chains. `p_outlier` is passed in rather than recovered via
-`hddm.load()`, which would otherwise pull the entire (tens-of-GB) fitted
-model into memory just for that one scalar.
+40k-iteration chains. `p_outlier` is passed in. 
 Results are saved as small intermediate files for compare_models.py to aggregate.
 
-Seems that the loglikelihood has to be injected the poutliers because version of the
-pymc.
+Inherent problems with docker-hddm loglikelihoods:
+(1) sample() calls to_infdata() which calls get_pointwise_loglike() 
+https://github.com/panwanke/kabuki/blob/a2302364b8b76c36c10e386520cea6917d6c0565/kabuki/hierarchical.py#L1204
+(2) get_pointwise_loglike() calls pointwise_like_gen() which calls _pointwise_like_generate() which calls hddm.wfpt.pdf_array()
+https://github.com/panwanke/kabuki/blob/a2302364b8b76c36c10e386520cea6917d6c0565/kabuki/analyze.py
+(3) pdf_array() function sets w_outlier = 0 | only returns log(y * (1 - p_outlier))
+https://github.com/panwanke/hddm/blob/4205656814327fb709421e3f2287ba13c58e00e2/src/wfpt.pyx
+(4) w_outlier is automatically set to 0.1 at fitting time, need to add these amounts to the loglikelihoods
+
 """
 import argparse
 import pickle
