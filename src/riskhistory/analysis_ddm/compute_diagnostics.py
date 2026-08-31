@@ -21,14 +21,18 @@ import argparse
 import pickle
 from pathlib import Path
 
-from .utils_data import load_data
-
 import arviz as az
 import netCDF4 as nc4
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy.special import logsumexp
+
+# HDDM's own outlier-mixture density (hddm/likelihoods.py, hddm_regression.py,
+# etc. -- hardcoded default across every model class), NOT derived from the
+# behavioral data's RT range. See module docstring: the log_lik saved to the
+# .nc file is computed with this term dropped (w_outlier=0 at extraction time
+# vs. 0.1 at fit time), so it must be added back in by hand.
+W_OUTLIER = 0.1
 
 def _nc_attrs(obj) -> dict:
     return {k: obj.getncattr(k) for k in obj.ncattrs()}
@@ -73,9 +77,6 @@ def idata_to_tidy(ds, model_id: str, stat_name: str) -> pd.DataFrame:
 def compute_diagnostics(model_id: str,
                         dataset: str,
                         results_pth: str,
-                        pupil: bool,
-                        data_pth: str,
-                        pupil_pth: str,
                         pupil_col: str = "pupil",
                         p_outlier: float = 0.50,
                         inspect_only: bool = False,
@@ -138,33 +139,19 @@ def compute_diagnostics(model_id: str,
     print("any nan:", np.isnan(flat).any(), "any inf:", np.isinf(flat).any(), flush = True)
     print("global min/max:", np.nanmin(flat), np.nanmax(flat), flush = True)
 
-    # Fixing the log_likelihood to reflect p_outlier
-    data = load_data(
-        data_pth=data_pth,
-        pupil_pth=pupil_pth,
-        dataset_name=dataset,
-        pupil=pupil,
-        pupil_col=pupil_col,
-    )
+    # Correct the log_likelihood for the missing outlier-mixture term (see
+    # module docstring): the saved log_lik is log(y * (1 - p_outlier)), so
+    # log(exp(log_lik) + p_outlier * W_OUTLIER) recovers
+    # log(y * (1 - p_outlier) + w_outlier * p_outlier), the actual mixture
+    # density HDDM used at fit time. np.logaddexp is the numerically stable
+    # form of this and correctly no-ops when p_outlier == 0 (log(0) = -inf
+    # contributes nothing).
+    outlier_log_term = np.log(p_outlier * W_OUTLIER) if p_outlier > 0 else -np.inf
+    n_below = np.sum(ll < outlier_log_term)
+    print(f"n log_lik values below the true mixture floor ({outlier_log_term:.3f}): "
+          f"{n_below} (will be corrected)", flush=True)
 
-    rt_min, rt_max = data["rt"].min(), data["rt"].max()
-    uniform_density = 1.0 / (rt_max - rt_min) / 2.0
-
-    # Theoretical floor of the loglikelihoods
-    ll_mixed_floor = np.log(p_outlier * uniform_density)
-
-    if np.any(ll < ll_mixed_floor):
-        print("WARNING: Some log_likelihood values are below the theoretical floor "
-              f"({ll_mixed_floor:.3f}). This may indicate numerical issues.", flush=True)
-
-        log_terms = np.stack([ll, np.full_like(ll, np.log(uniform_density))])
-        print("log_terms shape:", log_terms.shape, flush=True)
-        weights = np.array([1 - p_outlier, p_outlier])
-        b = weights.reshape((2,) + (1,) * (log_terms.ndim - 1))
-
-        ll_mixed = ll #logsumexp(log_terms, b=b, axis=0)
-    else:
-        ll_mixed = ll
+    ll_mixed = np.logaddexp(ll, outlier_log_term)
 
     ll_mixed_da = ll_da.copy(data=ll_mixed)
     ll_ds["log_lik"] = ll_mixed_da
@@ -217,18 +204,6 @@ def main():
         choices=["equalIndifference", "sheng2020", "equalRange"],
     )
     parser.add_argument(
-        "--data_pth",
-        type=str,
-        required=True,
-        help="Path to behavioral CSV file",
-    )
-    parser.add_argument(
-        "--pupil_pth",
-        type=str,
-        required=True,
-        help="Path to pupil betas CSV file",
-    )
-    parser.add_argument(
         "--pupil_col",
         type=str,
         default="pupil",
@@ -256,18 +231,10 @@ def main():
     )
     args = parser.parse_args()
 
-    if "Pupil" in args.model_id:
-        pupil = True
-    else:
-        pupil = False
-
     compute_diagnostics(
         model_id=args.model_id,
         dataset=args.dataset_name,
         results_pth=args.results_pth,
-        pupil=pupil,
-        data_pth=args.data_pth,
-        pupil_pth=args.pupil_pth,
         pupil_col=args.pupil_col,
         p_outlier=args.p_outlier,
         inspect_only=args.inspect_nc,

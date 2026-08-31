@@ -54,14 +54,12 @@ singularity exec --env "PYTHONPATH=$REPO_PTH/src" "$HDDM_SIF" \
   python -m riskhistory.analysis_ddm.compute_diagnostics \
   --model_id "$MODEL_ID" \
   --dataset_name "$DATASET_NAME" \
-  --data_pth "$BEHAV_CSV" \
-  --pupil_pth "$PUPIL_CSV" \
   --pupil_col "$PUPIL_COL" \
   --results_pth "$RESULTS_DIR" \
   --p_outlier "$P_OUTLIER"
 EOF
 
-export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE BEHAV_CSV PUPIL_CSV HDDM_SIF P_OUTLIER
+export REPO_PTH DATASET_NAME RESULTS_DIR HDDM_MODEL_CSV PYTHONPATH MODULE HDDM_SIF P_OUTLIER
 echo "Submitting diagnostics array job..."
 ARRAY_JOB_ID=$(sbatch --export=ALL --parsable "$TEMP_SBATCH")
 echo "Array job ID: $ARRAY_JOB_ID"
