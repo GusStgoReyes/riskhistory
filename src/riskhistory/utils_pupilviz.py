@@ -53,6 +53,36 @@ def load_pupil_epochs(alignment: str = "start") -> pd.DataFrame:
     return pupil.merge(beh, on=["sub", "trial", "dataset"], how="inner")
 
 
+def add_choice_alteration(df: pd.DataFrame) -> pd.DataFrame:
+    """Add a `choice_alteration` (Low/Medium/High) column, mirroring the
+    formula in analysis_pupilbetas/0_config.R: how much the current choice
+    deviates from the average of the previous 2 choices.
+
+    Parameters
+    ----------
+    df : DataFrame with `accept` (0/1), `choice_prev1`, `choice_prev2`
+        (-1/1, NaN if unavailable)
+
+    Returns
+    -------
+    df with an added `choice_alteration` categorical column (NaN where
+    choice_prev1/choice_prev2 are unavailable).
+    """
+    df = df.copy()
+    choice_prev1_01 = (df["choice_prev1"] + 1) / 2
+    choice_prev2_01 = (df["choice_prev2"] + 1) / 2
+    choice_alteration_num = 2 * (
+        (df["accept"] - (choice_prev1_01 + choice_prev2_01) / 2).abs() - 0.5
+    )
+
+    df["choice_alteration"] = pd.cut(
+        choice_alteration_num,
+        bins=[-np.inf, -0.5, 0.5, np.inf],
+        labels=["Low", "Medium", "High"],
+    )
+    return df
+
+
 def group_timeseries(
     df: pd.DataFrame,
     variable: str,

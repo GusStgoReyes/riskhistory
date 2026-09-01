@@ -5,12 +5,14 @@
 # Continuous (0/0.5/1) choice alteration variable
 formula_pupilbetas_choicealteration_continuous <- pupil ~ logRT_z + gain_z +
   loss_z + entropy_c + abs_delta_ev_z + accept +
-  choice_alteration_accept_num + choice_alteration_reject_num + (1 | sub)
+  choice_alteration_accept_num + choice_alteration_reject_num +
+  (0 + logRT_z || sub)
 
 # Categorical choice alteration variable (3 levels: Low, Medium, High)
 formula_pupilbetas_choicealteration_categorical <- pupil ~ logRT_z + gain_z +
   loss_z + entropy_c + abs_delta_ev_z + accept +
-  choice_alteration_accept + choice_alteration_reject + (1 | sub)
+  choice_alteration_accept + choice_alteration_reject +
+  (0 + logRT_z || sub)
 
 # =============================================================================
 # Fit both models per dataset

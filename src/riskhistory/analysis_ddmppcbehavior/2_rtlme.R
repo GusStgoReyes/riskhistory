@@ -91,7 +91,7 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
 # =============================================================================
 convergence_df <- bind_rows(all_convergence)
 write.csv(convergence_df,
-          file.path(analysis_results_path, "2_rtlme_convergence.csv"),
+          file.path(analysis_results_path, "2_rtlme_convergence_ddm.csv"),
           row.names = FALSE)
 message("Saved: 2_rtlme_convergence.csv")
 
@@ -100,7 +100,7 @@ message("Saved: 2_rtlme_convergence.csv")
 # =============================================================================
 fixed_effects_df <- bind_rows(all_fixed_effects)
 write.csv(fixed_effects_df,
-          file.path(analysis_results_path, "2_rtlme_fixed_effects.csv"),
+          file.path(analysis_results_path, "2_rtlme_fixed_effects_ddm.csv"),
           row.names = FALSE)
 message("Saved: 2_rtlme_fixed_effects.csv")
 
@@ -109,7 +109,7 @@ message("Saved: 2_rtlme_fixed_effects.csv")
 # =============================================================================
 contrasts_df <- bind_rows(all_contrasts)
 write.csv(contrasts_df,
-          file.path(analysis_results_path, "2_rtlme_transition_contrasts.csv"),
+          file.path(analysis_results_path, "2_rtlme_transition_ddm_contrasts.csv"),
           row.names = FALSE)
 message("Saved: 2_rtlme_transition_contrasts.csv")
 

@@ -1,12 +1,12 @@
 import numpy as np
 import pandas as pd
-from riskhistory.setup_pupilbetas.utils_models import lowpass_filter
+from riskhistory.setup_pupilbetas.utils_models import highpass_filter
 from riskhistory.setup_pupilbetas.utils_get_data import (get_all_participants,
                                                           get_all_timings_df,
                                                           get_participant_pupil_data)
-from riskhistory.config import preprocessed_data_pth, results_pth
+from riskhistory.config import results_pth
 
-LOWPASS_CUTOFF = 0.1
+HIGHPASS_CUTOFF = 0.05
 FS = 25
 ORDER = 3
 
@@ -22,7 +22,7 @@ DATASET_RUNS = {
 
 def extract_baseline_run(pupil_data, start_timings_run):
     time_vector = pupil_data["time_secs"].values
-    pupil_lp = lowpass_filter(pupil_data["pupil_filtered"].values, cutoff=LOWPASS_CUTOFF, fs=FS, order=ORDER)
+    pupil_lp = pupil_data["pupil_filtered"].values# highpass_filter(pupil_data["pupil_filtered"].values, cutoff=HIGHPASS_CUTOFF, fs=FS, order=ORDER)
 
     records = []
     for _, trial_row in start_timings_run.iterrows():
@@ -64,15 +64,16 @@ def main():
 
     results_df = pd.concat(results, ignore_index=True)
     results_df = results_df[["dataset", "sub", "run", "trial", "pupil_baseline"]]
-    results_df["pupil_baseline"] = results_df.groupby(["sub", "run"])["pupil_baseline"].transform(
+    results_df["pupil_baseline"] = results_df.groupby(["dataset", "sub"])["pupil_baseline"].transform(
         lambda x: (x - x.mean()) / x.std()
     )
 
     exclusions = exclusions[["dataset", "sub", "run", "trial", "exclude_startAligned"]]
     results_df = results_df.merge(exclusions, on=["dataset", "sub", "run", "trial"], how="left")
 
-    preprocessed_data_pth.mkdir(parents=True, exist_ok=True)
-    out_path = preprocessed_data_pth / "pupilbaseline_preprocessed.csv"
+    results_dir = results_pth / "setup_pupilbetas"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    out_path = results_dir / "pupilbaseline_preprocessed.csv"
     results_df.to_csv(out_path, index=False)
     print(f"Saved baseline results to {out_path}")
 

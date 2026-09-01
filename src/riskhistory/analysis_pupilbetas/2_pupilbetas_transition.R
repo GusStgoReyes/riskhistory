@@ -3,7 +3,7 @@
 # =============================================================================
 
 formula_pupilbetas_transition <- pupil ~ logRT_z + gain_z + loss_z +
-  entropy_c + abs_delta_ev_z + transition + (1 | sub)
+  entropy_c + abs_delta_ev_z + transition + (0 + logRT_z | sub)
 
 # =============================================================================
 # Fit per dataset
@@ -15,7 +15,7 @@ for (ds in datasets) {
   df <- data_betas_clean %>% filter(dataset == ds)
 
   pupilbetas_transition <- lmer(formula_pupilbetas_transition, data = df,
-                                REML = FALSE, control = LMER_CONTROL)
+                                control = LMER_CONTROL)
   print(summary(pupilbetas_transition)$varcor)
 
   transitionmodel_list[[ds]] <- list(pupilbetas_transition = pupilbetas_transition)
@@ -59,6 +59,7 @@ contrasts_rows <- list()
 for (ds in datasets) {
   message(sprintf("\nComputing transition avg_predictions/avg_comparisons for dataset: %s", ds))
   m <- transitionmodel_list[[ds]][["pupilbetas_transition"]]
+  df <- data_betas_clean %>% filter(dataset == ds)
 
   pred <- avg_predictions(m, by = "transition")
 

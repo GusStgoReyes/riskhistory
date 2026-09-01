@@ -486,6 +486,22 @@ def load_pupilbetas_preprocessed(exclude=True):
     return df
 
 
+def load_pupilbaseline_preprocessed(exclude=True):
+    """Per-trial pre-stimulus pupil baseline (z-scored within dataset/sub/run).
+
+    See src/riskhistory/setup_pupilbetas/run_setup_pupilbaseline.py.
+    """
+    path = (REPO_ROOT / "results" / "setup_pupilbetas"
+            / "pupilbaseline_preprocessed.csv")
+    df = pd.read_csv(path)
+    df["exclude_startAligned"] = (
+        df["exclude_startAligned"].astype(str).str.lower() == "true"
+    )
+    if exclude:
+        df = df[~df["exclude_startAligned"]].copy()
+    return df
+
+
 def add_subjective_values(df, betas=None):
     """Merge betas and compute SV = intercept + gain*gain_c + loss*loss_c."""
     if betas is None:

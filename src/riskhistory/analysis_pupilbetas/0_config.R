@@ -50,13 +50,7 @@ source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
 # merges in the pupil GLM betas, filtered to behavioral- and pupil-clean trials.
 message("Loading behavioral and pupil betas data...")
 data_betas_clean <- load_behavioral_pupil_data()
-
-# Per-subject mean acceptance rate, computed after both the behavioral and
-# pupil exclusions above -- broadcast onto every row for that sub/dataset.
-data_betas_clean <- data_betas_clean %>%
-  group_by(sub, dataset) %>%
-  mutate(mean_accept = mean(accept, na.rm = TRUE)) %>%
-  ungroup()
+data_betas_clean <- subset(data_betas_clean, !exclude_startAligned)
 
 message(sprintf("Pupil betas data: %d rows after exclusion", nrow(data_betas_clean)))
 for (ds in datasets) {

@@ -18,7 +18,7 @@ def save_glm_to_csv(results_df, exclusions):
     )
     target_betas = target_betas.drop(columns=["r2", "betas_names"])
     target_betas = target_betas.reset_index(drop=True)
-    target_betas["pupil"] = target_betas.groupby(["sub", "run"])["betas_estimates"].transform(lambda x: (x - x.mean()) / x.std())
+    target_betas["pupil"] = target_betas.groupby(["dataset", "sub", "run"])["betas_estimates"].transform(lambda x: (x - x.mean()) / x.std())
     # Retain run-level alpha (same value per run, kept for provenance)
     if "alpha" not in target_betas.columns:
         target_betas["alpha"] = float("nan")

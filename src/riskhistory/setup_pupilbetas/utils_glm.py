@@ -119,42 +119,6 @@ def build_design_matrix_run(all_pupil_data,
 
     return design_matrix, betas_name
 
-def glm_single_run(all_pupil_data,
-                   chosen_prf,
-                   start_timings,
-                   sub,
-                   run,
-                   dataset):
-    start_timings_run = start_timings.query("run == @run")
-
-    design_matrix, betas_name = build_design_matrix_run(all_pupil_data,
-                                                        chosen_prf,
-                                                        start_timings_run,
-                                                        sub,
-                                                        run,
-                                                        dataset)
-    y = all_pupil_data[run]["pupil"].values
-    betas_estimates, residuals, best_alpha = ridge(design_matrix, y)
-
-    ss_res = (residuals ** 2).sum()
-    ss_tot = ((y - y.mean()) ** 2).sum()
-    r2 = 1.0 - ss_res / ss_tot
-    print(f"R-squared for sub-{sub} run-{run}: {r2:.4f}")
-
-    n = len(betas_name)
-    results_run = {
-        "betas_estimates": betas_estimates.tolist(),
-        "betas_names": betas_name,
-        "r2": [r2] * n,
-        "alpha": [best_alpha] * n,
-    }
-
-    vif_stats = compute_vif(design_matrix, betas_name, sub, run, dataset, regressor_type="decision")
-    print(f"  Decision VIF — mean: {vif_stats['mean_vif_decision']:.2f}, "
-          f"sd: {vif_stats['sd_vif_decision']:.2f} (n={vif_stats['n_regressors_decision']})")
-
-    return pd.DataFrame(results_run), vif_stats
-
 
 def build_design_matrix_all_runs(all_pupil_data,
                                  chosen_prf,
