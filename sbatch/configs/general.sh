@@ -19,14 +19,8 @@ N_CPUS=8
 
 # Sbatch setting hddm
 # MEM_HDDM sized for the worst-case model (HDDM_Base_Lag1-full_sheng2020 at
-# 30K iter/10K burn, extrapolated ~150-190GB peak) with headroom; the old
-# 120G default already OOM'd on the smaller equalRange model at this draw
-# count. N_CPUS_HDDM is bumped to match -- normal/russpold cap out at
-# 8GB/core, so requesting 200G forces ceil(200/8)=25 cores regardless of
-# what's requested here; setting it explicitly avoids Slurm silently
-# inflating a much lower number.
-TIME_HDDM="48:00:00"
-MEM_HDDM="200G"
+TIME_HDDM="36:00:00"
+MEM_HDDM="190G"
 N_CPUS_HDDM=25
 
 # Must match the p_outlier passed to HDDMnnRegressor/HDDMRegressor

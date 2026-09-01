@@ -62,6 +62,30 @@ def print_nc_structure(nc_path: str) -> None:
         walk(f)
 
 
+def save_posterior_npz(
+    post_ds, model_id: str, dataset: str, idx_save: str, results_pth: str,
+    dtype=np.float32,
+) -> Path:
+    """Save an already-loaded posterior Dataset to a compressed .npz.
+
+    Same output format as extract_posteriors.py, but takes the Dataset
+    directly instead of reopening the .nc file -- compute_diagnostics.py
+    already has it loaded for rhat/ess.
+    """
+    arrays = {var: da.values.astype(dtype) for var, da in post_ds.data_vars.items()}
+    arrays["_chain"] = post_ds["chain"].values
+    arrays["_draw"] = post_ds["draw"].values
+
+    output_dir = Path(results_pth) / "hddm_posteriors"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = output_dir / f"{model_id}_{dataset}{idx_save}_posterior.npz"
+
+    np.savez_compressed(out_path, **arrays)
+    size_mb = out_path.stat().st_size / 1e6
+    print(f"Saved {len(arrays) - 2} parameters to {out_path} ({size_mb:.1f} MB)", flush=True)
+    return out_path
+
+
 def idata_to_tidy(ds, model_id: str, stat_name: str) -> pd.DataFrame:
     rows = []
     for var in ds.data_vars:
@@ -153,27 +177,78 @@ def compute_diagnostics(model_id: str,
 
     ll_mixed = np.logaddexp(ll, outlier_log_term)
 
-    ll_mixed_da = ll_da.copy(data=ll_mixed)
-    ll_ds["log_lik"] = ll_mixed_da
-    idata_ll = az.convert_to_datatree(ll_ds, group="log_likelihood")
+    # Per-trial diagnostics for the outlier-dominated observations that break
+    # PSIS's Pareto-tail fit ("All tail values are the same"): once the raw
+    # log-likelihood is below the floor on (nearly) every draw, the corrected
+    # value collapses to ~outlier_log_term regardless of the parameters, so
+    # its variance across draws goes to ~0 -- exactly what breaks the fit.
+    flat_mixed = ll_mixed.reshape(-1, ll_mixed.shape[-1])
+    flat_below = flat < outlier_log_term
+    frac_dominated = flat_below.mean(axis=0)
+    std_per_obs = flat_mixed.std(axis=0)
 
-    print("  Computing LOO (pointwise) ...", flush=True)
-    # reff=1.0 (i.e. assume no autocorrelation) sidesteps az.loo's internal
-    # requirement for a `posterior` group to estimate effective sample size --
-    # loading the full 40k-draw posterior just for that isn't worth it here.
-    # This only affects the reported SE's precision, not the elpd_loo point
-    # estimate itself.
-    loo_result = az.loo(idata_ll, pointwise=True, reff=1.0)
-    print("elpd_loo:", loo_result.elpd, "p_loo:", loo_result.p, flush=True)
+    dominated = frac_dominated > 0.5
+    n_dominated = int(dominated.sum())
+    print(f"n trials where the outlier term dominates on >50% of draws: "
+          f"{n_dominated}", flush=True)
 
-    k = np.asarray(loo_result.pareto_k.values)
-    print("n k>0.7:", (k>0.7).sum(), "max k:", k.max(), "new min ll:", ll_mixed.min(), flush = True)
+    if n_dominated > 0:
+        # subj_idx/trial live as small 1D arrays in /observed_data -- NOT the
+        # (chain, draw, obs) broadcast copies inside /log_likelihood, which
+        # are the ~800M-element arrays this script specifically avoids
+        # loading (see comment above on `node`). The join key is
+        # /observed_data's `index` variable, NOT its own `obs_id`: that
+        # `obs_id` is just a plain positional 0..n-1 index local to this
+        # group, while /log_likelihood's `obs_id` coordinate carries the
+        # original (non-contiguous) DataFrame row index -- `index` is the
+        # variable that actually matches it (verified: identical value sets).
+        with nc4.Dataset(str(nc_path), "r") as f:
+            obs_grp = f.groups["observed_data"]
+            obs_grp.set_auto_mask(False)
+            obs_index = np.asarray(obs_grp.variables["index"][:])
+            obs_subj_idx = np.asarray(obs_grp.variables["subj_idx"][:])
+            obs_trial = np.asarray(obs_grp.variables["trial"][:])
 
-    loo_path = output_dir / f"{model_id}_{dataset}{idx_save}_loo.pkl"
-    with open(loo_path, "wb") as f:
-        pickle.dump(loo_result, f)
+        obs_lookup = pd.DataFrame(
+            {"obs_id": obs_index, "subj_idx": obs_subj_idx, "trial": obs_trial}
+        )
+        dominated_df = pd.DataFrame({
+            "obs_id": obs_id[dominated],
+            "frac_dominated": frac_dominated[dominated],
+            "std_ll_mixed": std_per_obs[dominated],
+        }).merge(obs_lookup, on="obs_id", how="left").sort_values("std_ll_mixed")
 
-    del idata_ll, ll_ds, ll_da, ll, flat, ll_mixed, ll_mixed_da
+        dominated_path = output_dir / f"{model_id}_{dataset}{idx_save}_outlier_dominated.csv"
+        dominated_df.to_csv(dominated_path, index=False)
+        print(f"Full table saved to {dominated_path}. Preview (most degenerate/"
+              f"lowest std first, top 50 of {n_dominated}):", flush=True)
+        print(dominated_df.head(50).to_string(index=False), flush=True)
+
+    # LOO is disabled for now: PSIS's Pareto-tail fit crashes with "All tail
+    # values are the same" on the outlier-dominated trials printed above.
+    # Re-enable once loo_moment_match (or an explicit exclusion strategy) is
+    # in place -- see conversation/module docstring for the underlying cause.
+    # ll_mixed_da = ll_da.copy(data=ll_mixed)
+    # ll_ds["log_lik"] = ll_mixed_da
+    # idata_ll = az.convert_to_datatree(ll_ds, group="log_likelihood")
+    #
+    # print("  Computing LOO (pointwise) ...", flush=True)
+    # # reff=1.0 (i.e. assume no autocorrelation) sidesteps az.loo's internal
+    # # requirement for a `posterior` group to estimate effective sample size --
+    # # loading the full 40k-draw posterior just for that isn't worth it here.
+    # # This only affects the reported SE's precision, not the elpd_loo point
+    # # estimate itself.
+    # loo_result = az.loo(idata_ll, pointwise=True, reff=1.0)
+    # print("elpd_loo:", loo_result.elpd, "p_loo:", loo_result.p, flush=True)
+    #
+    # k = np.asarray(loo_result.pareto_k.values)
+    # print("n k>0.7:", (k>0.7).sum(), "max k:", k.max(), "new min ll:", ll_mixed.min(), flush = True)
+    #
+    # loo_path = output_dir / f"{model_id}_{dataset}{idx_save}_loo.pkl"
+    # with open(loo_path, "wb") as f:
+    #     pickle.dump(loo_result, f)
+
+    del ll_ds, ll_da, ll, flat, ll_mixed, flat_mixed
 
     print(f"Loading posterior group from {nc_path} ...", flush=True)
     with xr.open_dataset(str(nc_path), group="posterior") as post_ds:
@@ -188,6 +263,9 @@ def compute_diagnostics(model_id: str,
     idata_to_tidy(az.ess(post_ds), model_label, "ess").to_csv(
         output_dir / f"{model_id}_{dataset}{idx_save}_ess.csv", index=False
     )
+
+    print("  Saving posterior samples ...", flush=True)
+    save_posterior_npz(post_ds, model_id, dataset, idx_save, results_pth)
 
     print(f"Done. Results saved to {output_dir}", flush=True)
 
