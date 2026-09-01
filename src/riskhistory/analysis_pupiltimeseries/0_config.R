@@ -12,8 +12,8 @@ analysis_name <- "analysis_pupiltimeseries"
 analysis_data_path <- file.path(repo_path, "data")
 analysis_results_path <- file.path(results_path, analysis_name)
 
-utils_path      <- dirname(sys.frame(1)$ofile)
-acceptglme_path <- file.path(repo_path, "src", "riskhistory", "analysis_acceptglme")
+utils_path        <- dirname(sys.frame(1)$ofile)
+shared_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_utils")
 
 if (!dir.exists(analysis_results_path)) {
   dir.create(analysis_results_path, recursive = TRUE)
@@ -29,66 +29,36 @@ library(tibble)
 library(lmerTest)
 library(marginaleffects)
 
-# Source utility functions from analysis_acceptglme
-source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
-source(file.path(acceptglme_path, "utils_createregressors.R"))
-source(file.path(acceptglme_path, "utils_modelcomparison.R"))
-source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
-source(file.path(utils_path, "utils_createtransitionregressor.R"))
-
-# =============================================================================
-# Analysis settings
-# =============================================================================
-set.seed(42)
-
-datasets <- c("equalIndifference", "equalRange", "sheng2020")
-
-p_method <- "BH"  # Benjamini-Hochberg
-
-LMER_CONTROL <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
+# Source shared settings and utility functions
+source(file.path(shared_utils_path, "0_config.R"))
+source(file.path(shared_utils_path, "utils_data.R"))
+source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
+source(file.path(shared_utils_path, "utils_createregressors.R"))
+source(file.path(shared_utils_path, "utils_modelcomparison.R"))
+source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
+source(file.path(shared_utils_path, "utils_modelanalytics.R"))
+source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
+source(file.path(shared_utils_path, "utils_contrasts.R"))
 
 # =============================================================================
 # Load and prepare behavioral data
 # =============================================================================
 message("Loading behavioral data...")
-behavioral_data <- read.csv(file.path(analysis_data_path,
-                                      "preprocessed",
-                                      "behavioral_data.csv"))
-behavioral_data <- behavioral_data %>%
-  mutate(exclude = as.logical(exclude))
+behavioral_data <- load_behavioral_data()
 
 # Merge betas, compute sv/entropy, and apply behavioral exclusion
 message("Loading subject-specific betas and computing subjective value...")
 betas_path <- file.path(results_path, "analysis_acceptglme",
                         "1_baselinebehavior_betas.csv")
-behavioral_data <- add_subjectivevalues(behavioral_data, betas_path)
+behavioral_data <- add_subjectivevalues_and_regressors(behavioral_data, betas_path)
 
 # =============================================================================
 # Load pupil data
 # =============================================================================
 message("Loading pupil data...")
 
-pupil_data_start <- read.csv(file.path(analysis_data_path,
-                                       "preprocessed",
-                                       "pupil_data_alignedStartTime.csv"))
-
-pupil_data_response <- read.csv(file.path(analysis_data_path,
-                                          "preprocessed",
-                                          "pupil_data_alignedResponseTime.csv"))
-
-# Remove baseline from pupil size
-pupil_data_start <- pupil_data_start %>%
-  mutate(pupil_size = pupil_size - baseline_pupil)
-
-pupil_data_response <- pupil_data_response %>%
-  mutate(pupil_size = pupil_size - baseline_pupil)
-
-# Rename exclude column in pupil data to avoid conflict
-pupil_data_start <- pupil_data_start %>%
-  rename(pupil_exclude = exclude)
-
-pupil_data_response <- pupil_data_response %>%
-  rename(pupil_exclude = exclude)
+pupil_data_start    <- load_pupil_data("start")
+pupil_data_response <- load_pupil_data("response")
 
 # =============================================================================
 # Merge and apply exclusion criteria
@@ -132,8 +102,8 @@ for (ds in datasets) {
 # Create scaled within-subject regressors
 # =============================================================================
 message("Creating pupil regressors...")
-data_start_clean    <- create_pupil_regressors(data_start_clean)
-data_response_clean <- create_pupil_regressors(data_response_clean)
+data_start_clean    <- standardize_pupil_regressors(data_start_clean)
+data_response_clean <- standardize_pupil_regressors(data_response_clean)
 
 message("Creating transition (current x previous choice) regressor...")
 data_start_clean    <- add_transition_regressor(data_start_clean)

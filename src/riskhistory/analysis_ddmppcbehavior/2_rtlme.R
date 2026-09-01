@@ -26,6 +26,7 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
       choice_prev1 = real_choice_prev1
     ) %>%
     add_transition_regressor()
+  rt_model_name <- sprintf("rt_%s", ddm_model)
 
   models_list <- list()
   contrasts_list <- list()
@@ -40,7 +41,7 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
     models_list <- add_models_to_list(
       models_list = models_list,
       ds     = ds,
-      models = list(rtlme = rt_model)
+      models = setNames(list(rt_model), rt_model_name)
     )
 
     # transform = "exp" converts the log-scale contrast back to the RT scale
@@ -64,14 +65,14 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
   }
 
   all_convergence[[ddm_model]] <- check_convergence_all_models(
-    models_list, datasets, c("rtlme")
+    models_list, datasets, c(rt_model_name)
   ) %>%
     mutate(ddm_model = ddm_model)
 
   all_fixed_effects[[ddm_model]] <- extract_fixed_effects(
     model_list = models_list,
     datasets   = datasets,
-    models     = "rtlme",
+    models     = rt_model_name,
     p_method   = p_method
   ) %>%
     mutate(ddm_model = ddm_model)

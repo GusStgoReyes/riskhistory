@@ -9,6 +9,7 @@ all_fixed_effects <- list()
 for (ddm_model in BEHAVIOR_DDM_MODELS) {
   message(sprintf("\n=== DDM model: %s ===", ddm_model))
   ddm_data <- load_ddm_ppc_data(ddm_model)
+  accept_model_name <- sprintf("accept_%s", ddm_model)
 
   models_list <- list()
   baseline_betas <- list()
@@ -20,16 +21,17 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
     # BASELINE MODEL (used only for per-subject betas)
     baseline_model <- lmer(logit_mean_accept ~ gain + loss + (1 + gain + loss | sub),
                            data = df_sub, control = LMER_CONTROL)
-    baseline_betas[[ds]] <- extract_random_effects_baseline(baseline_model, ds)
+    baseline_betas[[ds]] <- extract_random_effects(
+      baseline_model, ds,
+      coef_map = c("(Intercept)" = "intercept", gain = "gain", loss = "loss")
+    )
 
     # FULL MODEL (choice-history effect)
     full_model <- lmer(logit_mean_accept ~ gain + loss + real_choice_prev1 + (1 + gain + loss | sub),
                        data = df_sub, control = LMER_CONTROL)
 
-    models <- list(
-      baseline = baseline_model,
-      full     = full_model
-    )
+    models <- list(baseline = baseline_model)
+    models[[accept_model_name]] <- full_model
     models_list <- add_models_to_list(
       models_list = models_list,
       ds     = ds,
@@ -41,14 +43,14 @@ for (ddm_model in BEHAVIOR_DDM_MODELS) {
     mutate(ddm_model = ddm_model)
 
   all_convergence[[ddm_model]] <- check_convergence_all_models(
-    models_list, datasets, c("baseline", "full")
+    models_list, datasets, c("baseline", accept_model_name)
   ) %>%
     mutate(ddm_model = ddm_model)
 
   all_fixed_effects[[ddm_model]] <- extract_fixed_effects(
     model_list = models_list,
     datasets   = datasets,
-    models     = "full",
+    models     = accept_model_name,
     p_method   = p_method
   ) %>%
     mutate(ddm_model = ddm_model)

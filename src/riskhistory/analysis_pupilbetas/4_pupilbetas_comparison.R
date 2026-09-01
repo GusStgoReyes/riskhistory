@@ -2,7 +2,7 @@
 # Pupil Betas — Model Comparison (Choice Alteration vs. No Choice History)
 # =============================================================================
 
-source(file.path(acceptglme_path, "utils_modelcomparison.R"))
+source(file.path(shared_utils_path, "utils_modelcomparison.R"))
 
 formula_pupilbetas_nohistory <- pupil ~ logRT_z + gain_z + loss_z +
   entropy_c + abs_delta_ev_z + accept + (1 | sub)

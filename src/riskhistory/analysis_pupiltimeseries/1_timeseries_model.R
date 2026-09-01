@@ -2,7 +2,6 @@
 # Choice History Under Risk: Pupil Timeseries — Timepoint LME
 # =============================================================================
 
-source(file.path(acceptglme_path, "utils_modelanalytics.R"))
 source(file.path(utils_path, "utils_timepointmodels.R"))
 
 formula_m1 <- pupil_size ~ logRT_z + gain_z + loss_z + entropy_c +

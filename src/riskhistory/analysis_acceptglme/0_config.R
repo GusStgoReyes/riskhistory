@@ -12,8 +12,8 @@ analysis_name <- "analysis_acceptglme"
 analysis_data_path <- file.path(repo_path, "data")
 analysis_results_path <- file.path(results_path, analysis_name)
 
-# Path to utility functions (in this directory)
-utils_path <- dirname(sys.frame(1)$ofile)
+# Path to shared utility functions
+shared_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_utils")
 
 # =============================================================================
 # Load required packages
@@ -26,44 +26,21 @@ library(lmerTest)
 library(bayestestR)
 library(marginaleffects)
 
-# Source utility functions
-source(file.path(utils_path, "utils_createregressors.R"))
-source(file.path(utils_path, "utils_checkmodelconverge.R"))
-source(file.path(utils_path, "utils_saverandomeffectsub.R"))
-source(file.path(utils_path, "utils_savefixedeffects.R"))
-source(file.path(utils_path, "utils_modelcomparison.R"))
+# Source shared settings and utility functions
+source(file.path(shared_utils_path, "0_config.R"))
+source(file.path(shared_utils_path, "utils_data.R"))
+source(file.path(shared_utils_path, "utils_createregressors.R"))
+source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
+source(file.path(shared_utils_path, "utils_extractrandomeffects.R"))
+source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
+source(file.path(shared_utils_path, "utils_modelcomparison.R"))
 source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils_getchoicehistory.R"))
 
 # =============================================================================
-# Analysis settings
-# =============================================================================
-set.seed(42)
-
-# Define datasets to analyze
-datasets <- c("sheng2020", "equalRange", "equalIndifference")
-
-# Multiple comparisons method
-p_method <- "BH"  # Benjamini-Hochberg
-
-GLMER_CONTROL <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
-# =============================================================================
 # Load and prepare data
 # =============================================================================
-# Load preprocessed behavioral data
-behavioral_data_full <- read.csv(file.path(analysis_data_path,
-                                           "preprocessed",
-                                           "behavioral_data.csv"))
-behavioral_data_full <- behavioral_data_full %>%
-  mutate(exclude = as.logical(exclude))
-
-# Add log RT column
-behavioral_data_full$log_rt <- log(behavioral_data_full$rt)
-
-# Filter out excluded trials for behavioral analyses
+behavioral_data_full <- load_behavioral_data()
 behavioral_data <- subset(behavioral_data_full, !exclude)
-
-# Add low/medium/high ev_partition (see utils_createregressors.R)
-behavioral_data <- add_ev_partition(behavioral_data)
 
 # =============================================================================
 # Initialize model storage lists

@@ -1,48 +1,8 @@
 # =============================================================================
 # Utility functions for fitting timepoint models on pupil data
 # =============================================================================
-
-# avg_comparisons(model, variables = list(<factor> = "pairwise")) returns all
-# pairwise contrasts between factor levels, but its contrast labels follow
-# marginaleffects' own internal level ordering, not the order the caller
-# wants. For each (A, B) pair in contrast_pairs, find whichever of "A - B" /
-# "B - A" is present and change it to "A - B", flipping the sign of
-# estimate/statistic when the reversed label was the one found (p.value is
-# sign-invariant, from a two-tailed test).
-normalize_pairwise_contrasts <- function(comp_df, contrast_pairs) {
-  matched_rows <- lapply(contrast_pairs, function(pair) {
-    label_fwd <- paste(pair[1], "-", pair[2])
-    row_fwd <- comp_df[comp_df$contrast == label_fwd, ]
-    if (nrow(row_fwd) > 0) {
-      row_fwd$contrast <- label_fwd
-      return(row_fwd)
-    }
-
-    label_rev <- paste(pair[2], "-", pair[1])
-    row_rev <- comp_df[comp_df$contrast == label_rev, ]
-    if (nrow(row_rev) > 0) {
-      row_rev$contrast  <- label_fwd
-      row_rev$estimate  <- -row_rev$estimate
-      row_rev$statistic <- -row_rev$statistic
-      return(row_rev)
-    }
-
-    NULL
-  })
-  matched_rows <- matched_rows[!vapply(matched_rows, is.null, logical(1))]
-  if (length(matched_rows) == 0) return(NULL)
-
-  comp_df <- do.call(rbind, matched_rows)
-  data.frame(
-    contrast = comp_df$contrast,
-    estimate = comp_df$estimate,
-    SE       = comp_df$std.error,
-    z.ratio  = comp_df$statistic,
-    p.value  = comp_df$p.value,
-    stringsAsFactors = FALSE
-  )
-}
-
+# normalize_pairwise_contrasts() now lives in analysis_utils/utils_contrasts.R
+# (shared with analysis_pupilbehavior) and is sourced via 0_config.R.
 
 # Fit a single timepoint LME model
 fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,

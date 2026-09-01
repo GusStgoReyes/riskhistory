@@ -99,7 +99,7 @@ def load_choicehistory_betas():
 
 def load_choicehistorypersubject_betas():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "5_choicehistorypersubject_betas.csv")
+            / "4_choicehistorypersubject_betas.csv")
     return pd.read_csv(path)
 
 
@@ -133,22 +133,56 @@ def load_fixed_effects():
     return pd.read_csv(path)
 
 
-def load_choicehistoryeffect_predictions():
+def load_choicehistorysvpartitions_predictions():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "2_choicehistoryeffect_predictions.csv")
+            / "3_choicehistory_svpartitions_predictions.csv")
     return pd.read_csv(path)
 
 
-def load_choicehistoryeffect_contrasts():
+def load_choicehistorysvpartitions_contrasts():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "2_choicehistoryeffect_contrasts.csv")
+            / "3_choicehistory_svpartitions_contrasts.csv")
     return pd.read_csv(path)
 
 
-def load_choicehistoryeffect_pairwise():
-    path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "2_choicehistoryeffect_pairwise.csv")
-    return pd.read_csv(path)
+def load_sv_partition_means(n_partitions=5):
+    """Mean subjective value (sv) within each equal-count sv partition, per
+    dataset -- gives representative sv values for the partitions used by
+    3_choicehistory_svpartitions_contrasts.csv (sv_partition 1..n_partitions).
+
+    Mirrors the R pipeline's sv computation (add_subjectivevalues) and
+    partitioning (standardize_behavioral_regressors's sv_partition) in
+    utils_createregressors.R, computed here only to label the partitions --
+    the choice-history contrasts themselves still come from
+    load_choicehistorysvpartitions_contrasts().
+
+    Two-step averaging, matching the R workflow: mean sv per sub/dataset/
+    partition first, then mean of those subject-level means per
+    dataset/partition.
+    """
+    df = load_behavioral_data(exclude=False)
+    betas = load_baseline_betas()
+
+    df = df.merge(betas, on=["sub", "dataset"])
+    df["sv"] = (
+        df["beta_intercept"] / df["beta_gain"] + df["gain_centered"]
+        + df["beta_loss"] / df["beta_gain"] * df["loss_centered"]
+    )
+
+    df = df[df["exclude"] != True].copy()
+
+    df["sv_partition"] = df.groupby(["dataset", "sub"])["sv"].transform(
+        lambda x: pd.qcut(x, n_partitions, labels=False) + 1
+    )
+
+    persub_means = (
+        df.groupby(["dataset", "sub", "sv_partition"])["sv"]
+        .mean().reset_index()
+    )
+    return (
+        persub_means.groupby(["dataset", "sv_partition"])["sv"]
+        .mean().reset_index()
+    )
 
 
 def load_pupilacceptmodel_historyeffect_by_pupilbin():
@@ -183,7 +217,7 @@ def load_ddmppcbehavior_pupilaccept_comparison_fixed_effects():
 
 def load_model_comparison(comparison_type="behavior"):
     filenames = {
-        "behavior": "2_behavior_model_comparison_2.csv",
+        "behavior": "2_behavior_model_comparison.csv",
     }
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
             / filenames[comparison_type])

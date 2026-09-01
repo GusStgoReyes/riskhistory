@@ -78,7 +78,7 @@ def compute_diagnostics(model_id: str,
                         dataset: str,
                         results_pth: str,
                         pupil_col: str = "pupil",
-                        p_outlier: float = 0.50,
+                        p_outlier: float = 0.05,
                         inspect_only: bool = False,
                         ) -> None:
     # Must match model_hddm.py's save_name / utils_stats.py's idx_save suffix
@@ -217,7 +217,7 @@ def main():
     parser.add_argument(
         "--p_outlier",
         type=float,
-        default=0.50,
+        default=0.05,
         help="Outlier mixture probability the model was fit with "
              "(must match P_OUTLIER in sbatch/configs/general.sh / the "
              "--p_outlier passed to model_hddm.py for this fit)",

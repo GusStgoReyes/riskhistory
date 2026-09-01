@@ -12,9 +12,7 @@ analysis_name <- "analysis_pupilbehavior"
 analysis_data_path <- file.path(repo_path, "data")
 analysis_results_path <- file.path(results_path, analysis_name)
 
-utils_path <- dirname(sys.frame(1)$ofile)
-acceptglme_path <- file.path(repo_path, "src", "riskhistory", "analysis_acceptglme")
-pupiltimeseries_path <- file.path(repo_path, "src", "riskhistory", "analysis_pupiltimeseries")
+shared_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_utils")
 
 if (!dir.exists(analysis_results_path)) {
   dir.create(analysis_results_path, recursive = TRUE)
@@ -31,66 +29,27 @@ library(tibble)
 library(marginaleffects)
 library(bayestestR)
 
-# Source utility functions from analysis_acceptglme
-source(file.path(acceptglme_path, "utils_createregressors.R"))
-source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
-source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
-source(file.path(acceptglme_path, "utils_modelanalytics.R"))
-source(file.path(acceptglme_path, "utils_modelcomparison.R"))
-source(file.path(pupiltimeseries_path, "utils_createtransitionregressor.R"))
+# Source shared settings and utility functions
+source(file.path(shared_utils_path, "0_config.R"))
+source(file.path(shared_utils_path, "utils_data.R"))
+source(file.path(shared_utils_path, "utils_createregressors.R"))
+source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
+source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
+source(file.path(shared_utils_path, "utils_modelanalytics.R"))
+source(file.path(shared_utils_path, "utils_modelcomparison.R"))
+source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
+source(file.path(shared_utils_path, "utils_contrasts.R"))
 
 # =============================================================================
-# Analysis settings
+# Load and prepare behavioral + pupil data
 # =============================================================================
-set.seed(42)
+# load_behavioral_pupil_data() merges the M1 baseline betas, computes sv, and
+# merges in the pupil GLM betas, filtered to behavioral- and pupil-clean trials.
+message("Loading behavioral and pupil betas data...")
+data_pupilbehavior <- load_behavioral_pupil_data()
 
-datasets <- c("equalIndifference", "equalRange", "sheng2020")
-
-p_method <- "BH"  # Benjamini-Hochberg
-
-GLMER_CONTROL <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
-LMER_CONTROL  <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
-
-# =============================================================================
-# Load and prepare behavioral data
-# =============================================================================
-message("Loading behavioral data...")
-behavioral_data_full <- read.csv(file.path(analysis_data_path,
-                                           "preprocessed",
-                                           "behavioral_data.csv"))
-behavioral_data_full <- behavioral_data_full %>%
-  mutate(exclude = as.logical(exclude))
-
-# add_subjectivevalues() merges the M1 baseline betas, computes sv, and
-# subsets to non-excluded trials (behavioral exclusion criteria)
-message("Computing subjective values...")
-pth_betas <- file.path(results_path, "analysis_acceptglme",
-                       "1_baselinebehavior_betas.csv")
-behavioral_data <- add_subjectivevalues(df = behavioral_data_full, pth_betas = pth_betas)
-
-behavioral_data$logRT  <- log(behavioral_data$rt)
-behavioral_data$sv_abs <- abs(behavioral_data$sv)
-
-# =============================================================================
-# Load pupil GLM betas
-# =============================================================================
-message("Loading pupil GLM betas...")
-pupil_betas <- read.csv(file.path(analysis_data_path, "preprocessed",
-                                  "pupilbetas_glm_preprocessed.csv"))
-pupil_betas <- pupil_betas %>%
-  mutate(exclude_startAligned = as.logical(exclude_startAligned))
-
-# =============================================================================
-# Merge and apply pupil exclusion criteria
-# (behavioral exclusion criteria were already applied by add_subjectivevalues())
-# =============================================================================
-message("Merging behavioral and pupil betas data...")
-data_pupilbehavior <- merge(behavioral_data, pupil_betas,
-                            by = c("sub", "trial", "run", "dataset"))
-
-message("Applying pupil exclusion criteria...")
-data_pupilbehavior <- data_pupilbehavior %>%
-  filter(!exclude_startAligned)
+data_pupilbehavior$logRT  <- log(data_pupilbehavior$rt)
+data_pupilbehavior$sv_abs <- abs(data_pupilbehavior$sv)
 
 message("Adding choice-history transition regressor...")
 data_pupilbehavior <- add_transition_regressor(data_pupilbehavior)

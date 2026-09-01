@@ -32,6 +32,7 @@ add_subjectivevalues <- function(df, pth_betas) {
       entropy          = entropy_from_sv(beta_gain * sv),
       abs_delta_sv = abs(sv - lag(sv)),
       prev_sv  = lag(sv),
+      sv_abs = abs(sv),
       delta_sv = sv - prev_sv,
       prev_ev  = lag(ev),
       delta_ev = ev - prev_ev,
@@ -39,35 +40,15 @@ add_subjectivevalues <- function(df, pth_betas) {
     ) %>%
     ungroup()
 
-  data <- subset(data, !exclude)
-
   return(data)
 }
 
-# Adds a low/medium/high ev_partition factor, within dataset. Breakpoints
-# (33rd/66th percentile) are computed over the dataset's unique gain/loss
-# design cells rather than trial-level ev, so a cell presented on many
-# trials doesn't pull the thresholds toward it.
-add_ev_partition <- function(df) {
-  df <- df %>%
-    group_by(dataset) %>%
-    mutate(
-      ev = 0.5 * gain_centered - 0.5 * loss_centered,
-      ev_partition = {
-        design_ev <- unique(ev)
-        breaks    <- quantile(design_ev, probs = c(1 / 3, 2 / 3), names = FALSE)
-        cut(ev, breaks = c(-Inf, breaks, Inf),
-            labels = c("low", "medium", "high"))
-      }
-    ) %>%
-    ungroup()
-
-  return(df)
-}
-
 # Standardize behavioral regressors within dataset/subject
-create_behavioral_regressors <- function(df) {
+standardize_behavioral_regressors <- function(df) {
   df <- df %>%
+    mutate(
+      logRT = log(rt),
+    ) %>%
     group_by(dataset, sub) %>%
     mutate(
       prev_sv_z   = as.numeric(scale(prev_sv,   center = TRUE, scale = TRUE)),
@@ -75,11 +56,22 @@ create_behavioral_regressors <- function(df) {
       prev_gain_z = as.numeric(scale(prev_gain, center = TRUE, scale = TRUE)),
       prev_loss_z = as.numeric(scale(prev_loss, center = TRUE, scale = TRUE)),
       prev_ev_z   = as.numeric(scale(prev_ev,   center = TRUE, scale = TRUE)),
-      delta_ev_z  = as.numeric(scale(delta_ev,  center = TRUE, scale = TRUE))
+      delta_ev_z  = as.numeric(scale(delta_ev,  center = TRUE, scale = TRUE)),
+      sv_partition = {
+        breaks <- quantile(sv, probs = c(.2, .4, .6, .8), names = FALSE,
+                            na.rm = TRUE)
+        cut(sv, breaks = c(-Inf, breaks, Inf),
+            labels = c("1", "2", "3", "4", "5"))
+      }
     ) %>%
     ungroup()
 
   return(df)
+}
+
+add_subjectivevalues_and_regressors <- function(df, pth_betas) {
+  data <- add_subjectivevalues(df, pth_betas)
+  standardize_behavioral_regressors(data)
 }
 
 # =============================================================================
@@ -87,7 +79,7 @@ create_behavioral_regressors <- function(df) {
 # =============================================================================
 
 # Standardize pupil regressors within-subject
-create_pupil_regressors <- function(df) {
+standardize_pupil_regressors <- function(df) {
   df <- df %>%
     mutate(
       logRT = log(rt),

@@ -1,17 +1,21 @@
 # =============================================================================
-# Model 2: log(rt) ~ sv_abs + condition
+# Model 2: log(rt) ~ sv_abs + transition
 # =============================================================================
+# transition is the current x previous choice factor added in 0_config.R
+# (add_transition_regressor()): accept_to_accept, accept_to_reject,
+# reject_to_accept, reject_to_reject.
 
-rtlme_data$condition <- factor(
-  paste0(ifelse(rtlme_data$accept == 1, "accept", "reject"), "_",
-         ifelse(rtlme_data$switch == 1, "switch", "repeat")),
-  levels = c("reject_repeat", "reject_switch", "accept_repeat", "accept_switch")
+# (x1, x2) pairs to contrast, in add_transition_regressor()'s level naming.
+# Matches analysis_ddmppcbehavior/2_rtlme.R's convention.
+TRANSITION_PAIRS <- list(
+  c("accept_to_accept", "reject_to_accept"),   # A-A vs R-A
+  c("reject_to_reject", "accept_to_reject")    # R-R vs A-R
 )
-
-CONDITION_PAIRS <- list(
-  c("reject_switch", "reject_repeat"),
-  c("accept_switch", "accept_repeat")
-)
+# avg_comparisons() contrast labels follow factor level order, not the order
+# given in TRANSITION_PAIRS, so match either direction ("A - B" or "B - A").
+transition_labels <- unlist(lapply(TRANSITION_PAIRS, function(p) {
+  c(paste(p[1], "-", p[2]), paste(p[2], "-", p[1]))
+}))
 
 rtlme_models_list <- list()
 rtlme_interaction_ranef_structure <- list()
@@ -23,7 +27,7 @@ for (ds in datasets) {
   df_sub <- rtlme_data[rtlme_data$dataset == ds, ]
 
   m <- lmer(
-    log(rt) ~ sv_abs + condition + (1 + sv_abs | sub),
+    log(rt) ~ sv_abs + transition + (1 + sv_abs | sub),
     data = df_sub, control = LMER_CONTROL
   )
   diag <- check_model_diagnostics(m)
@@ -36,19 +40,18 @@ for (ds in datasets) {
   rtlme_interaction_ranef_structure[[ds]] <- ranef_structure
 
   message(sprintf("  Computing avg_predictions for dataset: %s", ds))
-  pred <- avg_predictions(m, by = "condition", transform = "exp")
+  pred <- avg_predictions(m, by = "transition", transform = "exp")
 
   rtlme_avgpred_list[[ds]] <- as.data.frame(pred) %>%
     rename(avgpred = estimate, asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
     mutate(dataset = ds) %>%
-    select(dataset, condition, avgpred, asymp.LCL, asymp.UCL, p.value)
+    select(dataset, transition, avgpred, asymp.LCL, asymp.UCL, p.value)
 
   message(sprintf("  Computing avg_comparisons for dataset: %s", ds))
-  condition_labels <- vapply(CONDITION_PAIRS, function(p) paste(p[1], "-", p[2]), character(1))
-  comp <- avg_comparisons(m, variables = list(condition = "pairwise"),
+  comp <- avg_comparisons(m, variables = list(transition = "pairwise"),
                           transform = "exp")
   comp_df <- as.data.frame(comp)
-  comp_df <- comp_df[comp_df$contrast %in% condition_labels, ]
+  comp_df <- comp_df[comp_df$contrast %in% transition_labels, ]
 
   rtlme_contrasts_list[[ds]] <- data.frame(
     dataset  = ds,
@@ -60,7 +63,8 @@ for (ds in datasets) {
 }
 
 # =============================================================================
-# Fixed effects (raw model coefficients: condition dummy-coded vs reject_repeat)
+# Fixed effects (raw model coefficients: transition dummy-coded vs
+# accept_to_accept, the first factor level)
 # =============================================================================
 message("\nExtracting fixed effects...")
 interaction_fixed_effects <- extract_fixed_effects(
@@ -83,9 +87,9 @@ message("Saved: 2_rtlme_interaction_avgpred.csv")
 
 # =============================================================================
 # Switch-effect contrasts (ratio scale, from avg_comparisons() with
-# transform = "exp"): reject_switch - reject_repeat and accept_switch -
-# accept_repeat. p_adj_bh is one p.adjust() call per dataset, across both
-# contrasts together.
+# transform = "exp"): accept_to_reject - reject_to_reject and
+# reject_to_accept - accept_to_accept. p_adj_bh is one p.adjust() call per
+# dataset, across both contrasts together.
 # =============================================================================
 rtlme_contrasts_df <- bind_rows(rtlme_contrasts_list)
 rtlme_contrasts_df$p_adj_bh <- ave(

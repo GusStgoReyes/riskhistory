@@ -15,27 +15,10 @@ TRANSITION_PAIRS <- list(
 # each pair as "later factor level - earlier factor level" (by transition's
 # own level order: accept_to_accept, accept_to_reject, reject_to_accept,
 # reject_to_reject) -- not necessarily pair[1] - pair[2] as written above.
-# For each (A, B) in contrast_pairs, find whichever of "A - B" / "B - A" is
-# present and normalize it to "A - B", taking the reciprocal of the ratio
-# when the reversed label was the one found (p.value is direction-invariant
-# for a ratio-vs-1 test either way).
-normalize_pairwise_ratio_contrasts <- function(comp_df, contrast_pairs) {
-  matched_rows <- lapply(contrast_pairs, function(pair) {
-    label_fwd <- paste(pair[1], "-", pair[2])
-    row_fwd <- comp_df[comp_df$contrast == label_fwd, ]
-    if (nrow(row_fwd) > 0) {
-      row_fwd$contrast <- label_fwd
-      return(row_fwd)
-    }
-
-    label_rev <- paste(pair[2], "-", pair[1])
-    row_rev <- comp_df[comp_df$contrast == label_rev, ]
-    row_rev$contrast <- label_fwd
-    row_rev$estimate <- 1 / row_rev$estimate
-    row_rev
-  })
-  do.call(rbind, matched_rows)
-}
+# normalize_pairwise_contrasts(..., invert = "reciprocal") (from
+# analysis_utils/utils_contrasts.R) normalizes each pair to "A - B", taking
+# the reciprocal of the ratio when the reversed label was the one found
+# (p.value is direction-invariant for a ratio-vs-1 test either way).
 
 replicatertmodel_list <- list()
 replicatertmodel_contrasts_list <- list()
@@ -54,7 +37,7 @@ for (ds in datasets) {
   message(sprintf("  Computing avg_comparisons for dataset: %s", ds))
   comp <- avg_comparisons(m, variables = list(transition = "pairwise"),
                           transform = "exp")
-  comp_df <- normalize_pairwise_ratio_contrasts(as.data.frame(comp), TRANSITION_PAIRS)
+  comp_df <- normalize_pairwise_contrasts(as.data.frame(comp), TRANSITION_PAIRS, invert = "reciprocal")
 
   replicatertmodel_contrasts_list[[ds]] <- data.frame(
     dataset  = ds,

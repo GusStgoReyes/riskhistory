@@ -37,8 +37,7 @@ persubject_results <- list()
 
 for (ds in datasets) {
   message(sprintf("Fitting per-subject choice-history GLMs for dataset: %s", ds))
-  df_ds <- behavioral_data[behavioral_data$dataset == ds &
-                              behavioral_data$choice_prev1 != 0, ]
+  df_ds <- behavioral_data[behavioral_data$dataset == ds, ]
   subs <- sort(unique(df_ds$sub))
 
   ds_results <- lapply(subs, function(s) {
@@ -64,6 +63,6 @@ message(sprintf("Per-subject choice-history GLMs: %d of %d converged cleanly.",
                 n_converged, n_total))
 
 write.csv(persubject_betas,
-          file.path(analysis_results_path, "5_choicehistorypersubject_betas.csv"),
+          file.path(analysis_results_path, "4_choicehistorypersubject_betas.csv"),
           row.names = FALSE)
-message("Saved: 5_choicehistorypersubject_betas.csv")
+message("Saved: 4_choicehistorypersubject_betas.csv")

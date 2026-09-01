@@ -16,6 +16,7 @@ for (ddm_model in PUPIL_DDM_MODELS) {
     group_by(sub, dataset) %>%
     mutate(logrt_z = scale(log(mean_rt), center = TRUE, scale = TRUE)[, 1]) %>%
     ungroup()
+  pupilaccept_model_name <- sprintf("pupilaccept_%s", ddm_model)
 
   models_list <- list()
 
@@ -34,19 +35,19 @@ for (ddm_model in PUPIL_DDM_MODELS) {
     models_list <- add_models_to_list(
       models_list = models_list,
       ds     = ds,
-      models = list(pupilaccept = m)
+      models = setNames(list(m), pupilaccept_model_name)
     )
   }
 
   all_convergence[[ddm_model]] <- check_convergence_all_models(
-    models_list, datasets, c("pupilaccept")
+    models_list, datasets, c(pupilaccept_model_name)
   ) %>%
     mutate(ddm_model = ddm_model)
 
   all_fixed_effects[[ddm_model]] <- extract_fixed_effects(
     model_list = models_list,
     datasets   = datasets,
-    models     = "pupilaccept",
+    models     = pupilaccept_model_name,
     p_method   = p_method
   ) %>%
     mutate(ddm_model = ddm_model)

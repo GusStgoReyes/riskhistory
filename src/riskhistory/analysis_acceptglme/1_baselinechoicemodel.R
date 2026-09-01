@@ -1,8 +1,6 @@
 # =============================================================================
 # Choice History Under Risk: Run the Baseline Behavior Model in R
 # =============================================================================
-# Run the baseline (linear) behavioral model (gain + loss) for each dataset
-# and extract fixed and random effects for each subject.
 
 betas_model1 <- list()
 
@@ -27,9 +25,10 @@ for (ds in datasets) {
   )
 
   # 4. COMPUTE SUBJECTIVE VALUES FROM BASELINE MODEL
-  betas_model1[[ds]] <- extract_random_effects_sv(
+  betas_model1[[ds]] <- extract_random_effects(
     model = model1,
-    ds = ds
+    ds = ds,
+    coef_map = c("(Intercept)" = "intercept", "gain_centered" = "gain", "loss_centered" = "loss")
   )
 }
 

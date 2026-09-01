@@ -1,14 +1,10 @@
 # =============================================================================
-# Run the Behavior Models with History in R
+# Run the Confound Models in R
 # =============================================================================
-# Run several behavioral models including choice history and stimuli history for
-# each dataset and extract fixed effects.
+# Add subjective values and regressors to data (from previous file)
 pth_betas <- file.path(analysis_results_path, "1_baselinebehavior_betas.csv")
-data <- add_subjectivevalues(
-  df = behavioral_data_full,
-  pth_betas = pth_betas
-)
-data <- create_behavioral_regressors(data)
+data <- add_subjectivevalues_and_regressors(behavioral_data_full, pth_betas)
+data <- subset(data, !exclude)
 
 betas_model2 <- list()
 
@@ -83,17 +79,66 @@ for (ds in datasets) {
     models = models
   )
 
-  # COMPUTE CHOICE HISTORY RANDOM EFFECTS PER SUBJECT
-  betas_model2[[ds]] <- extract_random_effects_history(
-    model = model2_rnd,
-    ds = ds
-  )
 }
 
-# Combine all datasets' betas into a single data frame
-final_betas_model2 <- bind_rows(betas_model2)
+# =============================================================================
+# Model comparison and fixed effects for behavior models
+# =============================================================================
+print("Extracting model comparison and fixed effects for behavior models...")
+models <- c("M1_part1", "M2_part1", "M3_part1",
+            "M4_part1", "M5_part1", "M6_part1",
+            "M7_part1", "M8_part1", "M9_part1",
+            "M10_part1")
 
-# Save to CSV
-write.csv(final_betas_model2, file.path(analysis_results_path,
-                                        "2_choicehistory_betas.csv"),
+behavior_comparison_df <- compare_models(
+  model_list      = behavioral_models_list,
+  datasets        = datasets,
+  models          = models,
+  reference_model = "M2_part1"
+)
+write.csv(behavior_comparison_df, file.path(analysis_results_path,
+                                            "2_behavior_model_comparison.csv"),
           row.names = FALSE)
+
+models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1",
+            "M4_part1", "M5_part1", "M6_part1", "M7_part1",
+            "M8_part1", "M9_part1", "M10_part1")
+fixed_effects <- extract_fixed_effects(
+  model_list = behavioral_models_list,
+  datasets   = datasets,
+  models     = models,
+  p_method   = p_method
+)
+write.csv(fixed_effects, file.path(analysis_results_path,
+                                   "2_behavior_fixed_effects.csv"),
+          row.names = FALSE)
+
+# =============================================================================
+# Convergence check across all behavioral models
+# =============================================================================
+print("Checking convergence for all behavioral models...")
+behavioral_models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1",
+                       "M4_part1", "M5_part1", "M6_part1", "M7_part1",
+                       "M8_part1", "M9_part1", "M10_part1")
+convergence_all <- check_convergence_all_models(
+  model_list = behavioral_models_list,
+  datasets   = datasets,
+  models     = behavioral_models
+)
+
+write.csv(convergence_all,
+          file.path(analysis_results_path,
+                    "4_model_convergence_report.csv"),
+          row.names = FALSE)
+
+n_models    <- nrow(convergence_all)
+n_converged <- sum(convergence_all$converged)
+n_failed    <- n_models - n_converged
+
+print(paste0("Convergence check complete: ",
+             n_converged, " of ", n_models,
+             " models converged successfully."))
+if (n_failed > 0) {
+  print(paste0("WARNING: ", n_failed, " model(s) failed to converge."))
+  print("See 4_model_convergence_report.csv for details.")
+}

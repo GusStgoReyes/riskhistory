@@ -12,9 +12,8 @@ analysis_name <- "analysis_pupilbetas"
 analysis_data_path <- file.path(repo_path, "data")
 analysis_results_path <- file.path(results_path, analysis_name)
 
-# Path to utility functions
-utils_path <- dirname(sys.frame(1)$ofile)
-acceptglme_path <- file.path(repo_path, "src", "riskhistory", "analysis_acceptglme")
+# Path to shared utility functions
+shared_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_utils")
 
 # Create results directory if it doesn't exist
 if (!dir.exists(analysis_results_path)) {
@@ -33,63 +32,24 @@ library(lmerTest)
 library(bayestestR)
 library(marginaleffects)
 
-# Source utility functions from analysis_acceptglme
-source(file.path(acceptglme_path, "utils_checkmodelconverge.R"))
-source(file.path(acceptglme_path, "utils_createregressors.R"))
-source(file.path(acceptglme_path, "utils_savefixedeffects.R"))
+# Source shared settings and utility functions
+source(file.path(shared_utils_path, "0_config.R"))
+source(file.path(shared_utils_path, "utils_data.R"))
+source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
+source(file.path(shared_utils_path, "utils_createregressors.R"))
+source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
 
 # add_transition_regressor() -- same current x previous choice transition
 # factor used in analysis_pupiltimeseries
-pupiltimeseries_path <- file.path(repo_path, "src", "riskhistory",
-                                  "analysis_pupiltimeseries")
-source(file.path(pupiltimeseries_path, "utils_createtransitionregressor.R"))
+source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
 
 # =============================================================================
-# Analysis settings
+# Load and prepare behavioral + pupil data
 # =============================================================================
-set.seed(42)
-
-datasets <- c("equalIndifference", "equalRange", "sheng2020")
-
-p_method <- "BH"  # Benjamini-Hochberg
-
-LMER_CONTROL <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000))
-
-# =============================================================================
-# Load and prepare behavioral data
-# =============================================================================
-message("Loading behavioral data...")
-behavioral_data <- read.csv(file.path(analysis_data_path,
-                                      "preprocessed",
-                                      "behavioral_data.csv"))
-behavioral_data <- behavioral_data %>%
-  mutate(exclude = as.logical(exclude))
-
-# Merge betas, compute sv/entropy, and apply behavioral exclusion
-message("Loading subject-specific betas and computing subjective value...")
-betas_path <- file.path(results_path, "analysis_acceptglme",
-                        "1_baselinebehavior_betas.csv")
-behavioral_data <- add_subjectivevalues(behavioral_data, betas_path)
-
-# =============================================================================
-# Load pupil GLM betas
-# =============================================================================
-message("Loading pupil GLM betas...")
-pupil_betas <- read.csv(file.path(analysis_data_path, "preprocessed",
-                                  "pupilbetas_glm_preprocessed.csv"))
-pupil_betas <- pupil_betas %>%
-  mutate(exclude_startAligned = as.logical(exclude_startAligned))
-
-# =============================================================================
-# Merge and apply exclusion criteria
-# =============================================================================
-message("Merging behavioral and pupil betas data...")
-data_betas <- merge(pupil_betas, behavioral_data,
-                    by = c("sub", "trial", "run", "dataset"))
-
-message("Applying pupil exclusion criteria...")
-data_betas_clean <- data_betas %>%
-  filter(!exclude_startAligned)
+# load_behavioral_pupil_data() merges the M1 baseline betas, computes sv, and
+# merges in the pupil GLM betas, filtered to behavioral- and pupil-clean trials.
+message("Loading behavioral and pupil betas data...")
+data_betas_clean <- load_behavioral_pupil_data()
 
 # Per-subject mean acceptance rate, computed after both the behavioral and
 # pupil exclusions above -- broadcast onto every row for that sub/dataset.
@@ -98,8 +58,7 @@ data_betas_clean <- data_betas_clean %>%
   mutate(mean_accept = mean(accept, na.rm = TRUE)) %>%
   ungroup()
 
-message(sprintf("Pupil betas data: %d rows total, %d rows after exclusion",
-                nrow(data_betas), nrow(data_betas_clean)))
+message(sprintf("Pupil betas data: %d rows after exclusion", nrow(data_betas_clean)))
 for (ds in datasets) {
   ds_data <- data_betas_clean %>% filter(dataset == ds)
   sub_summary <- ds_data %>%
@@ -122,7 +81,7 @@ for (ds in datasets) {
 # Create scaled within-subject regressors
 # =============================================================================
 message("Creating pupil regressors...")
-data_betas_clean <- create_pupil_regressors(data_betas_clean)
+data_betas_clean <- standardize_pupil_regressors(data_betas_clean)
 
 message("Creating transition (current x previous choice) regressor...")
 data_betas_clean <- add_transition_regressor(data_betas_clean)
