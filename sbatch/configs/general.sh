@@ -2,7 +2,7 @@
 DATASET_DIR="$REPO_PTH/data"
 BEHAV_CSV="$DATASET_DIR/preprocessed/behavioral_data.csv"
 PUPIL_CSV="$DATASET_DIR/preprocessed/pupilbetas_glm_preprocessed.csv"
-RESULTS_DIR="$REPO_PTH/results/analysis_ddm_poutlier50"
+RESULTS_DIR="$REPO_PTH/results/analysis_ddm_final"
 
 # PyDDM Models
 MODEL_CSV="$DATASET_DIR/model_ids/pyddm.csv"
@@ -18,9 +18,16 @@ MEM="4G"
 N_CPUS=8
 
 # Sbatch setting hddm
+# MEM_HDDM sized for the worst-case model (HDDM_Base_Lag1-full_sheng2020 at
+# 30K iter/10K burn, extrapolated ~150-190GB peak) with headroom; the old
+# 120G default already OOM'd on the smaller equalRange model at this draw
+# count. N_CPUS_HDDM is bumped to match -- normal/russpold cap out at
+# 8GB/core, so requesting 200G forces ceil(200/8)=25 cores regardless of
+# what's requested here; setting it explicitly avoids Slurm silently
+# inflating a much lower number.
 TIME_HDDM="48:00:00"
-MEM_HDDM="120G"
-N_CPUS_HDDM=16
+MEM_HDDM="200G"
+N_CPUS_HDDM=25
 
 # Must match the p_outlier passed to HDDMnnRegressor/HDDMRegressor
-P_OUTLIER=0.50
+P_OUTLIER=0.05

@@ -22,9 +22,9 @@ def fit_model(
     pupil: bool = False,
     pupil_col: str = "pupil",
     burnin: int = 10000,
-    sampling_iters: int = 40000,
+    sampling_iters: int = 30000,
     chains: int = 4,
-    p_outlier: float = 0.50,
+    p_outlier: float = 0.05,
 ) -> None:
     """Fit an HDDM model to behavioral data.
 
@@ -51,7 +51,7 @@ def fit_model(
     burnin : int, optional
         Number of burn-in samples (default: 10000).
     sampling_iters : int, optional
-        Number of sampling iterations (default: 40000).
+        Number of sampling iterations (default: 30000).
     """
     ensure_output_dirs(results_pth)
 
@@ -172,7 +172,7 @@ def main():
     parser.add_argument(
         "--p_outlier",
         type=float,
-        default=0.50,
+        default=0.05,
         help="Outlier mixture probability passed to HDDMnnRegressor/HDDMRegressor "
              "(must match P_OUTLIER in sbatch/configs/general.sh, which "
              "compute_diagnostics.py reads for the same fit)",
@@ -189,7 +189,7 @@ def main():
         subj_IDs = None
         idx_save = ""
         burnin = 10000
-        sampling_iters = 40000
+        sampling_iters = 30000
         chains = 4
 
     pupil = "Pupil" in args.model_id
