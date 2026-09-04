@@ -18,7 +18,7 @@ MEM="4G"
 N_CPUS=8
 
 # Sbatch setting hddm
-# MEM_HDDM sized for the worst-case model (HDDM_Base_Lag1-full_sheng2020 at
+# MEM_HDDM sized for the worst-case model (HDDM_Base_Lag1-full_sheng2020)
 TIME_HDDM="36:00:00"
 MEM_HDDM="190G"
 N_CPUS_HDDM=25

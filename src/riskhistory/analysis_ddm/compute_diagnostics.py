@@ -175,7 +175,7 @@ def compute_diagnostics(model_id: str,
     print(f"n log_lik values below the true mixture floor ({outlier_log_term:.3f}): "
           f"{n_below} (will be corrected)", flush=True)
 
-    ll_mixed = np.logaddexp(ll, outlier_log_term)
+    ll_mixed = ll # np.logaddexp(ll, outlier_log_term)
 
     # Per-trial diagnostics for the outlier-dominated observations that break
     # PSIS's Pareto-tail fit ("All tail values are the same"): once the raw
@@ -228,25 +228,25 @@ def compute_diagnostics(model_id: str,
     # values are the same" on the outlier-dominated trials printed above.
     # Re-enable once loo_moment_match (or an explicit exclusion strategy) is
     # in place -- see conversation/module docstring for the underlying cause.
-    # ll_mixed_da = ll_da.copy(data=ll_mixed)
-    # ll_ds["log_lik"] = ll_mixed_da
-    # idata_ll = az.convert_to_datatree(ll_ds, group="log_likelihood")
-    #
-    # print("  Computing LOO (pointwise) ...", flush=True)
-    # # reff=1.0 (i.e. assume no autocorrelation) sidesteps az.loo's internal
-    # # requirement for a `posterior` group to estimate effective sample size --
-    # # loading the full 40k-draw posterior just for that isn't worth it here.
-    # # This only affects the reported SE's precision, not the elpd_loo point
-    # # estimate itself.
-    # loo_result = az.loo(idata_ll, pointwise=True, reff=1.0)
-    # print("elpd_loo:", loo_result.elpd, "p_loo:", loo_result.p, flush=True)
-    #
-    # k = np.asarray(loo_result.pareto_k.values)
-    # print("n k>0.7:", (k>0.7).sum(), "max k:", k.max(), "new min ll:", ll_mixed.min(), flush = True)
-    #
-    # loo_path = output_dir / f"{model_id}_{dataset}{idx_save}_loo.pkl"
-    # with open(loo_path, "wb") as f:
-    #     pickle.dump(loo_result, f)
+    ll_mixed_da = ll_da.copy(data=ll_mixed)
+    ll_ds["log_lik"] = ll_mixed_da
+    idata_ll = az.convert_to_datatree(ll_ds, group="log_likelihood")
+    
+    print("  Computing LOO (pointwise) ...", flush=True)
+    # reff=1.0 (i.e. assume no autocorrelation) sidesteps az.loo's internal
+    # requirement for a `posterior` group to estimate effective sample size --
+    # loading the full 40k-draw posterior just for that isn't worth it here.
+    # This only affects the reported SE's precision, not the elpd_loo point
+    # estimate itself.
+    loo_result = az.loo(idata_ll, pointwise=True, reff=1.0, mixture = True)
+    print("elpd_loo:", loo_result.elpd, "p_loo:", loo_result.p, flush=True)
+    
+    k = np.asarray(loo_result.pareto_k.values)
+    print("n k>0.7:", (k>0.7).sum(), "max k:", k.max(), "new min ll:", ll_mixed.min(), flush = True)
+    
+    loo_path = output_dir / f"{model_id}_{dataset}{idx_save}_loo.pkl"
+    with open(loo_path, "wb") as f:
+        pickle.dump(loo_result, f)
 
     del ll_ds, ll_da, ll, flat, ll_mixed, flat_mixed
 
