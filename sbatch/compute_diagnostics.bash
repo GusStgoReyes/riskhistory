@@ -31,7 +31,12 @@ cat > "$TEMP_SBATCH" <<EOF
 #SBATCH --time=01:00:00
 #SBATCH --partition=normal,russpold
 #SBATCH --array=${ARRAY_RANGE}
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=10
+# Peak is ~3x the log_lik array: az.loo allocates its own full-shape
+# log_weights and log_weights + log_lik on top of it, plus a transient
+# second copy when the degenerate trials are dropped. Measured MaxRSS was
+# 26G for equalIndifference (8.3 GB log_lik, 3:57 elapsed); sheng2020 is
+# ~1.2x larger, so ~31G. 64G leaves 2x headroom.
 #SBATCH --mem=64G
 
 set -euo pipefail
