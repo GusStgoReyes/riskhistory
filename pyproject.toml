@@ -3,20 +3,34 @@ name = "riskhistory"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
+# Upper bounds below are required by Sherlock's OS: CentOS 7 ships glibc 2.17,
+# so only manylinux2014 / manylinux_2_17 wheels are installable. Newer releases
+# of the numeric stack publish manylinux_2_24+ wheels only, which forces uv to
+# compile from source (numpy/pandas/pyzmq builds fail or take forever).
+# Do not raise these without checking wheel tags for glibc 2.17 support.
 dependencies = [
     "jupyter>=1.1.1",
-    "matplotlib>=3.10.7",
-    "pandas>=2.3.3",
+    "matplotlib>=3.10.7,<3.12",
+    "pandas>=2.2,<2.3.3",
     "pathos>=0.3.5",
     "filelock>=3.13.0",
     "pyddm>=0.9.0",
     "rpy2>=3.6.4",
-    "scikit-learn>=1.8.0",
+    "scikit-learn>=1.7,<1.8",
     "seaborn>=0.13.2",
-    "statsmodels>=0.14.5",
-    "numpy>=2.3.4",
+    "statsmodels>=0.14.5,<0.15",
+    "numpy>=2.2,<2.3",
     "pingouin>=0.6.1",
+]
+
+[tool.uv]
+# Transitive dependencies whose newest releases also dropped glibc 2.17 wheels.
+constraint-dependencies = [
+    "pyzmq<27",
+    "contourpy<=1.3.2",
+    "argon2-cffi-bindings<=21.2.0",
+    "scipy<=1.16.3",
 ]
 
 [build-system]
