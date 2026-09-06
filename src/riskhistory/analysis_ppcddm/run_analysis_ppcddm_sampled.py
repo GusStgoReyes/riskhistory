@@ -163,42 +163,66 @@ def generate_simulated_data_sampled(model_id: str, dataset: str, sub: int,
 
 
 # ---------------------------------------------------------------------------
-# Single-subject entry point (called by each array job)
+# Job manifest: (dataset, sub, model_id) triples
+# ---------------------------------------------------------------------------
+#
+# run_analysis_ppcddm.py's array is one job per (dataset, sub), looping over
+# every model in MODELS inside that one job -- fine for a point-estimate
+# simulation, but at NUM_PARAM_DRAWS=1000 each model takes hours on its own
+# (measured: ~6.5h for one model/sub), so looping over 5 models serially in
+# one job means a single array task can take >30h. Splitting the array on
+# model too turns that into many independently-schedulable ~6.5h jobs
+# instead of one long serial chain per subject.
+
+def _build_job_manifest_per_model(behavioral_data: pd.DataFrame,
+                                  behavioral_data_pupilclean: pd.DataFrame,
+                                  models: dict) -> list[tuple[str, int, str]]:
+    """Sorted list of (dataset, sub, model_id) triples -- index =
+    SLURM_ARRAY_TASK_ID. Built from the same union-of-populations (dataset,
+    sub) pairs run_analysis_ppcddm.py's manifest uses, crossed with every
+    selected model_id; a (dataset, sub, model_id) triple whose required
+    population has no trials for that subject is still included and simply
+    skipped at run time (see run_subject_model_sampled), matching
+    run_analysis_ppcddm.py's existing skip behavior rather than duplicating
+    the population-membership check here."""
+    dataset_sub_pairs = sorted(set(_build_job_manifest(behavioral_data))
+                               | set(_build_job_manifest(behavioral_data_pupilclean)))
+    return [(ds, sub, model_id) for ds, sub in dataset_sub_pairs
+            for model_id in models.values()]
+
+
+# ---------------------------------------------------------------------------
+# Single (dataset, sub, model) entry point (called by each array job)
 # ---------------------------------------------------------------------------
 
-def run_subject_sampled(dataset_name: str, sub: int, behavioral_data: pd.DataFrame,
-                        behavioral_data_pupilclean: pd.DataFrame,
-                        models: dict = MODELS, num_draws: int = NUM_PARAM_DRAWS) -> None:
-    """Same per-(dataset, sub) shape as run_subject() in
-    run_analysis_ppcddm.py, but posterior-predictive rather than
-    point-estimate: loads that model's posterior npz and calls
+def run_subject_model_sampled(dataset_name: str, sub: int, model_id: str,
+                              behavioral_data: pd.DataFrame,
+                              behavioral_data_pupilclean: pd.DataFrame,
+                              num_draws: int = NUM_PARAM_DRAWS) -> None:
+    """One (dataset, sub, model_id) triple: posterior-predictive rather than
+    point-estimate -- loads that model's posterior npz and calls
     generate_simulated_data_sampled() instead of generate_simulated_data()
     directly."""
-    dataset_behavioral_data = behavioral_data.query(f"dataset == '{dataset_name}' & sub == {sub}")
-    dataset_behavioral_data_pupilclean = behavioral_data_pupilclean.query(
-        f"dataset == '{dataset_name}' & sub == {sub}"
-    )
+    is_pupil_model = PUPIL_MODEL_MARKER in model_id
+    data = behavioral_data_pupilclean if is_pupil_model else behavioral_data
+    sub_data = data.query(f"dataset == '{dataset_name}' & sub == {sub}")
 
-    for model_name, model_id in models.items():
-        is_pupil_model = PUPIL_MODEL_MARKER in model_id
-        sub_data = dataset_behavioral_data_pupilclean if is_pupil_model else dataset_behavioral_data
+    if sub_data.empty:
+        population = "pupil-clean" if is_pupil_model else "behavioral"
+        print(f"  [{dataset_name} / sub-{sub}] model: {model_id} -- "
+             f"no {population} trials for this subject, skipping")
+        return
 
-        if sub_data.empty:
-            population = "pupil-clean" if is_pupil_model else "behavioral"
-            print(f"  [{dataset_name} / sub-{sub}] model: {model_name} -- "
-                 f"no {population} trials for this subject, skipping")
-            continue
+    print(f"  [{dataset_name} / sub-{sub}] model: {model_id} "
+         f"({num_draws} posterior draws)")
 
-        print(f"  [{dataset_name} / sub-{sub}] model: {model_name} "
-             f"({num_draws} posterior draws)")
+    posterior = load_posterior_npz(model_id, dataset_name)
+    summary_df = generate_simulated_data_sampled(model_id, dataset_name, sub, sub_data,
+                                                  posterior, num_draws=num_draws)
 
-        posterior = load_posterior_npz(model_id, dataset_name)
-        summary_df = generate_simulated_data_sampled(model_id, dataset_name, sub, sub_data,
-                                                      posterior, num_draws=num_draws)
-
-        out_path = results_pth / "analysis_ppcddm" / f"{model_id}_simulated_data_sampled.csv"
-        _append_with_lock(out_path, summary_df)
-        print(f"    Saved {len(summary_df)} rows -> {out_path.name}")
+    out_path = results_pth / "analysis_ppcddm" / f"{model_id}_simulated_data_sampled.csv"
+    _append_with_lock(out_path, summary_df)
+    print(f"    Saved {len(summary_df)} rows -> {out_path.name}")
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +234,7 @@ if __name__ == "__main__":
         description="PPC-DDM posterior-predictive simulation (sampled parameters)"
     )
     parser.add_argument("--job_index", type=int, default=None,
-                        help="SLURM_ARRAY_TASK_ID: index into (dataset, sub) manifest")
+                        help="SLURM_ARRAY_TASK_ID: index into (dataset, sub, model) manifest")
     parser.add_argument("--print_njobs", action="store_true",
                         help="Print total number of jobs and exit (for sbatch array sizing)")
     parser.add_argument("--models", type=str, default=None,
@@ -244,11 +268,10 @@ if __name__ == "__main__":
 
     behavioral_data_pupilclean = load_behavioral_data_pupilclean()
 
-    # Union of both populations' (dataset, sub) pairs -- see
-    # run_analysis_ppcddm.py's main() for why this is a union, not an
-    # assumed subset.
-    jobs = sorted(set(_build_job_manifest(behavioral_data))
-                 | set(_build_job_manifest(behavioral_data_pupilclean)))
+    # (dataset, sub, model_id) triples -- see _build_job_manifest_per_model's
+    # docstring for why the array is split this finely for the sampled
+    # simulation.
+    jobs = _build_job_manifest_per_model(behavioral_data, behavioral_data_pupilclean, models)
 
     if args.print_njobs:
         print(len(jobs))
@@ -260,9 +283,9 @@ if __name__ == "__main__":
             raise SystemExit(0)
         jobs = [jobs[args.job_index]]
 
-    for dataset_name, sub in jobs:
-        print(f"\nProcessing dataset={dataset_name}, sub={sub}")
-        run_subject_sampled(dataset_name, sub, behavioral_data, behavioral_data_pupilclean,
-                            models, num_draws=args.num_draws)
+    for dataset_name, sub, model_id in jobs:
+        print(f"\nProcessing dataset={dataset_name}, sub={sub}, model={model_id}")
+        run_subject_model_sampled(dataset_name, sub, model_id, behavioral_data,
+                                  behavioral_data_pupilclean, num_draws=args.num_draws)
 
     print("\nDone.")

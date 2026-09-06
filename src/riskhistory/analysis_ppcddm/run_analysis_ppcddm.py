@@ -12,9 +12,6 @@ from riskhistory.config import behavioral_data_pth, preprocessed_data_pth, resul
 # ---------------------------------------------------------------------------
 MODELS = {
     "Baseline":                    "HDDM_Base",
-    "Starting Point Bias":         "HDDM_Base_Lag1-stp",
-    "Drift Bias":                  "HDDM_Base_Lag1-drift",
-    "Starting Point + Drift Bias": "HDDM_Base_Lag1-stpdrift",
     "Drift Bias (pupil-clean population)":         "HDDM_Base_Lag1-drift_Pupil",
     "Pupil x Fixed Drift (drift-only)":            "HDDM_Base_Lag1-drift_Pupil_drift",
     "Starting Point Bias (pupil-clean population)": "HDDM_Base_Lag1-stp_Pupil",
