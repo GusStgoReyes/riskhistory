@@ -6,13 +6,13 @@
 formula_pupilbetas_choicealteration_continuous <- pupil ~ logRT_z + gain_z +
   loss_z + entropy_c + abs_delta_ev_z + accept +
   choice_alteration_accept_num + choice_alteration_reject_num +
-  (0 + logRT_z || sub)
+  (0 + logRT_z + entropy_c| sub)
 
 # Categorical choice alteration variable (3 levels: Low, Medium, High)
 formula_pupilbetas_choicealteration_categorical <- pupil ~ logRT_z + gain_z +
   loss_z + entropy_c + abs_delta_ev_z + accept +
   choice_alteration_accept + choice_alteration_reject +
-  (0 + logRT_z || sub)
+  (0 + logRT_z + entropy_c | sub)
 
 # =============================================================================
 # Fit both models per dataset
@@ -31,13 +31,13 @@ for (ds in datasets) {
 
   pupilbetas_choicealteration_continuous <- lmer(
     formula_pupilbetas_choicealteration_continuous,
-    data = df, REML = FALSE, control = LMER_CONTROL
+    data = df, control = LMER_CONTROL
   )
   print(summary(pupilbetas_choicealteration_continuous)$varcor)
 
   pupilbetas_choicealteration_categorical <- lmer(
     formula_pupilbetas_choicealteration_categorical,
-    data = df, REML = FALSE, control = LMER_CONTROL
+    data = df, control = LMER_CONTROL
   )
   print(summary(pupilbetas_choicealteration_categorical)$varcor)
 

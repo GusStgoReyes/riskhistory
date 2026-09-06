@@ -5,7 +5,7 @@
 source(file.path(shared_utils_path, "utils_modelcomparison.R"))
 
 formula_pupilbetas_nohistory <- pupil ~ logRT_z + gain_z + loss_z +
-  entropy_c + abs_delta_ev_z + accept + (0 + logRT_z | sub)
+  entropy_c + abs_delta_ev_z + accept + (0 + logRT_z + entropy_c| sub)
 
 comparisonmodel_list <- setNames(lapply(datasets, function(x) list()), datasets)
 
@@ -15,12 +15,12 @@ for (ds in datasets) {
 
   pupilbetas_choicealteration_ml <- lmer(
     formula_pupilbetas_choicealteration_continuous,
-    data = df, REML = FALSE, control = LMER_CONTROL
+    data = df, control = LMER_CONTROL
   )
 
   pupilbetas_nohistory_ml <- lmer(
     formula_pupilbetas_nohistory,
-    data = df, REML = FALSE, control = LMER_CONTROL
+    data = df, control = LMER_CONTROL
   )
 
   comparisonmodel_list[[ds]] <- list(

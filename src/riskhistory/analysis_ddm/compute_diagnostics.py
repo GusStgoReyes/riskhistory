@@ -25,13 +25,13 @@ trials are therefore identified (scan_log_lik) and dropped before az.loo.
 Because the dropped set is model-specific, elpd_loo is a sum over a
 different number of trials per model, and az.compare -- which requires an
 equal observation count across models -- will reject the resulting
-ELPDData objects. elpd_i/pareto_k stay labelled by the original obs_id so
-compare_models.py can be taught to align models on the common set later.
+ELPDData objects. elpd/pareto_k are therefore saved per trial (keyed by
+sub/trial, not just pickled as one ELPDData object) so compare_models.py
+can align models on their common trial set before comparing.
 (Note this arviz version names the pointwise field `elpd_i`, not `loo_i`.)
 
 """
 import argparse
-import pickle
 from pathlib import Path
 
 import arviz as az
@@ -46,34 +46,6 @@ import xarray as xr
 # .nc file is computed with this term dropped (w_outlier=0 at extraction time
 # vs. 0.1 at fit time), so it must be added back in by hand.
 W_OUTLIER = 0.1
-
-def _nc_attrs(obj) -> dict:
-    return {k: obj.getncattr(k) for k in obj.ncattrs()}
-
-
-def print_nc_structure(nc_path: str) -> None:
-    """Print every group/variable/attribute name in a netCDF file.
-
-    Metadata only (shapes, dtypes, attrs) -- never reads variable data, so
-    this is cheap and safe to run against arbitrarily large files.
-    """
-    with nc4.Dataset(nc_path, "r") as f:
-        print(f"Global attrs: {_nc_attrs(f)}", flush=True)
-
-        def walk(group, indent=""):
-            print(f"{indent}Group: {group.path}", flush=True)
-            print(f"{indent}  attrs: {_nc_attrs(group)}", flush=True)
-            for vname, var in group.variables.items():
-                print(
-                    f"{indent}  var: {vname} shape={var.shape} dtype={var.dtype} "
-                    f"attrs={_nc_attrs(var)}",
-                    flush=True,
-                )
-            for subgroup in group.groups.values():
-                walk(subgroup, indent + "  ")
-
-        walk(f)
-
 
 def save_posterior_npz(
     post_ds, model_id: str, dataset: str, idx_save: str, results_pth: str,
@@ -115,8 +87,6 @@ def psis_tail_len(n_draws: int, r_eff: float = 1.0) -> int:
     """Number of draws arviz fits the Pareto tail to, for tail="right".
 
     Mirrors arviz_stats.base.diagnostics._DiagnosticsBase._get_ps_tails.
-    Kept as a local copy rather than imported because that class is
-    private; `r_eff` must match the `reff` passed to az.loo below.
     """
     if n_draws * r_eff > 225:
         return int(np.floor(3.0 * (n_draws / r_eff) ** 0.5))
@@ -128,12 +98,8 @@ def scan_log_lik(ll_arr, obs_id, outlier_log_term: float, n_tail: int,
     """Apply the outlier correction in place and flag PSIS-degenerate trials.
 
     Walks `ll_arr` (chain, draw, obs_id) in blocks of `block` observations
-    so no whole-array temporary is ever materialised -- at 8.3 GB for
-    log_lik, a single out-of-place `np.logaddexp` or `.std(axis=0)` is
-    enough to OOM the job. `ll_arr[:, :, start:stop]` is a *basic* slice,
-    hence a view into the contiguous array, so `np.logaddexp(..., out=view)`
-    corrects the array in place with no extra allocation.
-
+    so no whole-array temporary is ever materialised 
+    
     The degeneracy flag reproduces arviz's own check exactly rather than
     approximating it. PSIS fits the Pareto tail to only the `n_tail` most
     extreme draws, and `_ps_tail` raises "All tail values are the same"
@@ -142,9 +108,15 @@ def scan_log_lik(ll_arr, obs_id, outlier_log_term: float, n_tail: int,
     exactly log(p_outlier * W_OUTLIER) -- `exp(ll)` has fallen below the
     float64 resolution of that constant -- so a trial spending even ~1% of
     its draws down there has a bit-constant tail and trips the check.
-    Note this is *not* the same set as `frac_dominated > 0.5`: the tail is
-    only n_tail of n_draws draws, so a trial can be flagged here while
-    being nowhere near outlier-dominated on average, and vice versa.
+
+    Also computes, for every observation, the raw (unsmoothed) importance-
+    sampling elpd estimate PSIS would smooth the tail of: with r_s =
+    1/likelihood_s the leave-one-out importance ratio for draw s,
+    elpd_raw_is = log(S / sum_s r_s) = log(S) - logsumexp(-corrected_ll).
+    This is usable even for degenerate trials -- unlike the general
+    heavy-tailed case this estimator is unstable for, the outlier
+    correction floors corrected_ll from below, which bounds r_s from
+    above and keeps the sum well-behaved.
 
     Returns per-observation stats (correction already applied to `ll_arr`)
     and a dict of whole-array summaries collected on the *raw* values.
@@ -154,9 +126,9 @@ def scan_log_lik(ll_arr, obs_id, outlier_log_term: float, n_tail: int,
     if n_tail >= n_samples:
         raise ValueError(f"n_tail ({n_tail}) must be < n_samples ({n_samples})")
 
-    frac_dominated = np.empty(n_obs)
     tail_ptp = np.empty(n_obs)
     std_ll = np.empty(n_obs)
+    elpd_raw_is = np.empty(n_obs)
     n_nan = n_inf = n_below = 0
     raw_min, raw_max = np.inf, -np.inf
 
@@ -170,7 +142,6 @@ def scan_log_lik(ll_arr, obs_id, outlier_log_term: float, n_tail: int,
         n_inf += int(np.isinf(view).sum())
         below = view < outlier_log_term
         n_below += int(below.sum())
-        frac_dominated[start:stop] = below.mean(axis=(0, 1))
         del below
         raw_min = min(raw_min, float(np.nanmin(view)))
         raw_max = max(raw_max, float(np.nanmax(view)))
@@ -189,16 +160,23 @@ def scan_log_lik(ll_arr, obs_id, outlier_log_term: float, n_tail: int,
         # the same *set* as arviz's argsort slice, so max - min over it is
         # identical to what _ps_tail compares against tiny.
         lw = -blk
-        lw -= lw.max(axis=0)
+        shift = lw.max(axis=0)
+        lw -= shift
         part = np.partition(lw, -n_tail, axis=0)[-n_tail:]
         tail_ptp[start:stop] = part.max(axis=0) - part.min(axis=0)
-        del blk, lw, part
+        del part
+
+        # logsumexp(-blk, axis=0) = shift + log(sum(exp(lw))), reusing lw's
+        # buffer in place rather than allocating a same-sized exp() temporary.
+        np.exp(lw, out=lw)
+        elpd_raw_is[start:stop] = np.log(n_samples) - (shift + np.log(lw.sum(axis=0)))
+        del blk, lw
 
     stats = pd.DataFrame({
         "obs_id": obs_id,
-        "frac_dominated": frac_dominated,
         "tail_ptp": tail_ptp,
         "std_ll_mixed": std_ll,
+        "elpd_raw_is": elpd_raw_is,
         "degenerate_tail": tail_ptp < np.finfo(float).tiny,
     })
     summary = {
@@ -236,7 +214,6 @@ def compute_diagnostics(model_id: str,
                         results_pth: str,
                         pupil_col: str = "pupil",
                         p_outlier: float = 0.05,
-                        inspect_only: bool = False,
                         ) -> None:
     # Must match model_hddm.py's save_name / utils_stats.py's idx_save suffix
     # exactly, so this locates the .nc file the corresponding fit wrote.
@@ -250,10 +227,6 @@ def compute_diagnostics(model_id: str,
     nc_path = hddm_dir / f"{model_id}_{dataset}{idx_save}.nc"
     if not nc_path.exists():
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
-
-    if inspect_only:
-        print_nc_structure(str(nc_path))
-        return
 
     # p_outlier is a fixed scalar set at fit time (see model_hddm.py), passed
     # in rather than recovered via hddm.load() -- unpickling the full fitted
@@ -310,26 +283,22 @@ def compute_diagnostics(model_id: str,
 
     # Drop the trials whose corrected PSIS tail is bit-constant -- exactly
     # the ones that make az.loo raise "All tail values are the same".
-    # frac_dominated > 0.5 is reported alongside for comparison but is NOT
-    # the filter: it flags a different (overlapping) set, see scan_log_lik.
     degenerate = stats["degenerate_tail"].to_numpy()
-    dominated = stats["frac_dominated"].to_numpy() > 0.5
     print(f"n_obs_total: {n_obs_total} | "
-          f"n_dropped_degenerate_tail: {int(degenerate.sum())} | "
-          f"n_frac_dominated_gt_0.5: {int(dominated.sum())} | "
-          f"overlap: {int((degenerate & dominated).sum())}", flush=True)
+          f"n_dropped_degenerate_tail: {int(degenerate.sum())}", flush=True)
 
-    flagged = stats[degenerate | dominated].copy()
+    observed_lookup = load_observed_lookup(str(nc_path))
+
+    flagged = stats[degenerate].copy()
     if len(flagged) > 0:
-        flagged["dropped"] = flagged["degenerate_tail"]
         flagged = (
-            flagged.merge(load_observed_lookup(str(nc_path)), on="obs_id", how="left")
-            .sort_values(["dropped", "tail_ptp"], ascending=[False, True])
+            flagged.merge(observed_lookup, on="obs_id", how="left")
+            .sort_values("tail_ptp")
         )
-        flagged_path = output_dir / f"{model_id}_{dataset}{idx_save}_outlier_dominated.csv"
+        flagged_path = output_dir / f"{model_id}_{dataset}{idx_save}_dropped_trials.csv"
         flagged.to_csv(flagged_path, index=False)
-        print(f"Flagged-trial table saved to {flagged_path}. Preview (dropped "
-              f"first, most degenerate tail first, top 50 of {len(flagged)}):",
+        print(f"Dropped-trial table saved to {flagged_path}. Preview (most "
+              f"degenerate tail first, top 50 of {len(flagged)}):",
               flush=True)
         print(flagged.head(50).to_string(index=False), flush=True)
 
@@ -384,19 +353,36 @@ def compute_diagnostics(model_id: str,
     k = np.asarray(loo_result.pareto_k.values)
     print("n k>0.7:", (k > 0.7).sum(), "max k:", k.max(),
           "min corrected ll:", ll_keep.min(), flush=True)
-    
-    # az.loo attaches the full-shape PSIS log_weights to the returned
-    # ELPDData (arviz_stats/loo/helper_loo.py, ELPDData(..., log_weights=)),
-    # which makes the pickle as large as log_lik itself -- 8.3 GB per model,
-    # i.e. >100 GB across ALL_MODELS, and compare_models.py loads a whole
-    # group at once. Nothing downstream reads it (az.compare never touches
-    # log_weights; compare_models.py uses elpd/se/p/elpd_i/pareto_k), and it
-    # is recomputable from the .nc, so drop it before writing.
-    loo_result.log_weights = None
 
-    loo_path = output_dir / f"{model_id}_{dataset}{idx_save}_loo.pkl"
-    with open(loo_path, "wb") as f:
-        pickle.dump(loo_result, f)
+    # Per-trial elpd/pareto_k for the retained trials, still keyed by obs_id
+    # (carried through as a coordinate from ll_ds). Left-merged onto every
+    # trial below so the dropped (bad_tail) trials come along with NaN
+    # pareto_k -- PSIS never ran on them -- but their elpd is filled in from
+    # elpd_raw_is, the raw (unsmoothed) IS estimate scan_log_lik computed for
+    # every observation (see its docstring: well-behaved for exactly these
+    # trials, since the outlier correction floors their likelihoods).
+    retained_df = pd.DataFrame({
+        "obs_id": obs_keep,
+        "elpd": np.asarray(loo_result.elpd_i.values),
+        "pareto_k": k,
+    })
+    trial_df = (
+        stats[["obs_id", "degenerate_tail", "elpd_raw_is"]]
+        .merge(retained_df, on="obs_id", how="left")
+        .merge(observed_lookup, on="obs_id", how="left")
+    )
+    trial_df["elpd"] = trial_df["elpd"].fillna(trial_df["elpd_raw_is"])
+    trial_df["dataset"] = dataset
+    trial_df["reliable_k"] = (trial_df["pareto_k"] <= 0.7).astype("boolean")
+    trial_df["bad_k"] = (trial_df["pareto_k"] > 0.7).astype("boolean")
+    trial_df.loc[trial_df["pareto_k"].isna(), ["reliable_k", "bad_k"]] = pd.NA
+    trial_df = trial_df.rename(
+        columns={"subj_idx": "sub", "degenerate_tail": "bad_tail"}
+    )[["trial", "sub", "dataset", "elpd", "reliable_k", "bad_tail", "bad_k"]]
+
+    loo_path = output_dir / f"{model_id}_{dataset}{idx_save}_loo.csv"
+    trial_df.to_csv(loo_path, index=False)
+    print(f"Per-trial LOO diagnostics saved to {loo_path}", flush=True)
 
     del ll_ds, idata_ll, ll_keep, loo_result
 
@@ -465,7 +451,6 @@ def main():
         results_pth=args.results_pth,
         pupil_col=args.pupil_col,
         p_outlier=args.p_outlier,
-        inspect_only=args.inspect_nc,
     )
 
 

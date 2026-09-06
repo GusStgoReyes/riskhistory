@@ -3,7 +3,7 @@
 # =============================================================================
 
 formula_pupilbetas_transition <- pupil ~ logRT_z + gain_z + loss_z +
-  entropy_c + abs_delta_ev_z + transition + (0 + logRT_z | sub)
+  entropy_c + abs_delta_ev_z + transition + (0 + logRT_z  + entropy_c| sub)
 
 # =============================================================================
 # Fit per dataset
