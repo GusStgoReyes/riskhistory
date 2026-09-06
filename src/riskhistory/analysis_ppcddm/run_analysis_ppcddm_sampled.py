@@ -46,7 +46,7 @@ def load_posterior_npz(model_id: str, dataset: str) -> dict:
     of shape (n_chain, n_draw), keyed by HDDM's own raw param_name and the
     actual `sub` label (not a synthetic index), plus "_chain"/"_draw"
     coordinate arrays."""
-    path = results_pth / "hddm_posteriors" / f"{model_id}_{dataset}_posterior.npz"
+    path = results_pth / "analysis_ddm_final" / "hddm_posteriors" / f"{model_id}_{dataset}_posterior.npz"
     if not path.exists():
         raise FileNotFoundError(f"{path} not found -- run compute_diagnostics.py first")
     return dict(np.load(path))
