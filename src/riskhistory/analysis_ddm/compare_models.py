@@ -1,19 +1,20 @@
 """LOO model comparison aggregation for HDDM fits.
 
-Loads per-model intermediate files produced by compute_diagnostics.py
-and runs az.compare(). No large InferenceData files are loaded here.
+Loads the per-trial elpd/reliability CSVs produced by compute_diagnostics.py
+(one row per trial per model; elpd is defined for every trial there, with
+degenerate-tail trials filled in via elpd_raw_is -- see that module). No
+large InferenceData files are loaded here.
 
 Convergence diagnostics (rhat/ess) are collected for every model in
-ALL_MODELS. LOO comparison and robustness checks are run separately for
-each named group in MODEL_GROUPS, with output files named after the group.
+ALL_MODELS. For each (reference, target) pair listed under a MODEL_GROUPS
+entry, the LOO elpd difference is computed on their shared (sub, trial)
+trials -- once over all of them, and once restricted to trials reliable
+(pareto_k <= 0.7) in both models -- with output files named after the group.
 """
 import argparse
-import pickle
 from pathlib import Path
 
-import arviz as az
 import pandas as pd
-import numpy as np
 
 # Every HDDM model that has been fit and diagnosed (see compute_diagnostics.py).
 ALL_MODELS = [
@@ -34,41 +35,46 @@ ALL_MODELS = [
 ]
     
 
+# Each group is a list of [reference_model, target_model] pairs; the LOO
+# comparison is a pairwise diff, not an all-at-once az.compare() ranking.
 MODEL_GROUPS = {
-    "choicehistory" : ["HDDM_Base",
-                       "HDDM_Base_Lag1-stp",
-                       "HDDM_Base_Lag1-drift",
-                       "HDDM_Base_Lag1-stim",
-                       "HDDM_Base_Lag1-full",
-                       "HDDM_Base_Lag1-stpdrift"
+    "choicehistory" : [["HDDM_Base", "HDDM_Base_Lag1-stp"],
+                       ["HDDM_Base", "HDDM_Base_Lag1-drift"],
+                       ["HDDM_Base", "HDDM_Base_Lag1-stim"],
+                       ["HDDM_Base", "HDDM_Base_Lag1-stpdrift"],
+                       ["HDDM_Base", "HDDM_Base_Lag1-full"],
+                       ["HDDM_Base_Lag1-stp", "HDDM_Base_Lag1-stpdrift"],
+                       ["HDDM_Base_Lag1-stpdrift", "HDDM_Base_Lag1-full"],
                        ],
-    "arousal" : [
-                "HDDM_Base_Pupil",
-                "HDDM_Base_Lag1-drift_Pupil",
-                "HDDM_Base_Lag1-stp_Pupil",
-                "HDDM_Base_Lag1-drift_Pupil_drift",
-                "HDDM_Base_Lag1-stp_Pupil_stp",
-                "HDDM_Base_Pupil_boundary",
-                "HDDM_Base_Pupil_valuation",
-                "HDDM_Base_Pupil_ndt"
-    ]
+    "arousal" : [["HDDM_Base_Pupil", "HDDM_Base_Lag1-drift_Pupil"],
+                 ["HDDM_Base_Pupil", "HDDM_Base_Lag1-stp_Pupil"],
+                 ["HDDM_Base_Lag1-drift_Pupil", "HDDM_Base_Lag1-drift_Pupil_drift"],
+                 ["HDDM_Base_Lag1-stp_Pupil", "HDDM_Base_Lag1-stp_Pupil_stp"],
+                 ["HDDM_Base_Pupil", "HDDM_Base_Pupil_boundary"], 
+                 ["HDDM_Base_Pupil", "HDDM_Base_Pupil_valuation"],
+                 ["HDDM_Base_Pupil", "HDDM_Base_Pupil_ndt"],
+                ]
 }
 
 
-def _load_model_diagnostics(model_name: str, dataset: str, output_dir: Path):
-    """Load the loo/rhat/ess intermediate files for one model."""
-    loo_path = output_dir / f"{model_name}_{dataset}_loo.pkl"
+def _load_rhat_ess(model_name: str, dataset: str, output_dir: Path):
+    """Load the rhat/ess intermediate files for one model."""
     rhat_path = output_dir / f"{model_name}_{dataset}_rhat.csv"
     ess_path = output_dir / f"{model_name}_{dataset}_ess.csv"
-    for p in (loo_path, rhat_path, ess_path):
+    for p in (rhat_path, ess_path):
         if not p.exists():
             raise FileNotFoundError(f"{p} not found — run compute_diagnostics.py first")
+    return pd.read_csv(rhat_path), pd.read_csv(ess_path)
 
-    with open(loo_path, "rb") as f:
-        loo = pickle.load(f)
-    rhat = pd.read_csv(rhat_path)
-    ess = pd.read_csv(ess_path)
-    return loo, rhat, ess
+
+def _load_loo_csv(model_name: str, dataset: str, output_dir: Path) -> pd.DataFrame:
+    """Load one model's per-trial elpd/reliability table (see compute_diagnostics.py)."""
+    loo_path = output_dir / f"{model_name}_{dataset}_loo.csv"
+    if not loo_path.exists():
+        raise FileNotFoundError(f"{loo_path} not found — run compute_diagnostics.py first")
+    # nullable "boolean" dtype: reliable_k/bad_k are blank (NA) for bad_tail
+    # trials, which pd.read_csv would otherwise silently read back as False.
+    return pd.read_csv(loo_path, dtype={"reliable_k": "boolean", "bad_k": "boolean"})
 
 
 def save_convergence_diagnostics(models: list[str], dataset: str, results_pth: str) -> None:
@@ -80,7 +86,7 @@ def save_convergence_diagnostics(models: list[str], dataset: str, results_pth: s
     rhat_frames = []
     ess_frames = []
     for model_name in models:
-        _, rhat, ess = _load_model_diagnostics(model_name, dataset, output_dir)
+        rhat, ess = _load_rhat_ess(model_name, dataset, output_dir)
         rhat_frames.append(rhat)
         ess_frames.append(ess)
 
@@ -94,68 +100,59 @@ def save_convergence_diagnostics(models: list[str], dataset: str, results_pth: s
           flush=True)
 
 
-def run_group_comparison(group_name: str, models: list[str], dataset: str, results_pth: str) -> None:
-    """Run LOO comparison + robustness check for one named group of models."""
+def compare_pair(
+    reference_model: str, target_model: str, dataset: str, output_dir: Path
+) -> dict:
+    """LOO elpd diff between one target model and its reference, on their shared trials."""
+    ref_df = _load_loo_csv(reference_model, dataset, output_dir)
+    tgt_df = _load_loo_csv(target_model, dataset, output_dir)
+
+    merged = ref_df.merge(
+        tgt_df, on=["trial", "sub", "dataset"], suffixes=("_ref", "_tgt"), how="inner"
+    )
+    if len(merged) != len(ref_df) or len(merged) != len(tgt_df):
+        print(
+            f"WARNING: {reference_model} ({len(ref_df)} trials) and {target_model} "
+            f"({len(tgt_df)} trials) don't share the same (sub, trial) set -- "
+            f"comparing on {len(merged)} common trials.",
+            flush=True,
+        )
+
+    # NA (bad_tail trials, which never got a pareto_k) counts as unreliable.
+    reliable_ref = merged["reliable_k_ref"].fillna(False)
+    reliable_tgt = merged["reliable_k_tgt"].fillna(False)
+    common_reliable = reliable_ref & reliable_tgt
+
+    return {
+        "reference_model": reference_model,
+        "target_model": target_model,
+        "diff_elpd_loo": float(merged["elpd_tgt"].sum() - merged["elpd_ref"].sum()),
+        "diff_elpd_reliable": float(
+            merged.loc[common_reliable, "elpd_tgt"].sum()
+            - merged.loc[common_reliable, "elpd_ref"].sum()
+        ),
+        "num_unreliable": int((~common_reliable).sum()),
+        "num_total": len(merged),
+    }
+
+
+def run_group_comparison(
+    group_name: str, pairs: list[list[str]], dataset: str, results_pth: str
+) -> None:
+    """Compute the reference-vs-target LOO elpd diff for every pair in one named group."""
     output_dir = Path(results_pth) / "hddm_compare"
     summary_dir = output_dir / "summary"
     summary_dir.mkdir(parents=True, exist_ok=True)
 
-    loo_dict: dict[str, az.ELPDData] = {}
-    for model_name in models:
-        loo, _, _ = _load_model_diagnostics(model_name, dataset, output_dir)
-        loo_dict[model_name] = loo
-    labels = list(loo_dict.keys())
-
-    # --- Full comparison (all trials) ---
-    print(f"[{group_name}] Running LOO comparison (all trials)...", flush=True)
-    compare_df = az.compare(loo_dict, ic="loo")
-    compare_df.index.name = "model"
-    compare_df.reset_index().to_csv(
+    print(f"[{group_name}] Running LOO comparison for {len(pairs)} pair(s)...", flush=True)
+    compare_df = pd.DataFrame(
+        compare_pair(reference_model, target_model, dataset, output_dir)
+        for reference_model, target_model in pairs
+    )
+    compare_df.to_csv(
         summary_dir / f"{dataset}_{group_name}_model_comparison_loo.csv", index=False
     )
-    print(compare_df.to_string(), flush=True)
-
-    # --- Pareto-k diagnostic per model ---
-    k_summary = []
-    for name, loo in loo_dict.items():
-        k = np.asarray(loo.pareto_k.values)
-        k_summary.append({
-            "model": name,
-            "n_obs": k.size,
-            "n_k_gt_0.7": int((k > 0.7).sum()),
-            "n_k_gt_1.0": int((k > 1.0).sum()),
-            "n_k_inf": int(np.isinf(k).sum()),
-            "max_k": float(k.max()),
-        })
-    pd.DataFrame(k_summary).to_csv(
-        summary_dir / f"{dataset}_{group_name}_pareto_k_summary.csv", index=False
-    )
-    print(pd.DataFrame(k_summary).to_string(), flush=True)
-
-    # --- Robustness: comparison excluding trials unreliable in ANY model ---
-    try:
-        ks = np.vstack([np.asarray(loo_dict[m].pareto_k.values) for m in labels])
-        good = (ks <= 0.7).all(axis=0)   # reliable in every model
-        n_dropped = int((~good).sum())
-        print(f"[{group_name}] Robustness check: dropping {n_dropped} trials with k>0.7 in any model",
-              flush=True)
-
-        rob_rows = []
-        for m in labels:
-            loo_i = np.asarray(loo_dict[m].loo_i.values).ravel()
-            rob_rows.append({
-                "model": m,
-                "elpd_loo_all": float(loo_i.sum()),
-                "elpd_loo_reliable_only": float(loo_i[good].sum()),
-            })
-        rob_df = pd.DataFrame(rob_rows).sort_values(
-            "elpd_loo_reliable_only", ascending=False
-        )
-        rob_df.to_csv(summary_dir / f"{dataset}_{group_name}_robustness_loo.csv", index=False)
-        print(rob_df.to_string(), flush=True)
-    except AttributeError:
-        print("WARNING: loo_i/pareto_k not available — recompute az.loo with "
-              "pointwise=True to enable the robustness check.", flush=True)
+    print(compare_df.to_string(index=False), flush=True)
 
 
 def main():
@@ -181,10 +178,10 @@ def main():
         print("MODEL_GROUPS is empty — no comparisons to run. "
               "Fill in MODEL_GROUPS in compare_models.py to run comparisons.", flush=True)
 
-    for group_name, models in MODEL_GROUPS.items():
+    for group_name, pairs in MODEL_GROUPS.items():
         run_group_comparison(
             group_name=group_name,
-            models=models,
+            pairs=pairs,
             dataset=args.dataset_name,
             results_pth=args.results_pth,
         )
