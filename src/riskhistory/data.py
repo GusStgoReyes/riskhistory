@@ -225,28 +225,27 @@ def load_model_comparison(comparison_type="behavior"):
 
 
 def load_loo_comparison(dataset, group_name=None):
-    """LOO model comparison table for one dataset.
+    """Pairwise LOO model comparison table for one dataset (see
+    compare_models.py's compare_pair/run_group_comparison).
+
+    One row per (reference_model, target_model) pair listed under that
+    MODEL_GROUPS entry, with:
+      - diff_elpd_loo: sum(elpd_target) - sum(elpd_reference) over all
+        trials shared by the two models
+      - diff_elpd_reliable: same diff, restricted to trials reliable
+        (pareto_k <= 0.7) in both models
+      - num_unreliable / num_total: trials unreliable in either model,
+        out of the shared total
 
     group_name : str, optional
         Name of the MODEL_GROUPS entry in compare_models.py this comparison
-        was run for (e.g. "arousal_mechanisms") -- must match exactly, since
-        it's part of the output filename. Omit for the legacy, ungrouped
-        comparison file.
+        was run for (e.g. "arousal") -- must match exactly, since it's part
+        of the output filename. Omit for the legacy, ungrouped comparison
+        file.
     """
     suffix = f"_{group_name}" if group_name else ""
     path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
             / f"{dataset}{suffix}_model_comparison_loo.csv")
-    return pd.read_csv(path)
-
-
-def load_robustness_loo(dataset, group_name=None):
-    """PSIS-LOO robustness check for one dataset: elpd_loo_all (all
-    observations) vs elpd_loo_reliable_only (excluding observations with
-    unreliable Pareto-k diagnostics). group_name as in load_loo_comparison().
-    """
-    suffix = f"_{group_name}" if group_name else ""
-    path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
-            / f"{dataset}{suffix}_robustness_loo.csv")
     return pd.read_csv(path)
 
 

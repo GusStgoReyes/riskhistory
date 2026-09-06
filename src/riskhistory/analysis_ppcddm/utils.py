@@ -1,6 +1,19 @@
+import re
 import numpy as np
 import itertools
 import pandas as pd
+
+
+def rename_hddm_param(name: str) -> str:
+    """Raw HDDM/kabuki param_name -> the name PTDDM's parameters_bounds
+    expects (see model_factory.py/parameters.py). Used both when reading the
+    summarized param CSVs (run_analysis_ppcddm.py) and when reading raw
+    posterior draws (run_analysis_ppcddm_sampled.py), so the two stay in
+    sync."""
+    name = name.replace(":", "_").replace("_centered", "")
+    name = re.sub(r"\bt\b", "ter", name)
+    name = re.sub(r"\bz_Intercept\b", "z", name)
+    return name
 
 def get_trials(dataset_name):
     """

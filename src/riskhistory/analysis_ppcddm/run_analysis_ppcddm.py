@@ -4,6 +4,7 @@ from filelock import FileLock
 from pathlib import Path
 
 from riskhistory.analysis_ppcddm.model_factory import get_model
+from riskhistory.analysis_ppcddm.utils import rename_hddm_param
 from riskhistory.config import behavioral_data_pth, preprocessed_data_pth, results_pth
 
 # ---------------------------------------------------------------------------
@@ -71,11 +72,7 @@ def setup_model_parameters(model_name, sub_params, group_params, dataset, sub):
     group_params = group_params[~group_params["param_name"].str.contains("_std")]
 
     for df in (sub_params, group_params):
-        df["param_name"] = (df["param_name"]
-                            .str.replace(":", "_")
-                            .str.replace("_centered", "")
-                            .str.replace(r"\bt\b", "ter", regex=True)
-                            .str.replace(r"\bz_Intercept\b", "z", regex=True))
+        df["param_name"] = df["param_name"].apply(rename_hddm_param)
 
     combined = (pd.concat([group_params, sub_params])
                 .drop_duplicates(subset=["param_name"], keep="last"))
