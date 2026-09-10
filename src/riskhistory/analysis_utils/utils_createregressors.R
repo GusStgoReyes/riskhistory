@@ -36,7 +36,7 @@ add_subjectivevalues <- function(df, pth_betas) {
       delta_sv = sv - prev_sv,
       prev_ev  = lag(ev),
       delta_ev = ev - prev_ev,
-      abs_delta_ev = abs(delta_ev),
+      abs_delta_ev = abs(delta_ev)
     ) %>%
     ungroup()
 
@@ -57,12 +57,27 @@ standardize_behavioral_regressors <- function(df) {
       prev_loss_z = as.numeric(scale(prev_loss, center = TRUE, scale = TRUE)),
       prev_ev_z   = as.numeric(scale(prev_ev,   center = TRUE, scale = TRUE)),
       delta_ev_z  = as.numeric(scale(delta_ev,  center = TRUE, scale = TRUE)),
+      sv_abs_z    = as.numeric(scale(sv_abs,    center = TRUE, scale = TRUE)),
       sv_partition = {
         breaks <- quantile(sv, probs = c(.2, .4, .6, .8), names = FALSE,
                             na.rm = TRUE)
         cut(sv, breaks = c(-Inf, breaks, Inf),
             labels = c("1", "2", "3", "4", "5"))
       }
+    ) %>%
+    ungroup()
+
+  df <- df %>% 
+    group_by(dataset, sub, sv_partition) %>%
+    mutate(
+      mean_sv_partition_sub = mean(sv)
+    ) %>%
+    ungroup()
+
+  df <- df %>% 
+    group_by(dataset, sv_partition) %>%
+    mutate(
+      mean_sv_partition = mean(mean_sv_partition_sub)
     ) %>%
     ungroup()
 

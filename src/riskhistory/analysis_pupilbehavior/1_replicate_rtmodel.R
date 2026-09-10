@@ -40,10 +40,12 @@ for (ds in datasets) {
   comp_df <- normalize_pairwise_contrasts(as.data.frame(comp), TRANSITION_PAIRS, invert = "reciprocal")
 
   replicatertmodel_contrasts_list[[ds]] <- data.frame(
-    dataset  = ds,
-    contrast = comp_df$contrast,
-    estimate = comp_df$estimate,
-    p.value  = comp_df$p.value,
+    dataset   = ds,
+    contrast  = comp_df$contrast,
+    estimate  = comp_df$estimate,
+    asymp.LCL = comp_df$conf.low,
+    asymp.UCL = comp_df$conf.high,
+    p.value   = comp_df$p.value,
     stringsAsFactors = FALSE
   )
 }

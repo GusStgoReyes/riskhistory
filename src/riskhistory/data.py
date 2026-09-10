@@ -346,7 +346,7 @@ def load_ddm_subj_params(model_id: str, dataset: str, pupil_col: str = "pupil") 
 
 
 def load_ddm_simulated(model_id: str) -> pd.DataFrame:
-    path = _PPCDDM_DIR / f"{model_id}_simulated_data.csv"
+    path = _PPCDDM_DIR / f"{model_id}_simulated_data_sampled.csv"
     return pd.read_csv(path)
 
 

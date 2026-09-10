@@ -82,7 +82,11 @@ MODEL_REGISTRY = {
     # -------------------------------------------------------------------------
     # Non-collapsing models (HDDMRegressor, standard Wiener kernel, no theta)
     # -------------------------------------------------------------------------
-
+    # All models have:
+        # Starting point
+        # Drift (drift) = (variables that shape the decision value)
+        # Boundary separation
+        # Non-decision time
     "HDDM_Base": {
         "reg_descr": [
             {"model": "v ~ 1 + gain_centered + loss_centered", "link_func": lambda x: x},

@@ -45,10 +45,7 @@ source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
 N_PPC_SAMPLES <- 1000
 
 BEHAVIOR_DDM_MODELS <- c(
-  "HDDM_Base",
-  "HDDM_Base_Lag1-drift",
-  "HDDM_Base_Lag1-stp",
-  "HDDM_Base_Lag1-stpdrift"
+  "HDDM_Base"
 )
 
 PUPIL_DDM_MODELS <- c(
@@ -60,7 +57,7 @@ PUPIL_DDM_MODELS <- c(
 
 load_ddm_ppc_data <- function(model_id) {
   path <- file.path(results_path, "analysis_ppcddm",
-                    paste0(model_id, "_simulated_data.csv"))
+                    paste0(model_id, "_simulated_data_sampled.csv"))
   df <- read.csv(path)
   eps <- 1 / (2 * N_PPC_SAMPLES)
   mean_accept_clipped <- pmin(pmax(df$mean_accept, eps), 1 - eps)

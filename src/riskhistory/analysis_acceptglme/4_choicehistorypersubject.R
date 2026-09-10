@@ -8,7 +8,7 @@ fit_choice_prev1_glm <- function(df_sub_i) {
   fit <- tryCatch({
     withCallingHandlers(
       glm(accept ~ gain_centered + loss_centered + choice_prev1,
-          data = df_sub_i, family = binomial),
+          data = df_sub_i, family = binomial, method = "brglmFit"),
       warning = function(w) {
         if (grepl("fitted probabilities numerically 0 or 1 occurred",
                   conditionMessage(w), fixed = TRUE) ||

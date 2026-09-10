@@ -51,13 +51,10 @@ behavioral_data_full <- load_behavioral_data()
 message("Computing subjective values...")
 pth_betas <- file.path(results_path, "analysis_acceptglme",
                        "1_baselinebehavior_betas.csv")
-rtlme_data <- add_subjectivevalues(df = behavioral_data_full, pth_betas = pth_betas)
+rtlme_data <- add_subjectivevalues_and_regressors(df = behavioral_data_full, pth_betas = pth_betas)
 rtlme_data <- subset(rtlme_data, !exclude)
 
-# 4-level current x previous choice transition factor (accept_to_accept,
-# accept_to_reject, reject_to_accept, reject_to_reject). Rows with
-# choice_prev1 == 0 (no valid t-1 trial, see NOTE below) get transition = NA
-# and are dropped by lm()'s default na.action in any model using this term.
+# 4-level current x previous choice transition factor
 message("Creating transition (current x previous choice) regressor...")
 rtlme_data <- add_transition_regressor(rtlme_data)
 

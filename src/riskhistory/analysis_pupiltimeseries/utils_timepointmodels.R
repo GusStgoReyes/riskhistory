@@ -47,7 +47,7 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
   # Average predictions + pairwise avg_comparisons()
   # ---------------------------------------------------------------------
   marginal_result <- tryCatch({
-    pred <- avg_predictions(model, by = emmeans_var)
+    pred <- avg_predictions(model, by = emmeans_var, re.form = NA)
 
     avgpred_df <- as.data.frame(pred) %>%
       rename(avgpred = estimate, SE = std.error,
@@ -57,7 +57,7 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
 
     contrasts_df <- NULL
     if (!is.null(contrast_pairs) && length(contrast_pairs) > 0) {
-      comp <- avg_comparisons(model, variables = setNames(list("pairwise"), emmeans_var))
+      comp <- avg_comparisons(model, variables = setNames(list("pairwise"), emmeans_var),  re.form = NA)
       comp_df <- as.data.frame(comp)
 
       contrasts_df <- normalize_pairwise_contrasts(comp_df, contrast_pairs)

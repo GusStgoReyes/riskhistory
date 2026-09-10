@@ -30,14 +30,19 @@ for (ds in datasets) {
     "  Computing choice-history effect by SV partition for dataset: %s", ds
   ))
   comp <- avg_comparisons(
-    mod, variables = list(choice_prev1 = c(-1, 1)), by = "sv_partition"
+    mod, variables = list(choice_prev1 = c(-1, 1)),
+    by = "sv_partition", type = "response", re.form = NA
   )
+  sv_partition_means <- df_sub %>%
+    distinct(sv_partition, mean_sv_partition)
+
   comp_df <- as.data.frame(comp) %>%
     mutate(dataset = ds) %>%
+    left_join(sv_partition_means, by = "sv_partition") %>%
     rename(historyeffect = estimate, SE = std.error, z.ratio = statistic,
            asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
-    select(dataset, sv_partition, historyeffect, SE, z.ratio,
-           asymp.LCL, asymp.UCL, p.value)
+    select(dataset, sv_partition, mean_sv_partition, historyeffect, SE,
+           z.ratio, asymp.LCL, asymp.UCL, p.value)
   historyeffect_contrasts_list[[ds]] <- comp_df
 }
 

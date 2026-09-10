@@ -12,9 +12,10 @@
 # p.value is unaffected either way (two-tailed / ratio-vs-1 tests are
 # direction-invariant). When invert = "sign", the return value is narrowed to
 # contrast/estimate/SE/z.ratio/p.value; when invert = "reciprocal", the full
-# comp_df (with only contrast/estimate modified) is returned unchanged --
-# matching the two call sites' pre-existing conventions (analysis_pupiltimeseries's
-# timepoint models and analysis_pupilbehavior's RT model, respectively).
+# comp_df (with estimate/conf.low/conf.high modified, if present) is returned
+# unchanged otherwise -- matching the two call sites' pre-existing conventions
+# (analysis_pupiltimeseries's timepoint models and analysis_pupilbehavior's RT
+# model, respectively).
 normalize_pairwise_contrasts <- function(comp_df, contrast_pairs,
                                          invert = c("sign", "reciprocal")) {
   invert <- match.arg(invert)
@@ -35,7 +36,19 @@ normalize_pairwise_contrasts <- function(comp_df, contrast_pairs,
     if (invert == "sign") {
       row_rev$estimate  <- -row_rev$estimate
       row_rev$statistic <- -row_rev$statistic
+      if ("conf.low" %in% names(row_rev)) {
+        old_low  <- row_rev$conf.low
+        old_high <- row_rev$conf.high
+        row_rev$conf.low  <- -old_high
+        row_rev$conf.high <- -old_low
+      }
     } else {
+      if ("conf.low" %in% names(row_rev)) {
+        old_low  <- row_rev$conf.low
+        old_high <- row_rev$conf.high
+        row_rev$conf.low  <- 1 / old_high
+        row_rev$conf.high <- 1 / old_low
+      }
       row_rev$estimate <- 1 / row_rev$estimate
     }
     row_rev

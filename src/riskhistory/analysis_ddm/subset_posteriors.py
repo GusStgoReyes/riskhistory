@@ -1,17 +1,4 @@
 """Subset extracted posterior .npz files down to a few parameters of interest.
-
-The .npz files written by extract_posteriors.py hold every parameter of a fitted
-HDDM run (100-250 MB each), which is more than is needed to look at a single
-effect. This reads one of those files and rewrites only the arrays belonging to
-a named set of parameters -- for each parameter stem, the group-level mean, its
-`_std`, and every per-subject `<stem>_subj.<id>` array.
-
-Reading an .npz is lazy, so only the matched arrays are ever decompressed; the
-rest of the file is skipped. The `_chain`/`_draw` coordinates are always kept,
-so the output stands alone.
-
-Which parameters to pull per model live in MODEL_PARAMS below; run with no
-arguments to process every model there, for all three datasets.
 """
 import argparse
 from pathlib import Path
@@ -22,7 +9,9 @@ import numpy as np
 # names, so interactions use ':'). Each stem also brings along its '_std' and
 # all per-subject 'stem_subj.<id>' arrays.
 MODEL_PARAMS = {
-    "HDDM_Base_Lag1-stpdrift": ["v_choice_prev1", "z_choice_prev1"],
+    "HDDM_Base_Lag1-drift": ["v_choice_prev1"],
+    "HDDM_Base_Lag1-stp": ["z_choice_prev1"],
+    "HDDM_Base_Lag1-stim": ["v_gain_centered:choice_prev1", "v_loss_centered:choice_prev1"],
     "HDDM_Base_Lag1-stp_Pupil_stp": ["z_choice_prev1:pupil", "z_pupil"],
     "HDDM_Base_Lag1-drift_Pupil_drift": ["v_choice_prev1:pupil", "v_pupil"],
     "HDDM_Base_Pupil_valuation": [

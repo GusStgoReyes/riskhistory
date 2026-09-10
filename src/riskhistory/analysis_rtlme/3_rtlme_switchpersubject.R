@@ -2,11 +2,15 @@
 # Per-subject switch effect on RT (two-step lm, no partial pooling)
 # =============================================================================
 
-fit_switch_lm <- function(df_sub_i) {
+fit_switch_glm <- function(df_sub_i) {
   converged <- TRUE
 
   fit <- tryCatch({
-    lm(log(rt) ~ sv_abs + switch, data = df_sub_i)
+    glm(
+      rt ~ sv_abs_z + switch,
+      data = df_sub_i,
+      family = Gamma(link = "identity")
+    )
   }, error = function(e) {
     converged <<- FALSE
     NULL
@@ -14,11 +18,16 @@ fit_switch_lm <- function(df_sub_i) {
 
   effect <- NA_real_
   if (!is.null(fit)) {
-    coef_switch <- coef(fit)["switch"]
-    if (is.na(coef_switch)) {
+    # glm() doesn't always error on non-convergence - check explicitly
+    if (!fit$converged) {
       converged <- FALSE
     } else {
-      effect <- unname(coef_switch)
+      coef_switch <- coef(fit)["switch"]
+      if (is.na(coef_switch)) {
+        converged <- FALSE
+      } else {
+        effect <- unname(coef_switch)
+      }
     }
   }
 
@@ -33,7 +42,7 @@ for (ds in datasets) {
   subs <- sort(unique(df_ds$sub))
 
   ds_results <- lapply(subs, function(s) {
-    fit_result <- fit_switch_lm(df_ds[df_ds$sub == s, ])
+    fit_result <- fit_switch_glm(df_ds[df_ds$sub == s, ])
     data.frame(
       dataset          = ds,
       sub              = s,

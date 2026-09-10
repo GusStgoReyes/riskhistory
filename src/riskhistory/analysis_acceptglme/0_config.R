@@ -25,6 +25,7 @@ library(tibble)
 library(lmerTest)
 library(bayestestR)
 library(marginaleffects)
+library(brglm2)
 
 # Source shared settings and utility functions
 source(file.path(shared_utils_path, "0_config.R"))
