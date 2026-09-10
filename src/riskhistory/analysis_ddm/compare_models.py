@@ -44,7 +44,9 @@ MODEL_GROUPS = {
                        ["HDDM_Base", "HDDM_Base_Lag1-stpdrift"],
                        ["HDDM_Base", "HDDM_Base_Lag1-full"],
                        ["HDDM_Base_Lag1-stp", "HDDM_Base_Lag1-stpdrift"],
+                       ["HDDM_Base_Lag1-stp", "HDDM_Base_Lag1-full"],
                        ["HDDM_Base_Lag1-stpdrift", "HDDM_Base_Lag1-full"],
+
                        ],
     "arousal" : [["HDDM_Base_Pupil", "HDDM_Base_Lag1-drift_Pupil"],
                  ["HDDM_Base_Pupil", "HDDM_Base_Lag1-stp_Pupil"],
