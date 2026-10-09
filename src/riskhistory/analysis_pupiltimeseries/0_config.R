@@ -2,18 +2,16 @@
 # Config for Pupil Timeseries Analysis
 # =============================================================================
 
-# Source the base config to get repo_path and standard paths
 source(file.path(dirname(sys.frame(1)$ofile), "..", "config.R"))
 
 # =============================================================================
 # Analysis-specific paths
 # =============================================================================
-analysis_name <- "analysis_pupiltimeseries"
-analysis_data_path <- file.path(repo_path, "data")
+analysis_name         <- "analysis_pupiltimeseries"
 analysis_results_path <- file.path(results_path, analysis_name)
-
-utils_path        <- dirname(sys.frame(1)$ofile)
-shared_utils_path <- file.path(repo_path, "src", "riskhistory", "analysis_utils")
+utils_path            <- dirname(sys.frame(1)$ofile)
+shared_utils_path     <- file.path(repo_path, "src", "riskhistory",
+                                   "analysis_utils")
 
 if (!dir.exists(analysis_results_path)) {
   dir.create(analysis_results_path, recursive = TRUE)
@@ -23,94 +21,59 @@ if (!dir.exists(analysis_results_path)) {
 # Load required packages
 # =============================================================================
 library(lme4)
-library(broom.mixed)
+library(lmerTest)         # p-values for lmer fixed effects
+library(broom.mixed)      # used by fit_timepoint_model
 library(dplyr)
-library(tibble)
-library(lmerTest)
 library(marginaleffects)
 
+# =============================================================================
 # Source shared settings and utility functions
+# =============================================================================
 source(file.path(shared_utils_path, "0_config.R"))
 source(file.path(shared_utils_path, "utils_data.R"))
-source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
 source(file.path(shared_utils_path, "utils_createregressors.R"))
-source(file.path(shared_utils_path, "utils_modelcomparison.R"))
-source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
-source(file.path(shared_utils_path, "utils_modelanalytics.R"))
 source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
+source(file.path(shared_utils_path, "utils_modelanalytics.R"))
 source(file.path(shared_utils_path, "utils_contrasts.R"))
+source(file.path(utils_path, "utils_timepointmodels.R"))
 
 # =============================================================================
-# Load and prepare behavioral data
+# Load behavioral and pupil data
 # =============================================================================
-message("Loading behavioral data...")
-behavioral_data <- load_behavioral_data()
+message("Loading behavioral data and computing subjective values...")
 
-# Merge betas, compute sv/entropy, and apply behavioral exclusion
-message("Loading subject-specific betas and computing subjective value...")
-betas_path <- file.path(results_path, "analysis_acceptglme",
-                        "1_baselinebehavior_betas.csv")
-behavioral_data <- add_subjectivevalues_and_regressors(behavioral_data, betas_path)
+behavioral_data_pupil <- load_behavioral_pupil_data()
 
-# =============================================================================
-# Load pupil data
-# =============================================================================
 message("Loading pupil data...")
-
 pupil_data_start    <- load_pupil_data("start")
 pupil_data_response <- load_pupil_data("response")
 
-# =============================================================================
-# Merge and apply exclusion criteria
-# =============================================================================
-message("Merging behavioral and pupil data...")
+merge_pupil_behavior <- function(pupil_data) {
+  merge(pupil_data, behavioral_data_pupil,
+        by = c("sub", "trial", "dataset")) %>%
+    add_transition_regressor()
+}
 
-data_start <- merge(pupil_data_start, behavioral_data,
-                    by = c("sub", "trial", "dataset"))
-
-data_response <- merge(pupil_data_response, behavioral_data,
-                       by = c("sub", "trial", "dataset"))
-
-message("Applying pupil exclusion criteria...")
-data_start_clean <- data_start %>% filter(!pupil_exclude)
-data_response_clean <- data_response %>% filter(!pupil_exclude)
-
-message(sprintf("Start-aligned:    %d rows total, %d rows after exclusion",
-                nrow(data_start), nrow(data_start_clean)))
-message(sprintf("Response-aligned: %d rows total, %d rows after exclusion",
-                nrow(data_response), nrow(data_response_clean)))
+data_start_clean    <- merge_pupil_behavior(pupil_data_start)
+data_response_clean <- merge_pupil_behavior(pupil_data_response)
 
 for (ds in datasets) {
-  ds_data <- data_start_clean %>% filter(dataset == ds)
-  sub_summary <- ds_data %>%
+  sub_summary <- data_start_clean %>%
+    filter(dataset == ds) %>%
     group_by(sub) %>%
-    summarise(
-      n_trials    = n_distinct(trial),
-      mean_accept = mean(accept, na.rm = TRUE),
-      mean_rt     = mean(rt,     na.rm = TRUE),
-      .groups = "drop"
-    )
-  n_subs      <- nrow(sub_summary)
-  mean_trials <- mean(sub_summary$n_trials)
-  mean_accept <- mean(sub_summary$mean_accept)
-  mean_rt     <- mean(sub_summary$mean_rt)
-  message(sprintf("  %s: %d subjects, %.1f trials/subject, %.2f mean accept, %.3f mean RT",
-                  ds, n_subs, mean_trials, mean_accept, mean_rt))
+    summarise(n_trials    = n_distinct(trial),
+              mean_accept = mean(accept, na.rm = TRUE),
+              mean_rt     = mean(rt, na.rm = TRUE),
+              .groups     = "drop")
+  message(sprintf(
+    "  %s: %d subjects, %.1f trials/subject, %.2f mean accept, %.3f mean RT",
+    ds, nrow(sub_summary), mean(sub_summary$n_trials),
+    mean(sub_summary$mean_accept), mean(sub_summary$mean_rt)
+  ))
 }
 
 # =============================================================================
-# Create scaled within-subject regressors
-# =============================================================================
-message("Creating pupil regressors...")
-data_start_clean    <- standardize_pupil_regressors(data_start_clean)
-data_response_clean <- standardize_pupil_regressors(data_response_clean)
-
-message("Creating transition (current x previous choice) regressor...")
-data_start_clean    <- add_transition_regressor(data_start_clean)
-data_response_clean <- add_transition_regressor(data_response_clean)
-
-# =============================================================================
-# Get unique timebins
+# Timebins
 # =============================================================================
 timebins_start    <- sort(unique(data_start_clean$timebin))
 timebins_response <- sort(unique(data_response_clean$timebin))

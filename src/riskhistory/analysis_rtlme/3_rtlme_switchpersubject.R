@@ -1,69 +1,49 @@
 # =============================================================================
-# Per-subject switch effect on RT (two-step lm, no partial pooling)
+# Per-subject switch effect on RT (Gamma GLM per subject, no partial pooling)
 # =============================================================================
 
-fit_switch_glm <- function(df_sub_i) {
-  converged <- TRUE
-
-  fit <- tryCatch({
-    glm(
-      rt ~ sv_abs_z + switch,
-      data = df_sub_i,
-      family = Gamma(link = "identity")
-    )
-  }, error = function(e) {
-    converged <<- FALSE
-    NULL
-  })
-
-  effect <- NA_real_
-  if (!is.null(fit)) {
-    # glm() doesn't always error on non-convergence - check explicitly
-    if (!fit$converged) {
-      converged <- FALSE
-    } else {
-      coef_switch <- coef(fit)["switch"]
-      if (is.na(coef_switch)) {
-        converged <- FALSE
-      } else {
-        effect <- unname(coef_switch)
-      }
-    }
+# Switch coefficient, or NA if the fit errors, fails to converge, or drops it
+fit_switch_glm <- function(df_sub) {
+  fit <- tryCatch(
+    glm(rt ~ sv_abs_z + switch, data = df_sub,
+        family = Gamma(link = "identity")),
+    error = function(e) NULL
+  )
+  effect <- if (!is.null(fit) && fit$converged) {
+    unname(coef(fit)["switch"])
+  } else {
+    NA_real_
   }
-
-  list(effect = effect, converged = converged)
+  list(effect = effect, converged = !is.na(effect))
 }
 
-persubject_results <- list()
-
-for (ds in datasets) {
-  message(sprintf("Fitting per-subject switch-effect RT models for dataset: %s", ds))
+# =============================================================================
+# Fit per subject
+# =============================================================================
+persubject_switch_betas <- bind_rows(lapply(datasets, function(ds) {
+  message(sprintf("Fitting per-subject switch-effect RT models for dataset: %s",
+                  ds))
   df_ds <- rtlme_data[rtlme_data$dataset == ds, ]
-  subs <- sort(unique(df_ds$sub))
 
-  ds_results <- lapply(subs, function(s) {
-    fit_result <- fit_switch_glm(df_ds[df_ds$sub == s, ])
+  bind_rows(lapply(sort(unique(df_ds$sub)), function(s) {
+    fit <- fit_switch_glm(df_ds[df_ds$sub == s, ])
     data.frame(
-      dataset          = ds,
-      sub              = s,
-      switch_effect    = fit_result$effect,
-      converged        = fit_result$converged,
-      stringsAsFactors = FALSE
+      dataset       = ds,
+      sub           = s,
+      switch_effect = fit$effect,
+      converged     = fit$converged
     )
-  })
+  }))
+}))
 
-  persubject_results[[ds]] <- do.call(rbind, ds_results)
-}
+message(sprintf("Per-subject switch-effect RT models: %d of %d converged.",
+                sum(persubject_switch_betas$converged),
+                nrow(persubject_switch_betas)))
 
-persubject_switch_betas <- do.call(rbind, persubject_results)
-rownames(persubject_switch_betas) <- NULL
-
-n_total     <- nrow(persubject_switch_betas)
-n_converged <- sum(persubject_switch_betas$converged)
-message(sprintf("Per-subject switch-effect RT models: %d of %d converged cleanly.",
-                n_converged, n_total))
-
-write.csv(persubject_switch_betas,
-          file.path(analysis_results_path, "3_rtlme_switchpersubject_betas.csv"),
+# =============================================================================
+# Save
+# =============================================================================
+betas_file <- "3_rtlme_switchpersubject_betas.csv"
+write.csv(persubject_switch_betas, file.path(analysis_results_path, betas_file),
           row.names = FALSE)
-message("Saved: 3_rtlme_switchpersubject_betas.csv")
+message("Saved: ", betas_file)

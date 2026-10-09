@@ -1,115 +1,90 @@
 # =============================================================================
-# Model 1: log(rt) ~ sv_abs (baseline)
-# =============================================================================
 # Baseline RT model: response time as a function of |subjective value| only
 # =============================================================================
 
-rtlme_baseline_models_list <- list()
-rtlme_baseline_ranef_structure <- list()
-rtlme_switch_models_list <- list()
-rtlme_switch_ranef_structure <- list()
+# Fixed effects and per-dataset random-effects structure for each model
+RTLME_BASELINE_MODELS <- list(
+  rtlme_baseline = list(
+    fixed = "rt ~ 1 + sv_abs_z",
+    ranef = c(
+      equalIndifference = "(1 + sv_abs_z || sub)",
+      equalRange        = "(1 + sv_abs_z | sub)",
+      sheng2020         = "(1 + sv_abs_z | sub)"
+    )
+  ),
+  rtlme_switch = list(
+    fixed = "rt ~ 1 + sv_abs_z + switch",
+    ranef = c(
+      equalIndifference = "(1 + sv_abs_z + switch | sub)",
+      equalRange        = "(1 + sv_abs_z + switch | sub)",
+      sheng2020         = "(1 + sv_abs_z + switch | sub)"
+    )
+  )
+)
 
-for (ds in datasets) {
-  message(sprintf("\nFitting RT baseline model for dataset: %s", ds))
-  df_sub <- rtlme_data[rtlme_data$dataset == ds, ]
-
-  m <- glmer(
-    rt ~ sv_abs_z + (1 + sv_abs_z | sub),
-    data = df_sub,
+fit_rtlme <- function(df, fixed, ranef) {
+  glmer(
+    as.formula(paste(fixed, "+", ranef)),
+    data = df,
     family = Gamma(link = "identity"),
     control = GLMER_CONTROL
   )
-  diag <- check_model_diagnostics(m)
-  ranef_structure <- "(1 + sv_abs | sub)"
-
-  message(sprintf("  converged: %s, singular: %s, random effects: %s",
-                  diag$converged, diag$singular, ranef_structure))
-
-  rtlme_baseline_models_list[[ds]] <- list(rtlme_baseline = m)
-  rtlme_baseline_ranef_structure[[ds]] <- ranef_structure
-
-  message(sprintf("\nFitting RT baseline+switch model for dataset: %s", ds))
-
-  m_switch <- glmer(
-    rt ~ sv_abs_z + switch + (1 + sv_abs_z + switch | sub),
-    data = df_sub,
-    family = Gamma(link = "log"),
-    control = GLMER_CONTROL
-  )
-  diag_switch <- check_model_diagnostics(m_switch)
-  ranef_structure_switch <- "(1 + sv_abs + switch | sub)"
-
-  message(sprintf("  converged: %s, singular: %s, random effects: %s",
-                  diag_switch$converged, diag_switch$singular,
-                  ranef_structure_switch))
-
-  rtlme_switch_models_list[[ds]] <- list(rtlme_switch = m_switch)
-  rtlme_switch_ranef_structure[[ds]] <- ranef_structure_switch
 }
 
 # =============================================================================
-# Fixed effects
+# Fit models
 # =============================================================================
-message("\nExtracting fixed effects...")
-baseline_fixed_effects <- extract_fixed_effects(
-  model_list = rtlme_baseline_models_list,
-  datasets   = datasets,
-  models     = c("rtlme_baseline"),
-  p_method   = p_method
-)
-write.csv(baseline_fixed_effects,
-          file.path(analysis_results_path, "1_rtlme_baseline_fixed_effects.csv"),
-          row.names = FALSE)
-message("Saved: 1_rtlme_baseline_fixed_effects.csv")
+rtlme_baseline_models <- list()
+rtlme_baseline_convergence <- list()
+
+for (ds in datasets) {
+  df_sub <- rtlme_data[rtlme_data$dataset == ds, ]
+  rtlme_baseline_models[[ds]] <- list()
+
+  for (name in names(RTLME_BASELINE_MODELS)) {
+    spec  <- RTLME_BASELINE_MODELS[[name]]
+    ranef <- spec$ranef[[ds]]
+
+    message(sprintf("\nFitting %s for dataset: %s", name, ds))
+    m <- fit_rtlme(df_sub, spec$fixed, ranef)
+    diag <- check_model_diagnostics(m)
+    message(sprintf("  converged: %s, singular: %s, random effects: %s",
+                    diag$converged, diag$singular, ranef))
+
+    rtlme_baseline_models[[ds]][[name]] <- m
+    convergence_row <- data.frame(
+      dataset          = ds,
+      model            = name,
+      converged        = diag$converged,
+      singular         = diag$singular,
+      random_effects   = ranef,
+      stringsAsFactors = FALSE
+    )
+    rtlme_baseline_convergence <- c(rtlme_baseline_convergence,
+                                    list(convergence_row))
+  }
+}
+rtlme_baseline_convergence <- do.call(rbind, rtlme_baseline_convergence)
 
 # =============================================================================
-# Convergence report
+# Save fixed effects and convergence reports
 # =============================================================================
-baseline_convergence <- do.call(rbind, lapply(datasets, function(ds) {
-  d <- check_model_diagnostics(rtlme_baseline_models_list[[ds]][["rtlme_baseline"]])
-  data.frame(dataset          = ds,
-             model            = "rtlme_baseline",
-             converged        = d$converged,
-             singular         = d$singular,
-             random_effects   = rtlme_baseline_ranef_structure[[ds]],
-             stringsAsFactors = FALSE)
-}))
+for (name in names(RTLME_BASELINE_MODELS)) {
+  fixed_effects <- extract_fixed_effects(
+    model_list = rtlme_baseline_models,
+    datasets   = datasets,
+    models     = name,
+    p_method   = p_method
+  )
+  fixed_effects_file <- paste0("1_", name, "_fixed_effects.csv")
+  write.csv(fixed_effects, file.path(analysis_results_path, fixed_effects_file),
+            row.names = FALSE)
+  message("Saved: ", fixed_effects_file)
 
-write.csv(baseline_convergence,
-          file.path(analysis_results_path, "1_rtlme_baseline_convergence_report.csv"),
-          row.names = FALSE)
-message("Saved: 1_rtlme_baseline_convergence_report.csv")
-
-# =============================================================================
-# Fixed effects: baseline + switch model
-# =============================================================================
-message("\nExtracting fixed effects...")
-switch_fixed_effects <- extract_fixed_effects(
-  model_list = rtlme_switch_models_list,
-  datasets   = datasets,
-  models     = c("rtlme_switch"),
-  p_method   = p_method
-)
-write.csv(switch_fixed_effects,
-          file.path(analysis_results_path, "1_rtlme_switch_fixed_effects.csv"),
-          row.names = FALSE)
-message("Saved: 1_rtlme_switch_fixed_effects.csv")
-
-# =============================================================================
-# Convergence report: baseline + switch model
-# =============================================================================
-switch_convergence <- do.call(rbind, lapply(datasets, function(ds) {
-  d <- check_model_diagnostics(rtlme_switch_models_list[[ds]][["rtlme_switch"]])
-  data.frame(dataset          = ds,
-             model            = "rtlme_switch",
-             converged        = d$converged,
-             singular         = d$singular,
-             random_effects   = rtlme_switch_ranef_structure[[ds]],
-             stringsAsFactors = FALSE)
-}))
-
-write.csv(switch_convergence,
-          file.path(analysis_results_path,
-                    "1_rtlme_switch_convergence_report.csv"),
-          row.names = FALSE)
-message("Saved: 1_rtlme_switch_convergence_report.csv")
+  convergence_file <- paste0("1_", name, "_convergence_report.csv")
+  is_model <- rtlme_baseline_convergence$model == name
+  write.csv(rtlme_baseline_convergence[is_model, ],
+            file.path(analysis_results_path, convergence_file),
+            row.names = FALSE)
+  message("Saved: ", convergence_file)
+}

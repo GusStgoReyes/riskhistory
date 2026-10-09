@@ -1,12 +1,36 @@
 # =============================================================================
 # Utility functions for fitting timepoint models on pupil data
 # =============================================================================
-# normalize_pairwise_contrasts() now lives in analysis_utils/utils_contrasts.R
-# (shared with analysis_pupilbehavior) and is sourced via 0_config.R.
+# normalize_pairwise_contrasts() lives in analysis_utils/utils_contrasts.R
 
-# Fit a single timepoint LME model
+# Equal-weight means of groups of `by_var` levels (e.g. accept = mean of A-A
+# and R-A), plus the first-minus-second group contrast
+pooled_predictions <- function(pred, by_var, pooled_levels) {
+  pred_levels <- as.character(as.data.frame(pred)[[by_var]])
+  weights <- sapply(pooled_levels,
+                    function(lv) (pred_levels %in% lv) / length(lv))
+
+  contrast_weights <- weights[, 1, drop = FALSE] - weights[, 2]
+  colnames(contrast_weights) <- paste(names(pooled_levels)[1:2],
+                                      collapse = " - ")
+
+  list(
+    avgpred_choice = hypotheses(pred, hypothesis = weights) %>%
+      as.data.frame() %>%
+      transmute(choice = term, avgpred = estimate, SE = std.error,
+                statistic, p.value, asymp.LCL = conf.low,
+                asymp.UCL = conf.high),
+    contrasts_choice = hypotheses(pred, hypothesis = contrast_weights) %>%
+      as.data.frame() %>%
+      transmute(contrast = term, estimate, SE = std.error,
+                z.ratio = statistic, p.value)
+  )
+}
+
+# Fit a single timepoint LME model; returns a named list of result tables
 fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
-                                emmeans_var = NULL, contrast_pairs = NULL) {
+                                emmeans_var = NULL, contrast_pairs = NULL,
+                                pooled_levels = NULL) {
   if (nrow(data) < min_obs) {
     warning(sprintf("Insufficient data for timebin %.3f in %s (%d < %d), skipping...",
                     timebin, dataset, nrow(data), min_obs))
@@ -19,7 +43,6 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
     warning(sprintf("Model failed for timebin %.3f in %s: %s", timebin, dataset, e$message))
     return(NULL)
   })
-
   if (is.null(model)) return(NULL)
 
   diagnostics <- check_model_diagnostics(model)
@@ -31,143 +54,116 @@ fit_timepoint_model <- function(data, formula, timebin, dataset, min_obs = 50,
                     timebin, dataset, e$message))
     return(NULL)
   })
-
   if (is.null(model_results)) return(NULL)
 
-  model_results$timebin   <- timebin
-  model_results$dataset   <- dataset
   model_results$converged <- diagnostics$converged
   model_results$singular  <- diagnostics$singular
+  tables <- list(fixed_effects = model_results)
 
-  if (is.null(emmeans_var)) {
-    return(model_results)
+  # ---------------------------------------------------------------------
+  # Average predictions, pairwise contrasts, and pooled-level means
+  # ---------------------------------------------------------------------
+  if (!is.null(emmeans_var)) {
+    marginal_tables <- tryCatch({
+      pred <- avg_predictions(model, by = emmeans_var, re.form = NA)
+      out <- list(
+        avgpred = as.data.frame(pred) %>%
+          rename(avgpred = estimate, SE = std.error,
+                 asymp.LCL = conf.low, asymp.UCL = conf.high)
+      )
+
+      if (length(contrast_pairs) > 0) {
+        comp <- avg_comparisons(model,
+                                variables = setNames(list("pairwise"), emmeans_var),
+                                re.form = NA)
+        out$contrasts <- normalize_pairwise_contrasts(as.data.frame(comp),
+                                                      contrast_pairs)
+      }
+
+      if (length(pooled_levels) > 0) {
+        out <- c(out, pooled_predictions(pred, emmeans_var, pooled_levels))
+      }
+      out
+    }, error = function(e) {
+      warning(sprintf("marginaleffects failed for timebin %.3f in %s: %s",
+                      timebin, dataset, e$message))
+      list()
+    })
+    tables <- c(tables, marginal_tables)
   }
 
-  # ---------------------------------------------------------------------
-  # Average predictions + pairwise avg_comparisons()
-  # ---------------------------------------------------------------------
-  marginal_result <- tryCatch({
-    pred <- avg_predictions(model, by = emmeans_var, re.form = NA)
-
-    avgpred_df <- as.data.frame(pred) %>%
-      rename(avgpred = estimate, SE = std.error,
-             asymp.LCL = conf.low, asymp.UCL = conf.high)
-    avgpred_df$timebin <- timebin
-    avgpred_df$dataset <- dataset
-
-    contrasts_df <- NULL
-    if (!is.null(contrast_pairs) && length(contrast_pairs) > 0) {
-      comp <- avg_comparisons(model, variables = setNames(list("pairwise"), emmeans_var),  re.form = NA)
-      comp_df <- as.data.frame(comp)
-
-      contrasts_df <- normalize_pairwise_contrasts(comp_df, contrast_pairs)
-      if (!is.null(contrasts_df)) {
-        contrasts_df$timebin <- timebin
-        contrasts_df$dataset <- dataset
-      }
-    }
-
-    list(avgpred = avgpred_df, contrasts = contrasts_df)
-  }, error = function(e) {
-    warning(sprintf("marginaleffects failed for timebin %.3f in %s: %s",
-                    timebin, dataset, e$message))
-    return(NULL)
+  tables <- tables[!vapply(tables, is.null, logical(1))]
+  lapply(tables, function(df) {
+    df$timebin <- timebin
+    df$dataset <- dataset
+    df
   })
+}
 
-  list(
-    fixed     = model_results,
-    avgpred   = if (!is.null(marginal_result)) marginal_result$avgpred else NULL,
-    contrasts = if (!is.null(marginal_result)) marginal_result$contrasts else NULL
-  )
+
+# Row-bind each named table across a list of per-timebin/per-dataset results
+bind_result_tables <- function(results) {
+  results <- results[!vapply(results, is.null, logical(1))]
+  table_names <- unique(unlist(lapply(results, names)))
+  setNames(lapply(table_names, function(name) {
+    bind_rows(lapply(results, `[[`, name))
+  }), table_names)
 }
 
 
 # Run timepoint models for a single dataset
 run_models_for_dataset <- function(data, formula, dataset, min_obs = 50,
-                                   emmeans_var = NULL, contrast_pairs = NULL) {
+                                   emmeans_var = NULL, contrast_pairs = NULL,
+                                   pooled_levels = NULL) {
   timebins <- sort(unique(data$timebin))
   message(sprintf("    %d timebins, %d observations", length(timebins), nrow(data)))
 
-  fixed_effects_list <- list()
-  avgpred_list <- list()
-  contrasts_list <- list()
+  results <- lapply(timebins, function(tb) {
+    fit_timepoint_model(data %>% filter(timebin == tb), formula, tb, dataset,
+                        min_obs, emmeans_var = emmeans_var,
+                        contrast_pairs = contrast_pairs,
+                        pooled_levels = pooled_levels)
+  })
+  if (all(vapply(results, is.null, logical(1)))) return(NULL)
 
-  for (i in seq_along(timebins)) {
-    tb      <- timebins[i]
-    tb_data <- data %>% filter(timebin == tb)
-    result  <- fit_timepoint_model(tb_data, formula, tb, dataset, min_obs,
-                                   emmeans_var = emmeans_var,
-                                   contrast_pairs = contrast_pairs)
-    if (is.null(result)) next
-
-    if (is.null(emmeans_var)) {
-      fixed_effects_list[[length(fixed_effects_list) + 1]] <- result
-    } else {
-      fixed_effects_list[[length(fixed_effects_list) + 1]] <- result$fixed
-      if (!is.null(result$avgpred)) {
-        avgpred_list[[length(avgpred_list) + 1]] <- result$avgpred
-      }
-      if (!is.null(result$contrasts)) {
-        contrasts_list[[length(contrasts_list) + 1]] <- result$contrasts
-      }
-    }
-  }
-
-  if (length(fixed_effects_list) == 0) return(NULL)
-
-  list(
-    fixed_effects = do.call(rbind, fixed_effects_list),
-    avgpred       = if (length(avgpred_list) > 0) do.call(rbind, avgpred_list) else NULL,
-    contrasts     = if (length(contrasts_list) > 0) do.call(rbind, contrasts_list) else NULL
-  )
+  bind_result_tables(results)
 }
 
 
-# Run timepoint models across all datasets with per-dataset p-value adjustment
+# Run timepoint models across all datasets, BH-adjusting fixed effects and
+# contrasts across timebins within each dataset
 run_all_timepoint_models <- function(data, formula, datasets, p_method = "BH",
                                      min_obs = 50, emmeans_var = NULL,
-                                     contrast_pairs = NULL) {
-  fixed_effects_all <- list()
-  avgpred_all <- list()
-  contrasts_all <- list()
+                                     contrast_pairs = NULL,
+                                     pooled_levels = NULL) {
+  adjusted_tables <- c("fixed_effects", "contrasts", "contrasts_choice")
 
-  for (ds in datasets) {
+  results <- lapply(datasets, function(ds) {
     message(sprintf("  Processing dataset: %s", ds))
     ds_data <- data %>% filter(dataset == ds)
-
     if (nrow(ds_data) == 0) {
       warning(sprintf("No data for dataset %s, skipping...", ds))
-      next
+      return(NULL)
     }
 
     ds_results <- run_models_for_dataset(ds_data, formula, ds, min_obs,
                                          emmeans_var = emmeans_var,
-                                         contrast_pairs = contrast_pairs)
-
+                                         contrast_pairs = contrast_pairs,
+                                         pooled_levels = pooled_levels)
     if (is.null(ds_results)) {
       warning(sprintf("No valid results for dataset %s", ds))
-      next
+      return(NULL)
     }
 
-    ds_fixed <- ds_results$fixed_effects
-    ds_fixed$p_adj_bh <- p.adjust(ds_fixed$p.value, method = p_method)
-    fixed_effects_all[[length(fixed_effects_all) + 1]] <- ds_fixed
+    for (name in intersect(adjusted_tables, names(ds_results))) {
+      ds_results[[name]]$p_adj_bh <- p.adjust(ds_results[[name]]$p.value,
+                                              method = p_method)
+    }
+    ds_results
+  })
 
-    if (!is.null(ds_results$avgpred)) {
-      avgpred_all[[length(avgpred_all) + 1]] <- ds_results$avgpred
-    }
-    if (!is.null(ds_results$contrasts)) {
-      ds_contrasts <- ds_results$contrasts
-      ds_contrasts$p_adj_bh <- p.adjust(ds_contrasts$p.value, method = p_method)
-      contrasts_all[[length(contrasts_all) + 1]] <- ds_contrasts
-    }
+  if (all(vapply(results, is.null, logical(1)))) {
+    stop("No valid results from any dataset")
   }
-
-  if (length(fixed_effects_all) == 0) stop("No valid results from any dataset")
-
-  list(
-    fixed_effects = do.call(rbind, fixed_effects_all),
-    avgpred       = if (length(avgpred_all) > 0) do.call(rbind, avgpred_all) else NULL,
-    contrasts     = if (length(contrasts_all) > 0) do.call(rbind, contrasts_all) else NULL
-  )
+  bind_result_tables(results)
 }

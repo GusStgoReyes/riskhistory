@@ -2,29 +2,29 @@
 # Choice History Effect by Subjective-Value Partition
 # =============================================================================
 # Add subjective values and regressors to data (from previous file)
-pth_betas <- file.path(analysis_results_path, "1_baselinebehavior_betas.csv")
+pth_betas <- file.path(analysis_results_path,
+                       "1_prospecttheory_baseline_betas.csv")
 data <- add_subjectivevalues_and_regressors(behavioral_data_full, pth_betas)
-data <- subset(data, !exclude)
 
 historyeffect_predictions_list <- list()
 historyeffect_contrasts_list   <- list()
+svpartition_models_list        <- list()
 
 for (ds in datasets) {
   print(paste("Running SV-partition choice-history model for dataset:", ds))
   df_sub <- data[data$dataset == ds, ]
 
-  # equalRange gives a singular fit with a subject random slope on choice_prev1
-  if (ds == "equalRange") {
-    mod <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
-                   (1 + loss_centered + gain_centered | sub),
-                 data = df_sub, family = binomial, control = GLMER_CONTROL)
-  } else {
-    mod <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
-                   (1 + loss_centered + gain_centered + choice_prev1 | sub),
-                 data = df_sub, family = binomial, control = GLMER_CONTROL)
-  }
+  mod <- glmer(accept ~ sv_z * choice_prev1 + sv_abs_z * choice_prev1  +
+                 (1 | sub),
+               data = df_sub, family = binomial, control = GLMER_CONTROL)
 
-  # Choice-history effect (previous accept minus previous reject) and its
+  svpartition_models_list <- add_models_to_list(
+    models_list = svpartition_models_list,
+    ds     = ds,
+    models = list(M_svpartition = mod)
+  )
+
+  # Choice history effect (previous accept minus previous reject) and its
   # significance within each SV partition
   message(sprintf(
     "  Computing choice-history effect by SV partition for dataset: %s", ds
@@ -57,6 +57,21 @@ historyeffect_contrasts_df$p_adj_bh <- ave(
 write.csv(historyeffect_contrasts_df,
           file.path(analysis_results_path,
                     "3_choicehistory_svpartitions_contrasts.csv"),
+          row.names = FALSE)
+
+# =============================================================================
+# Fixed effects for the SV-partition models
+# =============================================================================
+print("Extracting fixed effects for SV-partition models...")
+svpartition_fixed_effects <- extract_fixed_effects(
+  model_list = svpartition_models_list,
+  datasets   = datasets,
+  models     = "M_svpartition",
+  p_method   = p_method
+)
+write.csv(svpartition_fixed_effects,
+          file.path(analysis_results_path,
+                    "3_choicehistory_svpartitions_fixed_effects.csv"),
           row.names = FALSE)
 
 print("SV-partition choice-history effect analysis complete.")

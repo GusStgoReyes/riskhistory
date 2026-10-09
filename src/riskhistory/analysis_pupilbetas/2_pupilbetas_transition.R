@@ -2,103 +2,114 @@
 # Pupil Betas — Transition Model
 # =============================================================================
 
-formula_pupilbetas_transition <- pupil ~ logRT_z + gain_z + loss_z +
-  entropy_c + abs_delta_ev_z + transition + (0 + logRT_z  + entropy_c| sub)
+PUPILBETAS_TRANSITION_FIXED <-
+  "pupil ~ 1 + rt_z + gain_z + loss_z + entropy_z + abs_delta_ev_z + transition"
 
-# =============================================================================
-# Fit per dataset
-# =============================================================================
-transitionmodel_list <- setNames(lapply(datasets, function(x) list()), datasets)
+# Random-effects structure per dataset
+PUPILBETAS_TRANSITION_RANEF <- c(
+  equalIndifference = paste("(0 + rt_z + gain_z + loss_z + entropy_z +",
+                            "abs_delta_ev_z + transition_AR +",
+                            "transition_RA || sub)"),
+  equalRange        = paste("(0 + rt_z + loss_z + entropy_z +",
+                            "abs_delta_ev_z + transition_AR || sub)"),
+  sheng2020         = paste("(0 + rt_z + gain_z + loss_z + abs_delta_ev_z",
+                            "+ transition_AR+transition_RA || sub)")
+)
 
-for (ds in datasets) {
-  message(sprintf("\nFitting transition model for dataset: %s", ds))
-  df <- data_betas_clean %>% filter(dataset == ds)
+# Current choice = accept vs. reject, each an equal-weight mean of 2 transitions
+ACCEPT_TRANSITIONS <- c("accept_to_accept", "reject_to_accept")
 
-  pupilbetas_transition <- lmer(formula_pupilbetas_transition, data = df,
-                                control = LMER_CONTROL)
-  print(summary(pupilbetas_transition)$varcor)
-
-  transitionmodel_list[[ds]] <- list(pupilbetas_transition = pupilbetas_transition)
+save_csv <- function(df, filename) {
+  write.csv(df, file.path(analysis_results_path, filename), row.names = FALSE)
+  message("Saved: ", filename)
 }
 
 # =============================================================================
-# Convergence report
+# Fit models, predictions, and contrasts
 # =============================================================================
-convergence_df <- check_convergence_all_models(transitionmodel_list, datasets,
-                                               "pupilbetas_transition")
-
-write.csv(convergence_df,
-          file.path(analysis_results_path,
-                    "3_pupilbetas_transition_convergence.csv"),
-          row.names = FALSE)
-message("Saved: 3_pupilbetas_transition_convergence.csv")
-
-# =============================================================================
-# Fixed effects
-# =============================================================================
-fixed_effects <- extract_fixed_effects(
-  model_list = transitionmodel_list,
-  datasets   = datasets,
-  models     = "pupilbetas_transition",
-  p_method   = p_method
-)
-
-write.csv(fixed_effects,
-          file.path(analysis_results_path,
-                    "3_pupilbetas_transition_fixed_effects.csv"),
-          row.names = FALSE)
-message("Saved: 3_pupilbetas_transition_fixed_effects.csv")
-
-# =============================================================================
-# Average predictions + all pairwise avg_comparisons() between transition
-# levels
-# =============================================================================
-avgpred_rows <- list()
-contrasts_rows <- list()
+transition_models <- list()
+transition_convergence <- list()
+avgpred_list <- list()
+contrasts_list <- list()
+choice_contrast_list <- list()
 
 for (ds in datasets) {
-  message(sprintf("\nComputing transition avg_predictions/avg_comparisons for dataset: %s", ds))
-  m <- transitionmodel_list[[ds]][["pupilbetas_transition"]]
-  df <- data_betas_clean %>% filter(dataset == ds)
+  df    <- data_betas_clean %>% filter(dataset == ds)
+  ranef <- PUPILBETAS_TRANSITION_RANEF[[ds]]
 
-  pred <- avg_predictions(m, by = "transition")
+  message(sprintf("\nFitting pupilbetas_transition for dataset: %s", ds))
+  m <- lmer(as.formula(paste(PUPILBETAS_TRANSITION_FIXED, "+", ranef)),
+            data = df, control = LMER_CONTROL)
+  diag <- check_model_diagnostics(m)
+  message(sprintf("  converged: %s, singular: %s, random effects: %s",
+                  diag$converged, diag$singular, ranef))
+  print(summary(m)$varcor)
 
-  avgpred_rows[[ds]] <- as.data.frame(pred) %>%
+  transition_models[[ds]] <- list(pupilbetas_transition = m)
+  transition_convergence[[ds]] <- data.frame(
+    dataset          = ds,
+    model            = "pupilbetas_transition",
+    converged        = diag$converged,
+    singular         = diag$singular,
+    random_effects   = ranef,
+    stringsAsFactors = FALSE
+  )
+
+  # Pupil per transition level, all pairwise contrasts, and accept - reject
+  pred <- avg_predictions(m, by = "transition", type = "response", re.form = NA)
+  avgpred_list[[ds]] <- pred %>%
+    as.data.frame() %>%
     rename(avgpred = estimate, SE = std.error,
            asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
     mutate(dataset = ds) %>%
     select(dataset, transition, avgpred, SE, asymp.LCL, asymp.UCL)
 
-  comp <- avg_comparisons(m, variables = list(transition = "pairwise"))
-  comp_df <- as.data.frame(comp)
+  contrasts_list[[ds]] <- avg_comparisons(
+    m, variables = list(transition = "pairwise")
+  ) %>%
+    as.data.frame() %>%
+    rename(SE = std.error, z.ratio = statistic) %>%
+    mutate(dataset = ds) %>%
+    select(dataset, contrast, estimate, SE, z.ratio, p.value)
 
-  contrasts_rows[[ds]] <- data.frame(
-    dataset  = ds,
-    contrast = comp_df$contrast,
-    estimate = comp_df$estimate,
-    SE       = comp_df$std.error,
-    z.ratio  = comp_df$statistic,
-    p.value  = comp_df$p.value,
-    stringsAsFactors = FALSE
-  )
+  is_accept <- as.data.frame(pred)$transition %in% ACCEPT_TRANSITIONS
+  choice_weights <- matrix(ifelse(is_accept, 0.5, -0.5), ncol = 1,
+                           dimnames = list(NULL, "accept - reject"))
+  choice_contrast_list[[ds]] <- pred %>%
+    hypotheses(hypothesis = choice_weights, type = "response", re.form = NA) %>%
+    as.data.frame() %>%
+    rename(contrast = term, SE = std.error, z.ratio = statistic) %>%
+    mutate(dataset = ds) %>%
+    select(dataset, contrast, estimate, SE, z.ratio, p.value)
 }
 
-avgpred_df <- bind_rows(avgpred_rows)
-write.csv(avgpred_df,
-          file.path(analysis_results_path,
-                    "2_pupilbetas_transition_emmeans.csv"),
-          row.names = FALSE)
-message("Saved: 2_pupilbetas_transition_emmeans.csv")
+# =============================================================================
+# Save convergence, fixed effects, predictions, and contrasts
+# =============================================================================
+save_csv(bind_rows(transition_convergence),
+         "3_pupilbetas_transition_convergence.csv")
 
-# p_adj_bh
-contrasts_df <- bind_rows(contrasts_rows)
-contrasts_df$p_adj_bh <- ave(contrasts_df$p.value, contrasts_df$dataset,
-                             FUN = function(p) p.adjust(p, method = p_method))
+save_csv(
+  extract_fixed_effects(
+    model_list = transition_models,
+    datasets   = datasets,
+    models     = "pupilbetas_transition",
+    p_method   = p_method
+  ),
+  "3_pupilbetas_transition_fixed_effects.csv"
+)
 
-write.csv(contrasts_df,
-          file.path(analysis_results_path,
-                    "2_pupilbetas_transition_contrasts.csv"),
-          row.names = FALSE)
-message("Saved: 2_pupilbetas_transition_contrasts.csv")
+save_csv(bind_rows(avgpred_list), "2_pupilbetas_transition_emmeans.csv")
+
+save_csv(
+  bind_rows(contrasts_list) %>%
+    group_by(dataset) %>%
+    mutate(p_adj_bh = p.adjust(p.value, method = p_method)) %>%
+    ungroup(),
+  "2_pupilbetas_transition_contrasts.csv"
+)
+
+save_csv(bind_rows(choice_contrast_list),
+         "2_pupilbetas_transition_contrast_choice.csv")
 
 message("\nPupil transition analysis complete.")

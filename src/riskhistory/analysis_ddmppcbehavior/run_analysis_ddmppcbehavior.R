@@ -1,5 +1,2 @@
 source("0_config.R")
-source("1_acceptglme.R")
-source("2_rtlme.R")
-source("3_pupilaccept.R")
-source("4_pupilaccept_comparison.R")
+source("1_pupilaccept_comparison.R")

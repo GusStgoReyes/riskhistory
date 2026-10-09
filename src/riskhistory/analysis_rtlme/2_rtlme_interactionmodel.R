@@ -1,103 +1,93 @@
 # =============================================================================
-# Model 2: log(rt) ~ sv_abs + transition
+# Interaction RT model: |subjective value| + transition (current x prev. choice)
 # =============================================================================
-rtlme_models_list <- list()
-rtlme_interaction_ranef_structure <- list()
+
+# Random-effects structure per dataset
+RTLME_INTERACTION_RANEF <- c(
+  equalIndifference = "(1 + sv_abs_z + transition | sub)",
+  equalRange        = "(1 + sv_abs_z + transition | sub)",
+  sheng2020         = "(1 + sv_abs_z + transition | sub)"
+)
+
+save_csv <- function(df, filename) {
+  write.csv(df, file.path(analysis_results_path, filename), row.names = FALSE)
+  message("Saved: ", filename)
+}
+
+# =============================================================================
+# Fit models, predictions, and contrasts
+# =============================================================================
+rtlme_interaction_models <- list()
+rtlme_interaction_convergence <- list()
 rtlme_avgpred_list <- list()
 rtlme_contrasts_list <- list()
 
 for (ds in datasets) {
-  message(sprintf("\nFitting RT interaction model for dataset: %s", ds))
   df_sub <- rtlme_data[rtlme_data$dataset == ds, ]
+  ranef  <- RTLME_INTERACTION_RANEF[[ds]]
 
+  message(sprintf("\nFitting rtlme_interaction for dataset: %s", ds))
   m <- glmer(
-    rt ~ sv_abs_z + transition + (1 + sv_abs_z + transition | sub),
+    as.formula(paste("rt ~ 1 + sv_abs_z + transition +", ranef)),
     data = df_sub,
     family = Gamma(link = "identity"),
     control = GLMER_CONTROL
   )
   diag <- check_model_diagnostics(m)
-  ranef_structure <- "(1 + sv_abs + transition | sub)"
-
   message(sprintf("  converged: %s, singular: %s, random effects: %s",
-                  diag$converged, diag$singular, ranef_structure))
+                  diag$converged, diag$singular, ranef))
 
-  rtlme_models_list[[ds]] <- list(rtlme_interaction = m)
-  rtlme_interaction_ranef_structure[[ds]] <- ranef_structure
+  rtlme_interaction_models[[ds]] <- list(rtlme_interaction = m)
+  rtlme_interaction_convergence[[ds]] <- data.frame(
+    dataset          = ds,
+    model            = "rtlme_interaction",
+    converged        = diag$converged,
+    singular         = diag$singular,
+    random_effects   = ranef,
+    stringsAsFactors = FALSE
+  )
 
-  message(sprintf("  Computing avg_predictions for dataset: %s", ds))
-  pred <- avg_predictions(m, by = "transition", type = "response", re.form = NA)
-
-  rtlme_avgpred_list[[ds]] <- as.data.frame(pred) %>%
+  # Population-level (re.form = NA) RT per transition and pairwise contrasts
+  rtlme_avgpred_list[[ds]] <- avg_predictions(
+    m, by = "transition", type = "response", re.form = NA
+  ) %>%
+    as.data.frame() %>%
     rename(avgpred = estimate, asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
     mutate(dataset = ds) %>%
     select(dataset, transition, avgpred, asymp.LCL, asymp.UCL, p.value)
 
-  message(sprintf("  Computing avg_comparisons for dataset: %s", ds))
-  comp <- avg_comparisons(m, variables = list(transition = "pairwise"),
-                          type = "response", re.form = NA)
-  comp_df <- as.data.frame(comp)
-
-  rtlme_contrasts_list[[ds]] <- data.frame(
-    dataset  = ds,
-    contrast = comp_df$contrast,
-    estimate = comp_df$estimate,
-    asymp.LCL = comp_df$conf.low,
-    asymp.UCL = comp_df$conf.high,
-    p.value  = comp_df$p.value,
-    stringsAsFactors = FALSE
-  )
+  rtlme_contrasts_list[[ds]] <- avg_comparisons(
+    m, variables = list(transition = "pairwise"),
+    type = "response", re.form = NA
+  ) %>%
+    as.data.frame() %>%
+    rename(asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
+    mutate(dataset = ds) %>%
+    select(dataset, contrast, estimate, asymp.LCL, asymp.UCL, p.value)
 }
 
 # =============================================================================
-# Fixed effects
+# Save fixed effects, predictions, contrasts, and convergence report
 # =============================================================================
-message("\nExtracting fixed effects...")
-interaction_fixed_effects <- extract_fixed_effects(
-  model_list = rtlme_models_list,
-  datasets   = datasets,
-  models     = c("rtlme_interaction"),
-  p_method   = p_method
+save_csv(
+  extract_fixed_effects(
+    model_list = rtlme_interaction_models,
+    datasets   = datasets,
+    models     = "rtlme_interaction",
+    p_method   = p_method
+  ),
+  "2_rtlme_interaction_fixed_effects.csv"
 )
-write.csv(interaction_fixed_effects,
-          file.path(analysis_results_path, "2_rtlme_interaction_fixed_effects.csv"),
-          row.names = FALSE)
-message("Saved: 2_rtlme_interaction_fixed_effects.csv")
 
+save_csv(bind_rows(rtlme_avgpred_list), "2_rtlme_interaction_avgpred.csv")
 
-rtlme_avgpred_df <- bind_rows(rtlme_avgpred_list)
-write.csv(rtlme_avgpred_df,
-          file.path(analysis_results_path, "2_rtlme_interaction_avgpred.csv"),
-          row.names = FALSE)
-message("Saved: 2_rtlme_interaction_avgpred.csv")
-
-# =============================================================================
-# Switch-effect contrasts
-# =============================================================================
-rtlme_contrasts_df <- bind_rows(rtlme_contrasts_list)
-rtlme_contrasts_df$p_adj_bh <- ave(
-  rtlme_contrasts_df$p.value, rtlme_contrasts_df$dataset,
-  FUN = function(p) p.adjust(p, method = p_method)
+save_csv(
+  bind_rows(rtlme_contrasts_list) %>%
+    group_by(dataset) %>%
+    mutate(p_adj_bh = p.adjust(p.value, method = p_method)) %>%
+    ungroup(),
+  "2_rtlme_interaction_contrasts.csv"
 )
-write.csv(rtlme_contrasts_df,
-          file.path(analysis_results_path, "2_rtlme_interaction_contrasts.csv"),
-          row.names = FALSE)
-message("Saved: 2_rtlme_interaction_contrasts.csv")
 
-# =============================================================================
-# Convergence report
-# =============================================================================
-interaction_convergence <- do.call(rbind, lapply(datasets, function(ds) {
-  d <- check_model_diagnostics(rtlme_models_list[[ds]][["rtlme_interaction"]])
-  data.frame(dataset          = ds,
-             model            = "rtlme_interaction",
-             converged        = d$converged,
-             singular         = d$singular,
-             random_effects   = rtlme_interaction_ranef_structure[[ds]],
-             stringsAsFactors = FALSE)
-}))
-
-write.csv(interaction_convergence,
-          file.path(analysis_results_path, "2_rtlme_interaction_convergence_report.csv"),
-          row.names = FALSE)
-message("Saved: 2_rtlme_interaction_convergence_report.csv")
+save_csv(bind_rows(rtlme_interaction_convergence),
+         "2_rtlme_interaction_convergence_report.csv")

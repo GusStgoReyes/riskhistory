@@ -1,17 +1,14 @@
 # =============================================================================
-# Run the Confound Models in R
+# Run the Choice history models in R
 # =============================================================================
-# Add subjective values and regressors to data (from previous file)
-pth_betas <- file.path(analysis_results_path, "1_baselinebehavior_betas.csv")
-data <- add_subjectivevalues_and_regressors(behavioral_data_full, pth_betas)
-data <- subset(data, !exclude)
-
-betas_model2 <- list()
 
 for (ds in datasets) {
   print(paste("Running choice history models for dataset:", ds))
-  df_sub <- data[data$dataset == ds, ]
-
+  df_sub <- behavioral_data[behavioral_data$dataset == ds, ]
+  # 1. BASELINE
+  model1 <- glmer(accept ~ gain_centered + loss_centered +
+                    (1 + loss_centered + gain_centered | sub),
+                  data = df_sub, family = binomial, control = GLMER_CONTROL)
   # CHOICE HISTORY MODEL (MODEL OF INTEREST)
   model2 <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
                     (1 + loss_centered + gain_centered | sub),
@@ -62,6 +59,7 @@ for (ds in datasets) {
                         data = df_sub, family = binomial, control = GLMER_CONTROL)
   }
   models <- list(
+    M1_part1 = model1,
     M2_part1 = model2,
     M2_part1_rnd = model2_rnd,
     M3_part1 = model3,

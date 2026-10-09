@@ -1,119 +1,135 @@
 # =============================================================================
-# Pupil-Behavior — Accept Model
+# Pupil-Behavior — Accept Models (pupil x choice history, with/without RT)
 # =============================================================================
 
-formula_pupilbehavior_accept <- accept ~ gain_centered + loss_centered +
-  choice_prev1 * pupil + choice_prev1 * logRT_z +
-  (1 + gain_centered + loss_centered | sub)
-
-acceptmodel_list <- list()
-acceptmodel_historyeffect_list <- list()
-acceptmodel_pupilbin_contrast_list <- list()
-
-for (ds in datasets) {
-  message(sprintf("\nFitting accept model for dataset: %s", ds))
-  df <- data_pupilbehavior %>% filter(dataset == ds)
-
-  # Binary pupil_bin (median split within sub) needs to already be a column
-  # on df before fitting, so avg_comparisons() below can find it in the
-  # model's own stored data via by = "pupil_bin". Ties (pupil == median) go
-  # to "Low".
-  df <- df %>%
-    group_by(sub) %>%
-    mutate(pupil_bin = ifelse(pupil > median(pupil), "High", "Low")) %>%
-    ungroup()
-
-  m <- glmer(
-    formula_pupilbehavior_accept,
-    data = df, family = binomial, control = GLMER_CONTROL
+# Fixed effects and per-dataset random-effects structure for each model
+PUPILACCEPT_MODELS <- list(
+  pupilbehavior_accept = list(
+    fixed = "accept ~ gain_centered + loss_centered + choice_prev1 * pupil",
+    ranef = c(
+      equalIndifference = paste("(1 + gain_centered + loss_centered +",
+                                "choice_prev1+ pupil || sub)"),
+      equalRange        = "(1 + gain_centered + loss_centered + pupil || sub)",
+      sheng2020         = paste("(1 + gain_centered + loss_centered +",
+                                "choice_prev1 + choice_prev1:pupil || sub)")
+    )
+  ),
+  pupilbehavior_accept_rt = list(
+    fixed = paste("accept ~ gain_centered + loss_centered +",
+                  "choice_prev1 * pupil + choice_prev1 * rt_z"),
+    ranef = c(
+      equalIndifference = paste("(1 + gain_centered + loss_centered +",
+                                "choice_prev1+ pupil || sub)"),
+      equalRange        = "(1 + gain_centered + loss_centered + pupil || sub)",
+      sheng2020         = paste("(1 + gain_centered + loss_centered +",
+                                "choice_prev1 || sub)")
+    )
   )
-  diag <- check_model_diagnostics(m)
-  message(sprintf("  converged: %s, singular: %s", diag$converged, diag$singular))
+)
 
-  acceptmodel_list[[ds]] <- list(pupilbehavior_accept = m)
+# Model used for the choice-history effect by pupil_bin
+PUPILBIN_MODEL <- "pupilbehavior_accept"
 
-  # Choice-history effect (predicted P(accept) difference between a
-  # previous accept and a previous reject) within each pupil_bin.
-  message(sprintf("  Computing choice-history effect by pupil_bin for dataset: %s", ds))
-  history_effect <- avg_comparisons(
-    m, variables = list(choice_prev1 = c(-1, 1)), by = "pupil_bin"
-  )
-  history_effect_df <- as.data.frame(history_effect) %>%
-    mutate(dataset = ds) %>%
-    rename(historyeffect = estimate, SE = std.error,
-           z.ratio = statistic, asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
-    select(dataset, pupil_bin, historyeffect, SE, asymp.LCL, asymp.UCL, p.value)
-  acceptmodel_historyeffect_list[[ds]] <- history_effect_df
-
-  # Low-vs-High contrast of that history effect. Rows are matched by the
-  # pupil_bin label (not row position), since avg_comparisons()'s own
-  # ordering isn't guaranteed.
-  message(sprintf("  Computing Low vs High contrast for dataset: %s", ds))
-  hist_df <- as.data.frame(history_effect)
-  hyp_matrix <- matrix(0, nrow = nrow(hist_df), ncol = 1,
-                       dimnames = list(NULL, "High - Low"))
-  hyp_matrix[hist_df$pupil_bin == "High", 1] <- 1
-  hyp_matrix[hist_df$pupil_bin == "Low", 1] <- -1
-  comp <- hypotheses(history_effect, hypothesis = hyp_matrix)
-  comp_df <- as.data.frame(comp) %>%
-    mutate(dataset = ds) %>%
-    rename(contrast = term, SE = std.error, z.ratio = statistic) %>%
-    select(dataset, contrast, estimate, SE, z.ratio, p.value)
-  acceptmodel_pupilbin_contrast_list[[ds]] <- comp_df
+save_csv <- function(df, filename) {
+  write.csv(df, file.path(analysis_results_path, filename), row.names = FALSE)
+  message("Saved: ", filename)
 }
 
 # =============================================================================
-# Convergence report
+# Fit models, choice-history effect by pupil_bin, and High vs. Low contrast
 # =============================================================================
-convergence_df <- check_convergence_all_models(
-  acceptmodel_list, datasets, c("pupilbehavior_accept")
+pupilaccept_models <- list()
+pupilaccept_convergence <- list()
+historyeffect_list <- list()
+pupilbin_contrast_list <- list()
+
+for (ds in datasets) {
+  # Median split of pupil within subject (ties go to "Low"); must be a column
+  # before fitting so avg_comparisons(by = "pupil_bin") finds it in the model
+  df <- data_pupilbehavior %>%
+    filter(dataset == ds) %>%
+    group_by(sub) %>%
+    mutate(pupil_bin = ifelse(pupil > median(pupil), "High", "Low")) %>%
+    ungroup()
+  pupilaccept_models[[ds]] <- list()
+
+  for (name in names(PUPILACCEPT_MODELS)) {
+    spec  <- PUPILACCEPT_MODELS[[name]]
+    ranef <- spec$ranef[[ds]]
+
+    message(sprintf("\nFitting %s for dataset: %s", name, ds))
+    m <- glmer(
+      as.formula(paste(spec$fixed, "+", ranef)),
+      data = df, family = binomial, control = GLMER_CONTROL
+    )
+    diag <- check_model_diagnostics(m)
+    message(sprintf("  converged: %s, singular: %s, random effects: %s",
+                    diag$converged, diag$singular, ranef))
+
+    pupilaccept_models[[ds]][[name]] <- m
+    convergence_row <- data.frame(
+      dataset          = ds,
+      model            = name,
+      converged        = diag$converged,
+      singular         = diag$singular,
+      random_effects   = ranef,
+      stringsAsFactors = FALSE
+    )
+    pupilaccept_convergence <- c(pupilaccept_convergence,
+                                 list(convergence_row))
+  }
+
+  # P(accept | prev. accept) - P(accept | prev. reject) within each pupil_bin
+  history_effect <- avg_comparisons(
+    pupilaccept_models[[ds]][[PUPILBIN_MODEL]],
+    variables = list(choice_prev1 = c(-1, 1)), by = "pupil_bin", re.form = NA
+  )
+  history_effect_df <- as.data.frame(history_effect)
+
+  historyeffect_list[[ds]] <- history_effect_df %>%
+    rename(historyeffect = estimate, SE = std.error,
+           asymp.LCL = conf.low, asymp.UCL = conf.high) %>%
+    mutate(dataset = ds) %>%
+    select(dataset, pupil_bin, historyeffect, SE, asymp.LCL, asymp.UCL, p.value)
+
+  # High - Low, matched by pupil_bin label rather than row order
+  pupil_bin <- history_effect_df$pupil_bin
+  hyp_matrix <- matrix((pupil_bin == "High") - (pupil_bin == "Low"),
+                       ncol = 1, dimnames = list(NULL, "High - Low"))
+  pupilbin_contrast_list[[ds]] <- hypotheses(history_effect,
+                                             hypothesis = hyp_matrix) %>%
+    as.data.frame() %>%
+    rename(contrast = term, SE = std.error, z.ratio = statistic) %>%
+    mutate(dataset = ds) %>%
+    select(dataset, contrast, estimate, SE, z.ratio, p.value)
+}
+
+# =============================================================================
+# Save convergence, fixed effects, history effects, and contrasts
+# =============================================================================
+save_csv(bind_rows(pupilaccept_convergence),
+         "3_pupilacceptmodel_convergence.csv")
+
+save_csv(
+  extract_fixed_effects(
+    model_list = pupilaccept_models,
+    datasets   = datasets,
+    models     = names(PUPILACCEPT_MODELS),
+    p_method   = p_method
+  ),
+  "3_pupilacceptmodel_fixed_effects.csv"
 )
 
-write.csv(convergence_df,
-          file.path(analysis_results_path,
-                    "3_pupilacceptmodel_convergence.csv"),
-          row.names = FALSE)
-message("Saved: 3_pupilacceptmodel_convergence.csv")
+add_p_adj <- function(df) {
+  df %>%
+    group_by(dataset) %>%
+    mutate(p_adj_bh = p.adjust(p.value, method = p_method)) %>%
+    ungroup()
+}
 
-# =============================================================================
-# Fixed effects
-# =============================================================================
-fixed_effects <- extract_fixed_effects(
-  model_list = acceptmodel_list,
-  datasets   = datasets,
-  models     = "pupilbehavior_accept",
-  p_method   = p_method
-)
-
-write.csv(fixed_effects,
-          file.path(analysis_results_path,
-                    "3_pupilacceptmodel_fixed_effects.csv"),
-          row.names = FALSE)
-message("Saved: 3_pupilacceptmodel_fixed_effects.csv")
-
-# =============================================================================
-# Choice-history effect by pupil_bin + Low-vs-High contrast
-# =============================================================================
-acceptmodel_historyeffect_df <- bind_rows(acceptmodel_historyeffect_list)
-acceptmodel_historyeffect_df$p_adj_bh <- ave(
-  acceptmodel_historyeffect_df$p.value, acceptmodel_historyeffect_df$dataset,
-  FUN = function(p) p.adjust(p, method = p_method)
-)
-write.csv(acceptmodel_historyeffect_df,
-          file.path(analysis_results_path,
-                    "3_pupilacceptmodel_historyeffect_by_pupilbin.csv"),
-          row.names = FALSE)
-message("Saved: 3_pupilacceptmodel_historyeffect_by_pupilbin.csv")
-
-acceptmodel_pupilbin_contrast_df <- bind_rows(acceptmodel_pupilbin_contrast_list)
-acceptmodel_pupilbin_contrast_df$p_adj_bh <- ave(
-  acceptmodel_pupilbin_contrast_df$p.value, acceptmodel_pupilbin_contrast_df$dataset,
-  FUN = function(p) p.adjust(p, method = p_method)
-)
-write.csv(acceptmodel_pupilbin_contrast_df,
-          file.path(analysis_results_path,
-                    "3_pupilacceptmodel_pupilbin_contrast.csv"),
-          row.names = FALSE)
-message("Saved: 3_pupilacceptmodel_pupilbin_contrast.csv")
+save_csv(add_p_adj(bind_rows(historyeffect_list)),
+         "3_pupilacceptmodel_historyeffect_by_pupilbin.csv")
+save_csv(add_p_adj(bind_rows(pupilbin_contrast_list)),
+         "3_pupilacceptmodel_pupilbin_contrast.csv")
 
 message("\nPupil-behavior accept model analysis complete.")

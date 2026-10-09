@@ -14,11 +14,9 @@ entropy_from_sv <- function(sv) {
 # =============================================================================
 # Behavioral regressors
 # =============================================================================
-
-# Adds sv, entropy, prev/delta sv and ev columns, then excludes flagged trials.
-# sv includes the intercept so it can be passed to sigmoid for entropy.
 add_subjectivevalues <- function(df, pth_betas) {
-  betas_sub <- read.csv(pth_betas)
+  betas_sub <- read.csv(pth_betas) %>%
+    select(sub, dataset, bias, theta, lambda_)
 
   data <- merge(df, betas_sub, by = c("sub", "dataset"))
 
@@ -26,10 +24,13 @@ add_subjectivevalues <- function(df, pth_betas) {
     group_by(dataset, sub, run) %>%
     arrange(trial) %>%
     mutate(
-      sv  = beta_intercept/beta_gain + gain_centered +
-              beta_loss/beta_gain * loss_centered,
+      # Prospect-theory subjective value, with the negative branch rescaled
+      # exactly as in the fitted model's choice rule.
+      sv_raw = 0.5 * gain - 0.5 * lambda_ * loss,
+      sv_inv = ifelse(sv_raw > 0, sv_raw, -abs(sv_raw) / lambda_),
+      sv  = bias + sv_inv,
       ev  = 0.5 * gain_centered - 0.5 * loss_centered,
-      entropy          = entropy_from_sv(beta_gain * sv),
+      entropy          = entropy_from_sv(theta * sv),
       abs_delta_sv = abs(sv - lag(sv)),
       prev_sv  = lag(sv),
       sv_abs = abs(sv),
@@ -38,7 +39,8 @@ add_subjectivevalues <- function(df, pth_betas) {
       delta_ev = ev - prev_ev,
       abs_delta_ev = abs(delta_ev)
     ) %>%
-    ungroup()
+    ungroup() %>%
+    select(-sv_raw, -sv_inv)
 
   return(data)
 }
@@ -46,18 +48,21 @@ add_subjectivevalues <- function(df, pth_betas) {
 # Standardize behavioral regressors within dataset/subject
 standardize_behavioral_regressors <- function(df) {
   df <- df %>%
-    mutate(
-      logRT = log(rt),
-    ) %>%
     group_by(dataset, sub) %>%
     mutate(
-      prev_sv_z   = as.numeric(scale(prev_sv,   center = TRUE, scale = TRUE)),
-      delta_sv_z  = as.numeric(scale(delta_sv,  center = TRUE, scale = TRUE)),
-      prev_gain_z = as.numeric(scale(prev_gain, center = TRUE, scale = TRUE)),
-      prev_loss_z = as.numeric(scale(prev_loss, center = TRUE, scale = TRUE)),
-      prev_ev_z   = as.numeric(scale(prev_ev,   center = TRUE, scale = TRUE)),
-      delta_ev_z  = as.numeric(scale(delta_ev,  center = TRUE, scale = TRUE)),
-      sv_abs_z    = as.numeric(scale(sv_abs,    center = TRUE, scale = TRUE)),
+      sv_z          = as.numeric(scale(sv,   center = TRUE, scale = TRUE)),
+      prev_sv_z     = as.numeric(scale(prev_sv,   center = TRUE, scale = TRUE)),
+      delta_sv_z    = as.numeric(scale(delta_sv,  center = TRUE, scale = TRUE)),
+      prev_gain_z   = as.numeric(scale(prev_gain, center = TRUE, scale = TRUE)),
+      prev_loss_z   = as.numeric(scale(prev_loss, center = TRUE, scale = TRUE)),
+      prev_ev_z     = as.numeric(scale(prev_ev,   center = TRUE, scale = TRUE)),
+      delta_ev_z    = as.numeric(scale(delta_ev,  center = TRUE, scale = TRUE)),
+      sv_abs_z      = as.numeric(scale(sv_abs,    center = TRUE, scale = TRUE)),
+      rt_z          = as.numeric(scale(rt,        center = TRUE, scale = TRUE)),
+      entropy_z     = as.numeric(scale(entropy,   center = TRUE, scale = TRUE)),
+      gain_z        = as.numeric(scale(gain,      center = TRUE, scale = TRUE)),
+      loss_z        = as.numeric(scale(loss,      center = TRUE, scale = TRUE)),
+      abs_delta_ev_z = as.numeric(scale(abs_delta_ev, center = TRUE, scale = TRUE)),
       sv_partition = {
         breaks <- quantile(sv, probs = c(.2, .4, .6, .8), names = FALSE,
                             na.rm = TRUE)
@@ -86,30 +91,6 @@ standardize_behavioral_regressors <- function(df) {
 
 add_subjectivevalues_and_regressors <- function(df, pth_betas) {
   data <- add_subjectivevalues(df, pth_betas)
+  data <- subset(data, !exclude)
   standardize_behavioral_regressors(data)
-}
-
-# =============================================================================
-# Pupil regressors
-# =============================================================================
-
-# Standardize pupil regressors within-subject
-standardize_pupil_regressors <- function(df) {
-  df <- df %>%
-    mutate(
-      logRT = log(rt),
-    ) %>%
-    group_by(sub) %>%
-    mutate(
-      abs_delta_sv_z    = scale(abs_delta_sv,
-                                center = TRUE, scale = TRUE)[, 1],
-      logRT_z               = scale(logRT,   center = TRUE, scale = TRUE)[, 1],
-      entropy_c             = scale(entropy, center = TRUE, scale = FALSE)[, 1],
-      gain_z = scale(gain, center = TRUE, scale = TRUE)[, 1],
-      loss_z = scale(loss, center = TRUE, scale = TRUE)[, 1],
-      abs_delta_ev_z = scale(abs_delta_ev, center = TRUE, scale = TRUE)[, 1]
-    ) %>%
-    ungroup()
-
-  return(df)
 }

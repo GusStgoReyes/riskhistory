@@ -4,204 +4,93 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a neuroscience research project analyzing choice history effects under risk using behavioral data, pupillometry, and fMRI. The project combines data from two datasets (NARPS and Sheng2020) to investigate how previous choices influence current decision-making in risky gambles.
+Analysis code for a study of choice history under risk: how the previous accept/reject
+choice shapes the current one in a mixed-gamble task, using behavior, pupillometry, and
+drift-diffusion modeling. Datasets: NARPS (split into **equalIndifference** and
+**equalRange**) and **sheng2020**. `README.md` documents the run order and what every
+folder in `src/riskhistory/` does — keep it in sync when adding or renaming steps.
 
 ## Repository Structure
 
 ```
 riskhistory/
-├── src/riskhistory/              # Main package
-│   ├── setup_behavioraldata/     # Behavioral data preprocessing (Python)
-│   ├── setup_pupildata/          # Pupillometry preprocessing (R)
-│   ├── setup_pupilbetas/         # Pupil beta extraction via GLM (Python)
-│   ├── setup_fmridata/           # fMRI data preparation
-│   ├── analysis_acceptglme/      # GLME choice analysis (R)
-│   ├── analysis_pupiltimeseries/ # Pupil LME per timepoint (R)
-│   ├── analysis_pupilbetas/      # Pupil beta GLME + choice-history checks (R)
-│   ├── analysis_pupilbehavior/   # Pupil-behavior relationship (R)
-│   ├── analysis_ddm/             # Drift-diffusion modeling (Python)
-│   ├── config.py                 # Python configuration
-│   └── config.R                  # R configuration
-├── data/
-│   ├── raw/                      # Raw data (not tracked)
-│   ├── preprocessed/             # Processed data
-│   ├── derivatives/              # Derived data products
-│   └── model_ids/                # Model identifier mappings
-├── results/                      # Analysis outputs (gitignored)
-├── figures/                      # Figure generation scripts
-├── scripts/                      # Top-level pipeline scripts
-├── sbatch/                       # SLURM job model specifications
+├── src/riskhistory/
+│   ├── config.py / config.R        # all paths (Python / R)
+│   ├── data.py                     # Python loaders for every results file + dataset constants
+│   ├── format.py                   # matplotlib defaults (import for side effects)
+│   ├── utils.py, utils_pupilviz.py, utils.R
+│   ├── setup_behavioraldata/       # Python: trial table + choice history + exclusions
+│   ├── setup_pupildata/            # R (eyeris): pupil preprocessing
+│   ├── setup_pupilbetas/           # Python: per-trial pupil GLM betas
+│   ├── analysis_utils/             # R: shared settings, loaders, regressors, model helpers
+│   ├── analysis_acceptglme/        # Python prospect-theory fits + R acceptance GLMEs
+│   ├── analysis_rtlme/             # R: RT models
+│   ├── analysis_pupiltimeseries/   # R: LME per pupil time bin
+│   ├── analysis_pupilbetas/        # R: models of the trial-level pupil betas
+│   ├── analysis_pupilbehavior/     # R: pupil x choice-history behavior models
+│   ├── analysis_ddm/               # Python, HDDM container only: fit/diagnose/compare/extract
+│   ├── analysis_ppcddm/            # Python (pyddm): posterior-predictive simulations
+│   ├── analysis_ddmppcbehavior/    # R: models on the simulated behavior
+│   └── trash/                      # unused; ignore
+├── sbatch/                         # SLURM wrappers (HDDM fits/diagnostics, PPC arrays)
+├── scripts/                        # LaTeX table generators
+├── figures_official/               # figure notebooks (figureN.ipynb, figureSN.ipynb) -> saved/*.svg
+├── data/{raw,preprocessed,derivatives,model_ids}/
+└── results/<folder name>/          # analysis outputs (gitignored)
 ```
 
-## Development Setup
+## Environments and Commands
 
-This project uses `uv` for Python dependency management:
+- **Python 3.12 via `uv`**: `uv sync` (installs `riskhistory` editable). Run modules with
+  `uv run python -m riskhistory.<folder>.<module>`, e.g.
+  `uv run python -m riskhistory.setup_behavioraldata.run_setup_behavioraldata`,
+  `uv run python -m riskhistory.setup_pupilbetas.run_setup_pupilglm`,
+  `uv run python -m riskhistory.analysis_acceptglme.1_fitprospecttheory`.
+  Dependency upper bounds in `pyproject.toml` exist for Sherlock's glibc 2.17 — don't raise
+  them casually. The system `python3` on this machine is broken; use `.venv/bin/python` or `uv run`.
+- **R 4.3+**: every R folder has a `0_config.R`, numbered steps, and a `run_*.R` runner.
+  **Run R scripts from their own folder** (`cd src/riskhistory/<folder> && Rscript run_*.R`) —
+  they `source()` relative paths.
+- **HDDM**: `analysis_ddm` runs only inside the `hcp4715/hddm` Docker image (as
+  `hddm_latest.sif` under Singularity on Sherlock), with `PYTHONPATH=<repo>/src`. Its
+  `__init__.py` imports `hddm`, so `riskhistory.analysis_ddm` cannot be imported from the uv
+  env. Submit with `bash sbatch/{fit_hddm,compute_diagnostics,compare_hddm,extract_posteriors}.bash <dataset>`.
+  Models fitted are listed in `data/model_ids/hddm.csv`.
+- There is no working Makefile (it is empty).
 
-```bash
-# Install dependencies
-uv pip install -e .
+Pipeline order (details in README): setup_behavioraldata → setup_pupildata → setup_pupilbetas
+→ analysis_acceptglme (`1_fitprospecttheory.py` first; the R runner does not call it) →
+rtlme / pupiltimeseries / pupilbetas / pupilbehavior → analysis_ddm → analysis_ppcddm →
+analysis_ddmppcbehavior.
 
-# Activate virtual environment
-source .venv/bin/activate
-```
+## Gotchas
 
-Python version: 3.12+
-R version: 4.3+
+- `config.R` **hardcodes** `repo_path` to this machine's clone; `utils.R::get_repo_path()`
+  exists but is not used. `config.py` auto-detects the root (`RISKHISTORY_ROOT` overrides).
+- DDM results folder: the sbatch jobs and `run_analysis_ppcddm_sampled.py` /
+  `subset_posteriors.py` use `results/analysis_ddm_final/`; `data.py` and
+  `run_analysis_ppcddm.py` read `results/analysis_ddm/`.
+- The sbatch scripts hardcode `REPO_PTH=/scratch/users/gustxsr/riskhistory`.
+- Many R results depend on `results/analysis_acceptglme/1_prospecttheory_baseline_betas.csv`
+  (subjective values, via `analysis_utils/utils_data.R::load_behavioral_pupil_data`).
 
-## Key Commands
+## Conventions
 
-### Using Make (Recommended)
-```bash
-make help                    # Show available targets
-make setup_behavioral        # Setup behavioral data (Python)
-make setup_pupildata         # Setup pupil data (R)
-make analysis_acceptglme     # Run accept/reject GLME analysis (R)
-make all_analyses            # Run all analyses
-make clean                   # Remove generated results
-```
-
-### Direct Execution
-```bash
-# Python scripts
-uv run python src/riskhistory/setup_behavioraldata/run_setup_behavioraldata.py
-uv run python src/riskhistory/setup_pupilbetas/run_setup_pupilbetas.py
-
-# R scripts (run from their directories)
-cd src/riskhistory/analysis_acceptglme && Rscript run_analysis_acceptglme.R
-cd src/riskhistory/setup_pupildata && Rscript run_setup_pupildata.R
-cd src/riskhistory/analysis_pupiltimeseries && Rscript run_analysispupiltimeseries.R
-cd src/riskhistory/analysis_pupilbehavior && Rscript run_analysis_pupilbehavior.R
-```
-
-## Architecture Details
-
-### Dual-Language Design
-- **Python**: Data preprocessing, GLM-based beta extraction, DDM modeling
-- **R**: Statistical modeling using lme4/lmerTest for mixed-effects models
-- Both languages share configuration through parallel config files (`config.py` and `config.R`)
-
-### Configuration System
-Auto-detected paths with optional environment variable overrides:
-- **Python**: `src/riskhistory/config.py`
-- **R**: `src/riskhistory/config.R`
-- **Override**: Set `RISKHISTORY_ROOT` environment variable
-
-Analysis-specific configs extend the base config:
-- `analysis_acceptglme/0_config.R`
-- `analysis_pupiltimeseries/0_config.R`
-- `analysis_pupilbehavior/0_config.R`
-- `setup_pupildata/0_config.R`
-
-### Data Flow
-1. Raw data (in `data/raw/`) from NARPS and Sheng2020 datasets
-2. Python scripts create unified behavioral dataset with choice history variables
-3. Preprocessed data saved to `data/preprocessed/`
-4. R scripts load preprocessed data and fit hierarchical models
-5. Results saved to `results/<analysis_name>/`
-
-### Choice History Variables
-Computed **within runs** to avoid contamination across run boundaries:
-- `choice_prev[N]`: Choice made N trials ago (+1 accept, -1 reject)
-- `switch`: Whether choice differs from previous trial
-- `repeat`: Whether choice matches previous trial
-- `switch_button`: Whether button press changed (independent of choice)
-
-### Subject-Specific Corrections
-- **Subject 56 (NARPS)**: Response mapping was inverted; corrected in preprocessing
-- **Subject 29 (Sheng2020)**: Excluded due to missing trial indicator
-
-### Exclusion Criteria
-Trials are excluded based on:
-- RT < 0.2s or RT > 3.8s
-- Fewer than 3 previous valid trials (insufficient choice history)
-- Missing gain/loss pairs
-
-## Analysis Components
-
-### Behavioral GLME Analysis (`analysis_acceptglme/`)
-Generalized linear mixed-effects models testing:
-- `1_baselinechoicemodel.R`: Baseline gain/loss effects (M1)
-- `2_choicehistorymodels.R`: Choice history and value history models (M2-M8)
-- `3_lagchoicehistorymodels.R`: Lagged choices 2-5 trials back (M9-M12)
-- `4_rthistorymodels.R`: Response time history effects
-- `5_supplementarymodels.R`: Interaction and additional models
-
-Key utility files:
-- `utils_modelcomparison.R`: AIC/BIC/BF model comparison
-- `utils_savefixedeffects.R`: Extract and save fixed effects
-- `utils_addsubjectivevalues.R`: Compute trial-by-trial subjective values
-
-### Pupil Timepoint Analysis (`analysis_pupiltimeseries/`)
-Linear mixed-effects models per timepoint, for both start- and
-response-aligned epochs:
-- `1_timeseries_model.R`: Fits one LME per timebin per dataset; also
-  computes estimated marginal means and contrasts for the `transition`
-  factor via `marginaleffects` (population-level, re.form = NA)
-- `utils_timepointmodels.R`: Functions for fitting models across timepoints
-- `utils_createtransitionregressor.R`: Builds the 4-level `transition`
-  factor (current x previous choice)
-
-Model formula:
-```r
-pupil_size ~ logRT_z + gain_z + loss_z + entropy_c + abs_delta_ev_z +
-  transition + (1 | sub)
-```
-
-### Pupil-Behavior Analysis (`analysis_pupilbehavior/`)
-Models examining pupil-behavior relationships:
-- `1_pupilchoicemodel.R`: How pupil dilation relates to choice
-- `utils_pupilpertrial.R`: Per-trial pupil metrics extraction
-
-### Pupil Beta Extraction (`setup_pupilbetas/`)
-GLM-based trial-by-trial amplitude extraction:
-- `run_setup_pupilbetas.py`: Main runner
-- `utils_glm.py`: GLM fitting with PRF convolution
-- `utils_prf.py`: Pupil response function definitions
-- `utils_io.py`: Data I/O utilities
-
-### Drift-Diffusion Modeling (`analysis_ddm/`)
-Hierarchical DDM using HDDM:
-- `model_hddm.py`: Model definitions
-- `utils_data.py`: Data preparation for HDDM
-- `utils_model.py`: Model fitting utilities
-- `utils_stats.py`: Statistical analysis of DDM parameters
-
-### Data Setup
-
-#### Behavioral Data (`setup_behavioraldata/`)
-- `run_setup_behavioraldata.py`: Main preprocessing script
-- `utils_behavioraldata.py`: Data loading and transformation functions
-
-#### Pupil Data (`setup_pupildata/`)
-- `1_preprocess_narps.R`: NARPS pupil preprocessing
-- `1_preprocess_sheng2020.R`: Sheng2020 pupil preprocessing
-- `2_combine_datasets.R`: Merge datasets
-- `3_exclusions.R`: Apply exclusion criteria
-- `utils_eyeris.R`: eyeris package utilities
-
-## Package Dependencies
-
-### Python (pyproject.toml)
-- Data: `pandas`, `numpy`
-- Statistics: `statsmodels`, `rpy2`
-- Visualization: `matplotlib`, `seaborn`
-- Notebooks: `jupyter`
-
-### R
-- Mixed models: `lme4`, `lmerTest`
-- Data manipulation: `dplyr`, `tidyr`
-- Model extraction: `broom.mixed`
-
-## Testing and Validation
-
-Models are validated through:
-- Convergence checks (`utils_checkmodelconverge.R`)
-- VIF analysis for multicollinearity
-- Random effects structure comparison
-- Cross-dataset replication (equalIndifference, equalRange, Sheng2020)
-
-## Notes
-
-- The Makefile references `setup_pupildata_v2` which should be `setup_pupildata`
-- R scripts must be run from their respective directories due to relative path usage
-- Results directories are created automatically by analysis scripts
+- **Choice coding**: `choice_prev[N]` is +1 accept / −1 reject (0 = unavailable), computed
+  **within runs** on pre-exclusion data. DDM choice-history parameters (`z_choice_prev1`,
+  `v_choice_prev1`) are reported as 2× the coefficient (accept − reject difference).
+- **Transitions**: `transition` factor `{accept,reject}_to_{accept,reject}` from
+  `analysis_utils/utils_createtransitionregressor.R`; marginaleffects pairwise labels follow
+  level order, so normalize direction with `analysis_utils/utils_contrasts.R` or check both
+  `"A - B"` / `"B - A"`.
+- **Exclusions** (`setup_behavioraldata/run_setup_behavioraldata.py`): trials with RT < 0.2 s
+  or > 3.8 s or < 2 previous valid trials; participants with > 30% excluded trials,
+  acceptance < 10% or > 90%, or mean RT outside 0.3–3.5 s. Sheng2020 sub 29 is excluded;
+  NARPS sub 56's responses are realigned.
+- **R statistics**: shared settings in `analysis_utils/0_config.R` (BH correction via
+  `p_method`, `GLMER_CONTROL` / `LMER_CONTROL` with bobyqa, seed 42). Each analysis saves
+  fixed effects and a convergence report CSV via the shared helpers; scripts define a local
+  `save_csv(df, filename)` writing to `analysis_results_path`.
+- **Figures**: notebooks in `figures_official/` import `riskhistory.format` and load data only
+  through `riskhistory.data`; posteriors are pooled across the 4 chains, summarized as mean
+  and 2.5/97.5 percentiles. LaTeX tables are written to `results/*.tex`.

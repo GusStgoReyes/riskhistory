@@ -1,16 +1,8 @@
 # =============================================================================
 # Pupil Betas — VIF for the main model's regressors
 # =============================================================================
-# VIF depends only on the fixed-effect design matrix, so this is checked with
-# a plain lm() fit (no random effects) of the main model's fixed-effect
-# formula, per dataset -- before committing to the full mixed model in
-# 3_pupilbetas_fullmodel.R.
-#
-#   pupil ~ logRT_z + gain_z + loss_z + entropy_c + abs_delta_ev_z + transition
-# =============================================================================
-library(car)
 
-formula_pupilbetas_fixed <- pupil ~ logRT_z + gain_z + loss_z + entropy_c +
+formula_pupilbetas_fixed <- pupil ~ rt_z + gain_z + loss_z + entropy_z +
   abs_delta_ev_z + transition
 
 vif_results <- list()
@@ -48,7 +40,7 @@ message("Saved: 2_regressors_vif.csv")
 # =============================================================================
 # Correlation matrix of the continuous regressors
 # =============================================================================
-regressor_cols <- c("logRT_z", "gain_z", "loss_z", "entropy_c", "abs_delta_ev_z")
+regressor_cols <- c("rt_z", "gain_z", "loss_z", "entropy_z", "abs_delta_ev_z")
 
 cor_results <- list()
 

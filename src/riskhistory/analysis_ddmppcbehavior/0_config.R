@@ -25,35 +25,17 @@ library(lme4)
 library(lmerTest)
 library(broom.mixed)
 library(dplyr)
-library(tibble)
-library(marginaleffects)
 
 # Source shared settings and utility functions
 source(file.path(shared_utils_path, "0_config.R"))
-source(file.path(shared_utils_path, "utils_extractrandomeffects.R"))
 source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
 source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
 source(file.path(shared_utils_path, "utils_modelanalytics.R"))
-
-# add_transition_regressor() -- same current x previous choice transition
-# factor used in analysis_pupiltimeseries / analysis_rtlme
-source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
 
 # =============================================================================
 # Analysis settings
 # =============================================================================
 N_PPC_SAMPLES <- 1000
-
-BEHAVIOR_DDM_MODELS <- c(
-  "HDDM_Base"
-)
-
-PUPIL_DDM_MODELS <- c(
-  "HDDM_Base_Lag1-stp_Pupil_stp",
-  "HDDM_Base_Lag1-drift_Pupil_drift",
-  "HDDM_Base_Lag1-drift_Pupil",
-  "HDDM_Base_Lag1-stp_Pupil"
-)
 
 load_ddm_ppc_data <- function(model_id) {
   path <- file.path(results_path, "analysis_ppcddm",
@@ -63,6 +45,11 @@ load_ddm_ppc_data <- function(model_id) {
   mean_accept_clipped <- pmin(pmax(df$mean_accept, eps), 1 - eps)
   df$logit_mean_accept <- qlogis(mean_accept_clipped)
   df
+}
+
+save_csv <- function(df, filename) {
+  write.csv(df, file.path(analysis_results_path, filename), row.names = FALSE)
+  message("Saved: ", filename)
 }
 
 message("Config loaded successfully.")

@@ -35,9 +35,6 @@ source(file.path(shared_utils_path, "utils_createregressors.R"))
 source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
 source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
 source(file.path(shared_utils_path, "utils_modelanalytics.R"))
-
-# add_transition_regressor() -- same current x previous choice transition
-# factor used in analysis_pupiltimeseries / analysis_pupilbetas
 source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
 
 # =============================================================================
@@ -46,13 +43,10 @@ source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
 message("Loading behavioral data...")
 behavioral_data_full <- load_behavioral_data()
 
-# add_subjectivevalues() merges the M1 baseline betas, computes sv, and
-# subsets to non-excluded trials
 message("Computing subjective values...")
 pth_betas <- file.path(results_path, "analysis_acceptglme",
-                       "1_baselinebehavior_betas.csv")
+                       "1_prospecttheory_baseline_betas.csv")
 rtlme_data <- add_subjectivevalues_and_regressors(df = behavioral_data_full, pth_betas = pth_betas)
-rtlme_data <- subset(rtlme_data, !exclude)
 
 # 4-level current x previous choice transition factor
 message("Creating transition (current x previous choice) regressor...")

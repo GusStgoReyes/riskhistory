@@ -87,45 +87,13 @@ def load_behavioral_data_pupilclean(alignment="start", exclude=True):
 
 def load_baseline_betas():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "1_baselinebehavior_betas.csv")
+            / "1_prospecttheory_baseline_betas.csv")
     return pd.read_csv(path)
 
-
-def load_choicehistory_betas():
+def load_choicehistorypersubject():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "2_choicehistory_betas.csv")
+            / "1_prospecttheory_choicehistory_betas.csv")
     return pd.read_csv(path)
-
-
-def load_choicehistorypersubject_betas():
-    path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "4_choicehistorypersubject_betas.csv")
-    return pd.read_csv(path)
-
-
-def load_choicehistory_permutation():
-    path = (REPO_ROOT / "results" / "analysis_acceptglme"
-            / "5_choicehistory_permutation.csv")
-    return pd.read_csv(path)
-
-
-def load_rtgam_fitted_curves():
-    path = (REPO_ROOT / "results" / "analysis_rtgam"
-            / "1_rtgam_fitted_curves.csv")
-    return pd.read_csv(path)
-
-
-def load_rtgam_parametric_effects():
-    path = (REPO_ROOT / "results" / "analysis_rtgam"
-            / "1_rtgam_parametric_effects.csv")
-    return pd.read_csv(path)
-
-
-def load_rtgam_smooth_effects():
-    path = (REPO_ROOT / "results" / "analysis_rtgam"
-            / "1_rtgam_smooth_effects.csv")
-    return pd.read_csv(path)
-
 
 def load_fixed_effects():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
@@ -149,28 +117,9 @@ def load_sv_partition_means(n_partitions=5):
     """Mean subjective value (sv) within each equal-count sv partition, per
     dataset -- gives representative sv values for the partitions used by
     3_choicehistory_svpartitions_contrasts.csv (sv_partition 1..n_partitions).
-
-    Mirrors the R pipeline's sv computation (add_subjectivevalues) and
-    partitioning (standardize_behavioral_regressors's sv_partition) in
-    utils_createregressors.R, computed here only to label the partitions --
-    the choice-history contrasts themselves still come from
-    load_choicehistorysvpartitions_contrasts().
-
-    Two-step averaging, matching the R workflow: mean sv per sub/dataset/
-    partition first, then mean of those subject-level means per
-    dataset/partition.
     """
-    df = load_behavioral_data(exclude=False)
-    betas = load_baseline_betas()
-
-    df = df.merge(betas, on=["sub", "dataset"])
-    df["sv"] = (
-        df["beta_intercept"] / df["beta_gain"] + df["gain_centered"]
-        + df["beta_loss"] / df["beta_gain"] * df["loss_centered"]
-    )
-
-    df = df[df["exclude"] != True].copy()
-
+    df = load_behavioral_data()
+    df = add_subjective_values(df)
     df["sv_partition"] = df.groupby(["dataset", "sub"])["sv"].transform(
         lambda x: pd.qcut(x, n_partitions, labels=False) + 1
     )
@@ -203,15 +152,9 @@ def load_pupilacceptmodel_fixed_effects():
     return pd.read_csv(path)
 
 
-def load_ddmppcbehavior_pupilaccept_fixed_effects():
-    path = (REPO_ROOT / "results" / "analysis_ddmppcbehavior"
-            / "3_pupilaccept_fixed_effects.csv")
-    return pd.read_csv(path)
-
-
 def load_ddmppcbehavior_pupilaccept_comparison_fixed_effects():
     path = (REPO_ROOT / "results" / "analysis_ddmppcbehavior"
-            / "4_pupilaccept_comparison_fixed_effects.csv")
+            / "1_pupilaccept_comparison_fixed_effects.csv")
     return pd.read_csv(path)
 
 
@@ -227,21 +170,6 @@ def load_model_comparison(comparison_type="behavior"):
 def load_loo_comparison(dataset, group_name=None):
     """Pairwise LOO model comparison table for one dataset (see
     compare_models.py's compare_pair/run_group_comparison).
-
-    One row per (reference_model, target_model) pair listed under that
-    MODEL_GROUPS entry, with:
-      - diff_elpd_loo: sum(elpd_target) - sum(elpd_reference) over all
-        trials shared by the two models
-      - diff_elpd_reliable: same diff, restricted to trials reliable
-        (pareto_k <= 0.7) in both models
-      - num_unreliable / num_total: trials unreliable in either model,
-        out of the shared total
-
-    group_name : str, optional
-        Name of the MODEL_GROUPS entry in compare_models.py this comparison
-        was run for (e.g. "arousal") -- must match exactly, since it's part
-        of the output filename. Omit for the legacy, ungrouped comparison
-        file.
     """
     suffix = f"_{group_name}" if group_name else ""
     path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
@@ -252,13 +180,17 @@ def load_loo_comparison(dataset, group_name=None):
 def load_ddm_rhat(dataset):
     path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
             / f"{dataset}_rhat.csv")
-    return pd.read_csv(path)
+    df = pd.read_csv(path)
+    df["dataset"] = dataset
+    return df
 
 
 def load_ddm_ess(dataset):
     path = (REPO_ROOT / "results" / "analysis_ddm" / "hddm_compare"
             / f"{dataset}_ess.csv")
-    return pd.read_csv(path)
+    df = pd.read_csv(path)
+    df["dataset"] = dataset
+    return df
 
 
 def load_eta_profile():
@@ -392,6 +324,24 @@ def load_pupiltimeseries_contrasts(alignment: str = "start") -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def load_pupiltimeseries_avgpred_choice(alignment: str = "start") -> pd.DataFrame:
+    filenames = {
+        "start":    "1_timeseries_start_avgpred_choice.csv",
+        "response": "1_timeseries_response_avgpred_choice.csv",
+    }
+    path = (REPO_ROOT / "results" / "analysis_pupiltimeseries" / filenames[alignment])
+    return pd.read_csv(path)
+
+
+def load_pupiltimeseries_contrasts_choice(alignment: str = "start") -> pd.DataFrame:
+    filenames = {
+        "start":    "1_timeseries_start_contrasts_choice.csv",
+        "response": "1_timeseries_response_contrasts_choice.csv",
+    }
+    path = (REPO_ROOT / "results" / "analysis_pupiltimeseries" / filenames[alignment])
+    return pd.read_csv(path)
+
+
 def load_pupilbetas_fullmodel_fixed_effects():
     path = (REPO_ROOT / "results" / "analysis_pupilbetas"
             / "2_pupilbetas_fullmodel_fixed_effects.csv")
@@ -419,6 +369,18 @@ def load_pupilbetas_transition_emmeans():
 def load_pupilbetas_transition_contrasts():
     path = (REPO_ROOT / "results" / "analysis_pupilbetas"
             / "2_pupilbetas_transition_contrasts.csv")
+    return pd.read_csv(path)
+
+
+def load_pupilbetas_transition_contrast_choice():
+    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
+            / "2_pupilbetas_transition_contrast_choice.csv")
+    return pd.read_csv(path)
+
+
+def load_replicate_acceptmodel_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_pupilbehavior"
+            / "1_replicate_acceptmodel_fixed_effects.csv")
     return pd.read_csv(path)
 
 
@@ -467,12 +429,6 @@ def load_pupilbetas_correlation():
     return pd.read_csv(path)
 
 
-def load_pupilbetas_lrt():
-    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
-            / "1_pupilbetas_lrt.csv")
-    return pd.read_csv(path)
-
-
 def load_pupilbetas_preprocessed(exclude=True):
     path = (REPO_ROOT / "data" / "preprocessed"
             / "pupilbetas_glm_preprocessed.csv")
@@ -501,14 +457,11 @@ def load_pupilbaseline_preprocessed(exclude=True):
     return df
 
 
-def add_subjective_values(df, betas=None):
-    """Merge betas and compute SV = intercept + gain*gain_c + loss*loss_c."""
-    if betas is None:
-        betas = load_baseline_betas()
+def add_subjective_values(df):
+    """Compute subjective values"""
+    betas = load_baseline_betas()
     df = df.merge(betas, on=["sub", "dataset"], how="left")
-    df["sv"] = (
-        df["beta_intercept"]
-        + df["beta_gain"] * df["gain_centered"]
-        + df["beta_loss"] * df["loss_centered"]
-    )
+    df["sv_raw"] = 1/2 * df["gain"] - 1/2 * df["lambda_"] * df["loss"]
+    df["sv_inv"] = np.where(df["sv_raw"] > 0, df["sv_raw"], -np.abs(df["sv_raw"]) / df["lambda_"])
+    df["sv"] = df["sv_inv"] + df["bias"]
     return df

@@ -304,17 +304,25 @@ def compute_exclusion_counts(df, min_rt=0.2, max_rt=3.8, min_prev_valid_trials=2
     Count trials excluded by each criterion independently, per subject per dataset.
 
     Criteria are evaluated independently (not cumulatively), so a trial
-    excluded by multiple criteria is counted once under each.
+    excluded by multiple criteria is counted once under each. The one
+    exception is n_no_response vs n_excluded_min_rt: no-response trials
+    (rt == 0) are counted only under n_no_response, so the two columns do
+    not overlap. Note that add_exclude_trials still removes those trials
+    via its rt < min_rt rule.
 
     Returns a DataFrame with columns:
-        dataset, sub, n_trials, n_excluded_min_rt, n_excluded_max_rt,
-        n_excluded_min_prev_valid, n_excluded_missing_gainloss, n_excluded_total
+        dataset, sub, n_trials, n_no_response, n_excluded_min_rt,
+        n_excluded_max_rt, n_excluded_min_prev_valid,
+        n_excluded_missing_gainloss, n_excluded_total
     """
     rows = []
     for (dataset, sub), group in df.groupby(["dataset", "sub"]):
         n_trials = len(group)
 
-        n_min_rt = (group["rt"] < min_rt).sum()
+        n_no_response = (group["response_raw"].isna()).sum()
+        # No-response trials are coded rt == 0 (or NaN), and would otherwise be
+        # counted a second time under the min_rt criterion, so require rt > 0.
+        n_min_rt = ((group["rt"] > 0) & (group["rt"] < min_rt)).sum()
         n_max_rt = (group["rt"] > max_rt).sum()
 
         prev_flags = [group[f"choice_prev{N}"] == 0 for N in range(1, min_prev_valid_trials + 1)]
@@ -328,6 +336,7 @@ def compute_exclusion_counts(df, min_rt=0.2, max_rt=3.8, min_prev_valid_trials=2
             "dataset": dataset,
             "sub": sub,
             "n_trials": n_trials,
+            "n_no_response": int(n_no_response),
             "n_excluded_min_rt": int(n_min_rt),
             "n_excluded_max_rt": int(n_max_rt),
             "n_excluded_min_prev_valid": int(n_min_prev),
@@ -344,10 +353,10 @@ def summarize_exclusion_counts(exclusion_counts_df):
 
     Returns a DataFrame with columns:
         dataset, n_subjects,
-        mean/sd of n_excluded_min_rt, n_excluded_max_rt,
+        min/max of n_no_response, n_excluded_min_rt, n_excluded_max_rt,
         n_excluded_min_prev_valid, n_excluded_missing_gainloss, n_excluded_total
     """
-    criteria = ["n_excluded_min_rt", "n_excluded_max_rt", "n_excluded_min_prev_valid",
+    criteria = ["n_no_response", "n_excluded_min_rt", "n_excluded_max_rt", "n_excluded_min_prev_valid",
                 "n_excluded_missing_gainloss", "n_excluded_total"]
 
     rows = []
