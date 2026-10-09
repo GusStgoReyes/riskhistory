@@ -1,8 +1,6 @@
-# Choice History Effects Under Risk
+# Psychological and arousal-related mechanisms of choice history bias in decisions under risk
 
-Analysis code for a study of how the previous choice shapes the current one in a
-mixed-gamble accept/reject task, using behavior, pupillometry, and drift-diffusion
-modeling. Two datasets are analyzed side by side:
+Analysis code for a study of how the previous choice shapes current decisions in a mixed-gamble accept/reject task, using behavior, pupillometry, and drift-diffusion modeling. Three datasets are analyzed side by side:
 
 - **NARPS**, split into its two conditions, **EqualIndifference** and **EqualRange**
 - **Sheng2020**
