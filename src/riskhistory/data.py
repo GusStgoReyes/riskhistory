@@ -205,6 +205,12 @@ def load_rtlme_baseline_fixed_effects():
     return pd.read_csv(path)
 
 
+def load_rtlme_switch_fixed_effects():
+    path = (REPO_ROOT / "results" / "analysis_rtlme"
+            / "1_rtlme_switch_fixed_effects.csv")
+    return pd.read_csv(path)
+
+
 def load_rtlme_interaction_fixed_effects():
     path = (REPO_ROOT / "results" / "analysis_rtlme"
             / "2_rtlme_interaction_fixed_effects.csv")

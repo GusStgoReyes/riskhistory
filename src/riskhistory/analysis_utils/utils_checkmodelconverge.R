@@ -63,12 +63,16 @@ check_convergence_all_models <- function(
 
         if (inherits(m, "merMod")) {
 
-          conv_messages <- m@optinfo$conv$lme4$messages
-          opt_code      <- m@optinfo$conv$opt
-          converged <- (is.null(conv_messages) || length(conv_messages) == 0) &&
-                       (is.null(opt_code)      || opt_code == 0)
-
           singular <- lme4::isSingular(m, tol = 1e-4)
+
+          # lme4 also lists "boundary (singular) fit" among its convergence
+          # messages; singularity is reported above, so drop it before
+          # judging convergence
+          conv_messages <- m@optinfo$conv$lme4$messages
+          conv_messages <- conv_messages[!grepl("boundary (singular) fit", conv_messages, fixed = TRUE)]
+          opt_code      <- m@optinfo$conv$opt
+          converged <- (length(conv_messages) == 0) &&
+                       (is.null(opt_code) || opt_code == 0)
         }
 
         convergence_df <- rbind(
