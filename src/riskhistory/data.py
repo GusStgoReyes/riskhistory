@@ -390,24 +390,6 @@ def load_replicate_acceptmodel_fixed_effects():
     return pd.read_csv(path)
 
 
-def load_pupilbetas_choicealteration_fixed_effects():
-    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
-            / "3_pupilbetas_choicealteration_fixed_effects.csv")
-    return pd.read_csv(path)
-
-
-def load_pupilbetas_choicealteration_avgpred():
-    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
-            / "3_pupilbetas_choicealteration_avgpred.csv")
-    return pd.read_csv(path)
-
-
-def load_pupilbetas_choicealteration_contrasts():
-    path = (REPO_ROOT / "results" / "analysis_pupilbetas"
-            / "3_pupilbetas_choicealteration_contrasts.csv")
-    return pd.read_csv(path)
-
-
 def load_pupilchoicehistory_switch_fixed_effects():
     path = (REPO_ROOT / "results" / "analysis_pupilchoicehistory"
             / "1_pupil_switch_ch_fixed_effects.csv")

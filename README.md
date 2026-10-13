@@ -235,11 +235,6 @@ Models of the trial-level pupil betas.
 1. `1_regressors_vif.R` – regressor correlations and VIFs.
 2. `2_pupilbetas_transition.R` – pupil ~ transition, with accept − reject and
    switch − repeat contrasts.
-3. `3_pupilbetas_choicealteration.R` – pupil as a function of choice alteration:
-   how many of the previous two choices differ from the current one (0/1/2, as a
-   continuous and as a 3-level Low/Medium/High variable).
-4. `4_pupilbetas_comparison.R` – choice-alteration models vs. a no-history
-   baseline.
 
 Entry point: `run_analysispupilbetas.R`.
 

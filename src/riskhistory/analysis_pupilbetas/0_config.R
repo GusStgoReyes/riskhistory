@@ -23,8 +23,6 @@ library(lme4)
 library(lmerTest)
 library(broom.mixed)      # used by extract_fixed_effects
 library(dplyr)
-library(tibble)           # used by compare_models
-library(bayestestR)       # used by compare_models
 library(marginaleffects)
 
 # =============================================================================
@@ -39,12 +37,11 @@ source(file.path(shared_utils_path, "utils_modelanalytics.R"))
 source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
 
 # =============================================================================
-# Load behavioral + pupil betas data and add choice-history regressors
+# Load behavioral + pupil betas data and add the transition regressor
 # =============================================================================
 message("Loading behavioral and pupil betas data...")
 data_betas_clean <- load_behavioral_pupil_data() %>%
-  add_transition_regressor() %>%
-  add_choicealteration_regressor()
+  add_transition_regressor()
 
 message(sprintf("Pupil betas data: %d rows", nrow(data_betas_clean)))
 for (ds in datasets) {
