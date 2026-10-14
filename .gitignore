@@ -2,8 +2,8 @@
 .DS_Store
 
 data/figure_examples/*
-data/raw/*
-data/derivatives/*
+data/raw*/*
+data/derivatives*/*
 
 src/riskhistory/__pycache__/*
 src/riskhistory.egg-info/*

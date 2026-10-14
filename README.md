@@ -1,4 +1,4 @@
-# Psychological and arousal-related mechanisms of choice history bias in decisions under risk
+# Mechanisms of choice history bias in decisions under risk
 
 Analysis code for a study of how the previous choice shapes current decisions in a mixed-gamble accept/reject task, using behavior, pupillometry, and drift-diffusion modeling. Three datasets are analyzed side by side:
 
@@ -8,6 +8,8 @@ Analysis code for a study of how the previous choice shapes current decisions in
 All code lives in `src/riskhistory/`. Python handles preprocessing, the pupil GLM,
 and the DDM; R handles the mixed-effects statistics; the hierarchical DDM (HDDM)
 runs inside a container.
+
+To test the pupillometry setup, download the data in [this link](https://drive.google.com/drive/folders/1hbeO82V6PI5qggRbI1eMIt4a5GNxQV7j?usp=sharing). 
 
 ---
 
@@ -20,8 +22,30 @@ There are three, one per kind of step:
 | Environment | Used by | Setup |
 |---|---|---|
 | **Python 3.12** (via [`uv`](https://docs.astral.sh/uv/)) | `setup_behavioraldata`, `setup_pupilbetas`, `analysis_acceptglme/1_fitprospecttheory.py`, `analysis_ppcddm` | `uv sync` from the repo root (installs `riskhistory` in editable mode into `.venv/`) |
-| **R 4.3+** | every other `setup_*` / `analysis_*` folder | install `lme4`, `lmerTest`, `broom.mixed`, `marginaleffects`, `bayestestR`, `car`, `brglm2`, `dplyr`, `tidyr`, `tibble`, `stringr`, `purrr`, `data.table`, and `eyeris` (pupil preprocessing) |
+| **R 4.3+** | every other `setup_*` / `analysis_*` folder | install the CRAN packages below |
 | **HDDM container** | `analysis_ddm` only | see below |
+
+#### R packages
+
+All R packages are on CRAN. Run this once in R:
+
+```r
+install.packages(c(
+  # mixed models and inference
+  "lme4", "lmerTest", "broom.mixed", "marginaleffects", "bayestestR",
+  "car", "brglm2",
+  # data wrangling
+  "dplyr", "tidyr", "tibble", "stringr",
+  # pupil preprocessing (setup_pupildata)
+  "eyeris",
+  # optional: lets run_setup_pupildata.R find its folder when sourced in RStudio
+  "rstudioapi"
+))
+```
+
+The results were produced with R 4.6.1, `lme4` 2.0.6, `marginaleffects` 1.0.0
+and `eyeris` 3.3.0. Newer versions should work. If your numbers differ slightly,
+check the package versions first.
 
 **Before running any R code**, open `src/riskhistory/config.R` and set `repo_path`
 to your clone of this repo. It is hardcoded, and every R analysis takes its paths
@@ -49,10 +73,6 @@ container does not have `riskhistory` installed, so every call passes the repo's
 # Singularity (what the sbatch scripts run)
 singularity exec --env "PYTHONPATH=$PWD/src" hddm_latest.sif \
     python -m riskhistory.analysis_ddm.model_hddm --model_id HDDM_Base ...
-
-# Docker, locally (same thing)
-docker run --rm -v "$PWD":/riskhistory -w /riskhistory -e PYTHONPATH=/riskhistory/src \
-    hcp4715/hddm python -m riskhistory.analysis_ddm.model_hddm --model_id HDDM_Base ...
 ```
 
 `riskhistory.analysis_ddm` imports `hddm` on import, so it cannot be imported from
