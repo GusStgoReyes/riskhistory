@@ -14,6 +14,7 @@ from riskhistory.data import REPO_ROOT, load_pupilbetas, load_behavioral_data, D
 _PRF_MAX_SECS     = 4
 _PRF_WIDTH        = 10.1
 _PRF_TIME_TO_PEAK = 930
+_NORMALIZE_CONVOLVED = False  # must match setup_pupilbetas/run_setup_pupilglm.py
 _HP_CUTOFF        = 0.05
 _HP_FS            = 25       # samples per second
 _HP_ORDER         = 3
@@ -150,6 +151,7 @@ def predicted_pupil_sub(
                 chosen_prf,
                 run_timings,
                 sub, run, dataset,
+                normalize_convolved=_NORMALIZE_CONVOLVED,
             )
 
             sub_betas = betas_df.query(

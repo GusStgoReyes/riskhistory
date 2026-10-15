@@ -4,6 +4,7 @@
 data/figure_examples/*
 data/raw*/*
 data/derivatives*/*
+data/preprocessed/archive/*
 
 src/riskhistory/__pycache__/*
 src/riskhistory.egg-info/*

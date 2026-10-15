@@ -17,6 +17,9 @@ ORDER = 3
 PRF_MAX_SECS = 4
 PRF_WIDTH = 10.1
 PRF_TIME_TO_PEAK = 930
+# Rescale each convolved regressor to max = 1. Boxcars have height 1, so with
+# False a regressor's amplitude grows with the trial's RT (boxcar duration).
+NORMALIZE_CONVOLVED = False
 
 # Runs per dataset
 DATASET_RUNS = {
@@ -50,7 +53,8 @@ def main():
         glm_results_sub, vif_results_sub = glm_single_sub(
             all_pupil_data, chosen_prf,
             start_timings,
-            sub, runs, dataset
+            sub, runs, dataset,
+            normalize_convolved=NORMALIZE_CONVOLVED,
         )
         glm_results.append(glm_results_sub)
         vif_results.append(vif_results_sub)

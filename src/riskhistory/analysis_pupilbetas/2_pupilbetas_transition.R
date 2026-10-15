@@ -40,6 +40,7 @@ for (ds in datasets) {
   message(sprintf("\nFitting pupilbetas_transition for dataset: %s", ds))
   m <- lmer(as.formula(paste(PUPILBETAS_TRANSITION_FIXED, "+", ranef)),
             data = df, control = LMER_CONTROL)
+  print(summary(m))
   diag <- check_model_diagnostics(m)
   message(sprintf("  converged: %s, singular: %s, random effects: %s",
                   diag$converged, diag$singular, ranef))

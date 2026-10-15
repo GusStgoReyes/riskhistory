@@ -41,7 +41,8 @@ def build_design_matrix_run(all_pupil_data,
                             start_timings,
                             sub,
                             run,
-                            dataset):
+                            dataset,
+                            normalize_convolved):
 
     time_vector = all_pupil_data[run]["time_secs"].values
     run_start_timings = start_timings.query("run == @run").set_index("trial")["time_secs"].to_dict()
@@ -57,7 +58,8 @@ def build_design_matrix_run(all_pupil_data,
                                                                 run=run,
                                                                 dataset=dataset,
                                                                 regressor_name="onset")
-    onset_regressors = convolve_with_prf(onset_regressors, chosen_prf)
+    onset_regressors = convolve_with_prf(onset_regressors, chosen_prf,
+                                         normalize=normalize_convolved)
 
     # Decision regressors (1 beta per trial, spanning stimulus onset to response)
     decision_regressors, decision_betas_name = create_timings_matrix(run_start_timings,
@@ -69,7 +71,8 @@ def build_design_matrix_run(all_pupil_data,
                                                                       run=run,
                                                                       dataset=dataset,
                                                                       regressor_name="decision")
-    decision_regressors = convolve_with_prf(decision_regressors, chosen_prf)
+    decision_regressors = convolve_with_prf(decision_regressors, chosen_prf,
+                                            normalize=normalize_convolved)
 
     # Button press regressors (1 beta per run)
     response_timings_run = (get_response_timings_df(dataset)
@@ -85,7 +88,8 @@ def build_design_matrix_run(all_pupil_data,
                                                                   run=run,
                                                                   dataset=dataset,
                                                                   regressor_name="button")
-    button_regressors = convolve_with_prf(button_regressors, chosen_prf)
+    button_regressors = convolve_with_prf(button_regressors, chosen_prf,
+                                          normalize=normalize_convolved)
 
     # Fixation regressors (4 betas estimated per run)
     fixation_regressors, fixation_betas_name = create_fixation_matrix(all_pupil_data[run]["eye_x"].values,
@@ -125,12 +129,14 @@ def build_design_matrix_all_runs(all_pupil_data,
                                  start_timings,
                                  sub,
                                  runs,
-                                 dataset):
+                                 dataset,
+                                 normalize_convolved):
     dms = []
     all_names = []
     for run in runs:
         dm_run, names_run = build_design_matrix_run(
-            all_pupil_data, chosen_prf, start_timings, sub, run, dataset
+            all_pupil_data, chosen_prf, start_timings, sub, run, dataset,
+            normalize_convolved=normalize_convolved
         )
         dms.append(dm_run)
         all_names.extend(names_run)
@@ -142,9 +148,11 @@ def glm_all_runs(all_pupil_data,
                  start_timings,
                  sub,
                  runs,
-                 dataset):
+                 dataset,
+                 normalize_convolved):
     combined_dm, betas_name = build_design_matrix_all_runs(
-        all_pupil_data, chosen_prf, start_timings, sub, runs, dataset
+        all_pupil_data, chosen_prf, start_timings, sub, runs, dataset,
+        normalize_convolved=normalize_convolved
     )
     y = np.concatenate([all_pupil_data[run]["pupil"].values for run in runs])
 
@@ -179,8 +187,10 @@ def glm_single_sub(all_pupil_data,
                    start_timings,
                    sub,
                    runs,
-                   dataset):
+                   dataset,
+                   normalize_convolved):
     results_sub, vif_stats = glm_all_runs(
-        all_pupil_data, chosen_prf, start_timings, sub, runs, dataset
+        all_pupil_data, chosen_prf, start_timings, sub, runs, dataset,
+        normalize_convolved=normalize_convolved
     )
     return results_sub, pd.DataFrame([vif_stats])
