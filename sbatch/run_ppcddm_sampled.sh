@@ -21,6 +21,10 @@
 # passed through to --models). Leave empty ("") to simulate every model
 # currently in run_analysis_ppcddm.py's MODELS dict.
 #
+# Posteriors are read from $RESULTS_DIR/hddm_posteriors, with RESULTS_DIR set
+# in sbatch/configs/general.sh (the same folder the HDDM fit/diagnostics jobs
+# write to).
+#
 # CONCURRENCY: the array is now (n_dataset_sub_pairs * n_models) jobs --
 # e.g. 190 subs * 5 models = 950 -- specifically so more of them can run at
 # once. The %<N> below is a placeholder; raise it to whatever your
@@ -45,11 +49,17 @@ if [ -n "$MODELS" ]; then
   MODELS_FLAG="--models $MODELS"
 fi
 
+if [ ! -d "$RESULTS_DIR/hddm_posteriors" ]; then
+  echo "ERROR: $RESULTS_DIR/hddm_posteriors not found -- check RESULTS_DIR in sbatch/configs/general.sh" >&2
+  exit 1
+fi
+
 # Resolve number of (dataset, sub, model) jobs from the manifest -- must
 # pass the same --models filter as the array itself, since job count scales
 # with how many models are selected.
 N_JOBS=$(cd "$REPO_PTH" && uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm_sampled --print_njobs $MODELS_FLAG)
 echo "Submitting array of $N_JOBS jobs (max $MAX_CONCURRENT concurrent), models: ${MODELS:-all}, num_draws: $NUM_DRAWS..."
+echo "Posteriors from: $RESULTS_DIR/hddm_posteriors"
 
 sbatch <<EOF
 #!/bin/bash
@@ -65,8 +75,9 @@ sbatch <<EOF
 #SBATCH --export=ALL
 
 ml openblas/0.3.28
-cd /scratch/users/gustxsr/riskhistory
+cd "$REPO_PTH"
 
 uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm_sampled \\
-    --job_index \$SLURM_ARRAY_TASK_ID --num_draws $NUM_DRAWS $MODELS_FLAG
+    --job_index \$SLURM_ARRAY_TASK_ID --num_draws $NUM_DRAWS $MODELS_FLAG \\
+    --results_pth "$RESULTS_DIR"
 EOF

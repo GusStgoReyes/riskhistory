@@ -1,22 +1,9 @@
 """Posterior-predictive PPC-DDM simulation with sampled (not point-estimate)
 parameters.
-
-run_analysis_ppcddm.py simulates each (dataset, sub, model) once, using the
-point-estimate parameters from the summarized hddm_stats/hddm_params CSVs.
-This script instead draws NUM_PARAM_DRAWS parameter sets from the model's
-actual posterior (see compute_diagnostics.py's save_posterior_npz), runs a
-full simulation for each draw, and averages the resulting per-trial
-statistics across draws -- a proper posterior-predictive summary that
-propagates parameter uncertainty, rather than a single plug-in simulation.
-
-The per-trial statistics computed within one draw (mean_rt, mean_accept,
-pred_repeat -- see ddm_model.py's generate_data) are unchanged; only how the
-parameters feeding each draw are chosen is new. The final output has the
-same one-row-per-trial shape as run_analysis_ppcddm.py's, so
-analysis_ddmppcbehavior's R code needs no changes.
 """
 import argparse
 import hashlib
+from pathlib import Path
 import numpy as np
 import pandas as pd
 
@@ -34,19 +21,22 @@ from riskhistory.analysis_ppcddm.run_analysis_ppcddm import (
 from riskhistory.config import behavioral_data_pth, results_pth
 
 NUM_PARAM_DRAWS = 1000
+# HDDM results folder holding hddm_posteriors/ (sbatch passes RESULTS_DIR from
+# sbatch/configs/general.sh via --results_pth)
+DEFAULT_DDM_RESULTS_PTH = results_pth / "analysis_ddm_final"
 
 
 # ---------------------------------------------------------------------------
 # Posterior loading / draw selection
 # ---------------------------------------------------------------------------
 
-def load_posterior_npz(model_id: str, dataset: str) -> dict:
+def load_posterior_npz(model_id: str, dataset: str, ddm_results_pth: Path) -> dict:
     """One model's posterior draws (compute_diagnostics.py's
     save_posterior_npz): "{raw_param}" and "{raw_param}_subj.{sub}" arrays
     of shape (n_chain, n_draw), keyed by HDDM's own raw param_name and the
     actual `sub` label (not a synthetic index), plus "_chain"/"_draw"
     coordinate arrays."""
-    path = results_pth / "analysis_ddm_final" / "hddm_posteriors" / f"{model_id}_{dataset}_posterior.npz"
+    path = Path(ddm_results_pth) / "hddm_posteriors" / f"{model_id}_{dataset}_posterior.npz"
     if not path.exists():
         raise FileNotFoundError(f"{path} not found -- run compute_diagnostics.py first")
     return dict(np.load(path))
@@ -198,6 +188,7 @@ def _build_job_manifest_per_model(behavioral_data: pd.DataFrame,
 def run_subject_model_sampled(dataset_name: str, sub: int, model_id: str,
                               behavioral_data: pd.DataFrame,
                               behavioral_data_pupilclean: pd.DataFrame,
+                              ddm_results_pth: Path,
                               num_draws: int = NUM_PARAM_DRAWS) -> None:
     """One (dataset, sub, model_id) triple: posterior-predictive rather than
     point-estimate -- loads that model's posterior npz and calls
@@ -216,7 +207,7 @@ def run_subject_model_sampled(dataset_name: str, sub: int, model_id: str,
     print(f"  [{dataset_name} / sub-{sub}] model: {model_id} "
          f"({num_draws} posterior draws)")
 
-    posterior = load_posterior_npz(model_id, dataset_name)
+    posterior = load_posterior_npz(model_id, dataset_name, ddm_results_pth)
     summary_df = generate_simulated_data_sampled(model_id, dataset_name, sub, sub_data,
                                                   posterior, num_draws=num_draws)
 
@@ -244,6 +235,10 @@ if __name__ == "__main__":
                         help="Posterior parameter draws per subject/model (default: "
                              "%(default)s). Use a small number for a pilot timing run "
                              "before sizing the full array job's --time.")
+    parser.add_argument("--results_pth", type=Path, default=DEFAULT_DDM_RESULTS_PTH,
+                        help="HDDM results folder containing hddm_posteriors/ "
+                             "(sbatch passes RESULTS_DIR from sbatch/configs/general.sh; "
+                             "default: %(default)s)")
     args = parser.parse_args()
 
     if args.models:
@@ -286,6 +281,8 @@ if __name__ == "__main__":
     for dataset_name, sub, model_id in jobs:
         print(f"\nProcessing dataset={dataset_name}, sub={sub}, model={model_id}")
         run_subject_model_sampled(dataset_name, sub, model_id, behavioral_data,
-                                  behavioral_data_pupilclean, num_draws=args.num_draws)
+                                  behavioral_data_pupilclean,
+                                  ddm_results_pth=args.results_pth,
+                                  num_draws=args.num_draws)
 
     print("\nDone.")
