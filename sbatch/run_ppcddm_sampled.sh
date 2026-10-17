@@ -34,7 +34,7 @@
 
 set -euo pipefail
 
-MODELS=""
+MODELS="HDDM_Base_Lag1-drift_Pupil,HDDM_Base_Lag1-drift_Pupil_drift,HDDM_Base_Lag1-stp_Pupil,HDDM_Base_Lag1-stp_Pupil_stp"
 NUM_DRAWS=1000
 MAX_CONCURRENT=250
 
