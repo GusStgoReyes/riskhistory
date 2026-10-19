@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
+from scipy.optimize import basinhopping
 from scipy.special import expit
 
 from riskhistory.config import results_pth
@@ -23,8 +23,11 @@ DEFAULT_BOUNDS = {
 
 DEFAULT_START = {"bias": 0.0, "theta": 1.0, "lambda_": 2.0, "choicehistory": 0.0}
 
-# Multi-start over lambda to guard against local optima.
-LAMBDA_STARTS = (1.0, 2.0, 4.0)
+# Basin hopping (global search) settings: random perturbations of the free
+# parameters, each followed by a bounded L-BFGS-B local fit.
+BH_NITER = 100
+BH_STEPSIZE = 0.5
+BH_SEED = 42
 
 
 def _p_accept(params, gain, loss, prev_choice):
@@ -58,7 +61,9 @@ def fit_lossaversion(
     start=None,
     fix=None,
     bounds=None,
-    lambda_starts=LAMBDA_STARTS,
+    niter=BH_NITER,
+    stepsize=BH_STEPSIZE,
+    seed=BH_SEED,
 ):
     gain = np.asarray(gain, dtype=float)
     loss = np.asarray(loss, dtype=float)
@@ -72,34 +77,46 @@ def fit_lossaversion(
 
     start = {**DEFAULT_START, **(start or {})}
     bounds = {**DEFAULT_BOUNDS, **(bounds or {})}
-    for name, value in fix.items():
-        start[name] = value
-        bounds[name] = (value, value)
 
-    lam_starts = [start["lambda_"]] if "lambda_" in fix else list(lambda_starts)
+    # Only the free parameters are searched; fixed ones are inserted back
+    # before evaluating the likelihood, so basin hopping never perturbs them.
+    free = [n for n in PARAM_NAMES if n not in fix]
+    free_bounds = [bounds[n] for n in free]
+    lower = np.array([-np.inf if lo is None else lo for lo, _ in free_bounds])
+    upper = np.array([np.inf if hi is None else hi for _, hi in free_bounds])
 
-    best = None
-    for lam0 in lam_starts:
-        x0 = [start[n] if n != "lambda_" else lam0 for n in PARAM_NAMES]
-        result = minimize(
-            _neg_log_likelihood,
-            x0=x0,
-            args=(gain, loss, accept, prev_choice),
-            bounds=[bounds[n] for n in PARAM_NAMES],
-            method="L-BFGS-B",
-        )
-        if best is None or result.fun < best.fun:
-            best = result
+    def full_params(x_free):
+        values = {**fix, **dict(zip(free, x_free))}
+        return [values[n] for n in PARAM_NAMES]
+
+    def objective(x_free):
+        return _neg_log_likelihood(full_params(x_free), gain, loss, accept, prev_choice)
+
+    # Reject hops that land outside the bounds (e.g. theta or lambda <= 0)
+    def within_bounds(x_new, **kwargs):
+        return bool(np.all(x_new >= lower) and np.all(x_new <= upper))
+
+    result = basinhopping(
+        objective,
+        x0=[start[n] for n in free],
+        niter=niter,
+        stepsize=stepsize,
+        minimizer_kwargs={"method": "L-BFGS-B", "bounds": free_bounds},
+        accept_test=within_bounds,
+        rng=np.random.default_rng(seed),
+    )
+    best_x = full_params(result.x)
 
     # Proportion of trials whose choice the fitted model predicts correctly
     # (p_accept > 0.5 -> accept), counting both accepts and rejects.
-    predicted_accept = (_p_accept(best.x, gain, loss, prev_choice) > 0.5)
+    predicted_accept = (_p_accept(best_x, gain, loss, prev_choice) > 0.5)
 
-    out = dict(zip(PARAM_NAMES, best.x))
-    out["nll"] = float(best.fun)
+    out = dict(zip(PARAM_NAMES, best_x))
+    out["nll"] = float(result.fun)
     out["n_trials"] = int(gain.size)
     out["accuracy"] = float(np.mean(predicted_accept == (accept == 1)))
-    out["success"] = bool(best.success)
+    # success of the local fit at the best basin found
+    out["success"] = bool(result.lowest_optimization_result.success)
     return out
 
 
@@ -135,7 +152,7 @@ def main():
     baseline_betas.to_csv(baseline_file, index=False)
     print(f"Saved: {baseline_file.name}")
 
-    # (B) Choice history: bias fixed at 0
+    # (B) Choice history: all parameters free
     choicehistory_betas = fit_all_subjects(
         data, fix=None, label="(B) choice history"
     )

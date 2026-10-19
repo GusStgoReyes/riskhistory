@@ -1,15 +1,4 @@
 """LOO model comparison aggregation for HDDM fits.
-
-Loads the per-trial elpd/reliability CSVs produced by compute_diagnostics.py
-(one row per trial per model; elpd is defined for every trial there, with
-degenerate-tail trials filled in via elpd_raw_is -- see that module). No
-large InferenceData files are loaded here.
-
-Convergence diagnostics (rhat/ess) are collected for every model in
-ALL_MODELS. For each (reference, target) pair listed under a MODEL_GROUPS
-entry, the LOO elpd difference is computed on their shared (sub, trial)
-trials -- once over all of them, and once restricted to trials reliable
-(pareto_k <= 0.7) in both models -- with output files named after the group.
 """
 import argparse
 from pathlib import Path
@@ -29,9 +18,7 @@ ALL_MODELS = [
     "HDDM_Base_Lag1-stp_Pupil",
     "HDDM_Base_Lag1-drift_Pupil_drift",
     "HDDM_Base_Lag1-stp_Pupil_stp",
-    "HDDM_Base_Pupil_boundary",
-    "HDDM_Base_Pupil_valuation",
-    "HDDM_Base_Pupil_ndt"
+    "HDDM_Base_Pupil_valuation"
 ]
     
 
@@ -52,9 +39,7 @@ MODEL_GROUPS = {
                  ["HDDM_Base_Pupil", "HDDM_Base_Lag1-stp_Pupil"],
                  ["HDDM_Base_Lag1-drift_Pupil", "HDDM_Base_Lag1-drift_Pupil_drift"],
                  ["HDDM_Base_Lag1-stp_Pupil", "HDDM_Base_Lag1-stp_Pupil_stp"],
-                 ["HDDM_Base_Pupil", "HDDM_Base_Pupil_boundary"], 
-                 ["HDDM_Base_Pupil", "HDDM_Base_Pupil_valuation"],
-                 ["HDDM_Base_Pupil", "HDDM_Base_Pupil_ndt"],
+                 ["HDDM_Base_Pupil", "HDDM_Base_Pupil_valuation"]
                 ]
 }
 
