@@ -24,8 +24,6 @@ MODEL_PARAMS = {
         "v_loss_centered:pupil",
         "v_pupil",
     ],
-    "HDDM_Base_Pupil_boundary": ["a_pupil"],
-    "HDDM_Base_Pupil_ndt": ["t_pupil"],
 }
 
 DATASETS = ("equalIndifference", "equalRange", "sheng2020")
