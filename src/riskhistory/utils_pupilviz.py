@@ -7,6 +7,7 @@ from functools import lru_cache
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 from riskhistory.data import (REPO_ROOT, load_pupilbetas, load_behavioral_data,
                               load_behavioral_data_pupilclean, DATASET_RUNS)
@@ -207,14 +208,15 @@ def mean_epochs_sub(
     t_post: float = 4.0,
     alignment: str = "start",
 ) -> dict[str, np.ndarray]:
-    """Compute mean ± SEM pupil epochs (predicted and real) across all runs.
+    """Compute mean, SEM and 95% CI pupil epochs (predicted and real) across all runs.
 
     Calls ``predicted_pupil_sub`` to reconstruct the full timeseries (from
     all trials, as in the fit), then epochs around the stimulus-onset or
     button-press timings of the trials that pass behavioral and pupil
     exclusion for that alignment (``load_behavioral_data_pupilclean``) and
     stacks them across runs before
-    computing the mean and the across-trial SEM.  No baseline correction is
+    computing the mean, the across-trial SEM, and the 95% CI half-width
+    (t-quantile with n_trials - 1 df times the SEM).  No baseline correction is
     applied: both signals are the high-pass-filtered z-scored pupil.
 
     Parameters
@@ -232,6 +234,9 @@ def mean_epochs_sub(
         "predicted_sem"  : np.ndarray, shape (n_samples,)
         "real_mean"      : np.ndarray, shape (n_samples,)
         "real_sem"       : np.ndarray, shape (n_samples,)
+        "predicted_ci95" : np.ndarray, shape (n_samples,) — 95% CI half-width
+        "real_ci95"      : np.ndarray, shape (n_samples,) — 95% CI half-width
+        "n_trials"       : int — number of epochs averaged
         "time_axis"      : np.ndarray, shape (n_samples,) — seconds from anchor
     """
     run_data = predicted_pupil_sub(sub, dataset)
@@ -277,11 +282,19 @@ def mean_epochs_sub(
             return np.full(x.shape[1], np.nan)
         return x.std(axis=0, ddof=1) / np.sqrt(x.shape[0])
 
+    n_trials = pred_all.shape[0]
+    t_crit = stats.t.ppf(0.975, n_trials - 1) if n_trials >= 2 else np.nan
+    pred_sem = _sem(pred_all)
+    real_sem = _sem(real_all)
+
     return {
         "predicted_mean": pred_all.mean(axis=0),
-        "predicted_sem":  _sem(pred_all),
+        "predicted_sem":  pred_sem,
         "real_mean":      real_all.mean(axis=0),
-        "real_sem":       _sem(real_all),
+        "real_sem":       real_sem,
+        "predicted_ci95": t_crit * pred_sem,
+        "real_ci95":      t_crit * real_sem,
+        "n_trials":       n_trials,
         "time_axis":      time_axis,
     }
 
