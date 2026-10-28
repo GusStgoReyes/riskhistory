@@ -7,6 +7,30 @@ MODEL_PAIRS <- list(
   drift = c(baseline = "HDDM_Base_Lag1-drift_Pupil", pupil = "HDDM_Base_Lag1-drift_Pupil_drift")
 )
 
+PUPILACCEPT_COMPARISON_FIXED <-
+  "logit_mean_accept ~ gain + loss + real_choice_prev1 * pupil * model_type"
+
+# Random-effects structure per model pair and dataset; model_pupil is the 0/1
+# indicator of model_type so that || can separate its slope
+PUPILACCEPT_COMPARISON_RANEF <- list(
+  stp = c(
+    equalIndifference = paste("(1 + gain + loss + real_choice_prev1 + pupil +",
+                              "real_choice_prev1:pupil + pupil:model_pupil || sub)"),
+    equalRange        = paste("(1 + gain + loss + real_choice_prev1 + pupil +",
+                              "real_choice_prev1:pupil + pupil:model_pupil || sub)"),
+    sheng2020         = paste("(1 + gain + loss + real_choice_prev1 + pupil +",
+                              "real_choice_prev1:pupil + pupil:model_pupil || sub)")
+  ),
+  drift = c(
+    equalIndifference = paste("(1 + gain + loss + real_choice_prev1 + pupil +",
+                              "real_choice_prev1:pupil + pupil:model_pupil | sub)"),
+    equalRange        = paste("(1 + gain + loss + real_choice_prev1 + pupil +",
+                              "real_choice_prev1:pupil | sub)"),
+    sheng2020         = paste("(1 + gain + loss + real_choice_prev1 + pupil +",
+                              "real_choice_prev1:pupil + pupil:model_pupil || sub)")
+  )
+)
+
 all_convergence <- list()
 all_fixed_effects <- list()
 
@@ -19,21 +43,23 @@ for (pair_name in names(MODEL_PAIRS)) {
     load_ddm_ppc_data(pair[[mt]]) %>%
       mutate(model_type = mt, ddm_model = pair[[mt]])
   })) %>%
-    mutate(model_type = factor(model_type, levels = c("baseline", "pupil")))
+    mutate(model_type  = factor(model_type, levels = c("baseline", "pupil")),
+           model_pupil = as.numeric(model_type == "pupil"))
 
   models_list <- list()
 
   for (ds in datasets) {
     message(sprintf("\nFitting DDM PPC pupil accept comparison model for dataset: %s", ds))
     df_sub <- pair_data[pair_data$dataset == ds, ]
+    ranef  <- PUPILACCEPT_COMPARISON_RANEF[[pair_name]][[ds]]
 
     m <- lmer(
-      logit_mean_accept ~ gain + loss + real_choice_prev1 * pupil * model_type +
-        (1 + gain + loss | sub),
+      as.formula(paste(PUPILACCEPT_COMPARISON_FIXED, "+", ranef)),
       data = df_sub, control = LMER_CONTROL
     )
     diag <- check_model_diagnostics(m)
-    message(sprintf("  converged: %s, singular: %s", diag$converged, diag$singular))
+    message(sprintf("  converged: %s, singular: %s, random effects: %s",
+                    diag$converged, diag$singular, ranef))
 
     models_list <- add_models_to_list(
       models_list = models_list,

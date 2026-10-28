@@ -8,8 +8,8 @@ PUPILACCEPT_MODELS <- list(
     fixed = "accept ~ gain_centered + loss_centered + choice_prev1 * pupil",
     ranef = c(
       equalIndifference = paste("(1 + gain_centered + loss_centered +",
-                                "choice_prev1+ pupil || sub)"),
-      equalRange        = "(1 + gain_centered + loss_centered + pupil || sub)",
+                                "choice_prev1 + pupil | sub)"),
+      equalRange        = "(1 + gain_centered + loss_centered | sub)",
       sheng2020         = paste("(1 + gain_centered + loss_centered +",
                                 "choice_prev1 + choice_prev1:pupil || sub)")
     )
@@ -19,10 +19,10 @@ PUPILACCEPT_MODELS <- list(
                   "choice_prev1 * pupil + choice_prev1 * rt_z"),
     ranef = c(
       equalIndifference = paste("(1 + gain_centered + loss_centered +",
-                                "choice_prev1+ pupil || sub)"),
-      equalRange        = "(1 + gain_centered + loss_centered + pupil || sub)",
+                                "choice_prev1 + pupil + rt_z || sub)"),
+      equalRange        = "(1 + gain_centered + loss_centered + rt_z | sub)",
       sheng2020         = paste("(1 + gain_centered + loss_centered +",
-                                "choice_prev1 || sub)")
+                                "choice_prev1 + rt_z + choice_prev1:rt_z || sub)")
     )
   )
 )

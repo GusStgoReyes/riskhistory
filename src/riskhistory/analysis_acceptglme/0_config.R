@@ -40,9 +40,10 @@ source(file.path(repo_path, "src", "riskhistory", "setup_behavioraldata", "utils
 # =============================================================================
 # Load and prepare data
 # =============================================================================
+pth_betas <- file.path(analysis_results_path,
+                       "1_prospecttheory_baseline_betas.csv")
 behavioral_data_full <- load_behavioral_data()
-behavioral_data <- subset(behavioral_data_full, !exclude)
-
+behavioral_data <- add_subjectivevalues_and_regressors(behavioral_data_full, pth_betas)
 # =============================================================================
 # Initialize model storage lists
 # =============================================================================

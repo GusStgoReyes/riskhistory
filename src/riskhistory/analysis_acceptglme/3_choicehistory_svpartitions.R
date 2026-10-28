@@ -1,16 +1,12 @@
 # =============================================================================
 # Choice History Effect by Subjective-Value Partition
 # =============================================================================
-# Add subjective values and regressors to data (from previous file)
-pth_betas <- file.path(analysis_results_path,
-                       "1_prospecttheory_baseline_betas.csv")
-data <- add_subjectivevalues_and_regressors(behavioral_data_full, pth_betas)
 
 # Random-effects structure per dataset
 SVPARTITION_RANEF <- c(
   equalIndifference = "(1 +  sv_z + choice_prev1 + sv_abs_z*choice_prev1 || sub)",
-  equalRange        = "(1 + sv_z +  sv_z:choice_prev1 + sv_abs_z || sub)",
-  sheng2020         = "(1 + sv_z * choice_prev1 + sv_abs_z + choice_prev1 || sub)"
+  equalRange        = "(1 + sv_z + sv_z:choice_prev1 + sv_abs_z || sub)",
+  sheng2020         = "(1 + sv_z + choice_prev1 + sv_abs_z + sv_z:choice_prev1 | sub)"
 )
 
 historyeffect_predictions_list <- list()
@@ -19,7 +15,7 @@ svpartition_models_list        <- list()
 
 for (ds in datasets) {
   print(paste("Running SV-partition choice-history model for dataset:", ds))
-  df_sub <- data[data$dataset == ds, ]
+  df_sub <- behavioral_data[behavioral_data$dataset == ds, ]
   ranef  <- SVPARTITION_RANEF[[ds]]
 
   mod <- glmer(

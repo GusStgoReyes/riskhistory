@@ -13,40 +13,20 @@ for (ds in datasets) {
   model2 <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
                     (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS EXPECTED VALUE MODEL
-  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_ev_z +
-                    (1 + loss_centered + gain_centered | sub),
-                  data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # DELTA EXPECTED VALUE MODEL
-  model4 <- glmer(accept ~ gain_centered + loss_centered + delta_ev_z +
-                    (1 + loss_centered + gain_centered | sub),
-                  data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS GAIN MODEL
-  model5 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_z +
-                    (1 + loss_centered + gain_centered | sub),
-                  data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS LOSS MODEL
-  model6 <- glmer(accept ~ gain_centered + loss_centered + prev_loss_z +
-                    (1 + loss_centered + gain_centered | sub),
-                  data = df_sub, family = binomial, control = GLMER_CONTROL)
   # PREVIOUS EXPECTED VALUE MODEL + CHOICE HISTORY
-  model7 <- glmer(accept ~ gain_centered + loss_centered + prev_ev_z +
-                    choice_prev1 + (1 + loss_centered + gain_centered | sub),
-                  data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # DELTA EXPECTED VALUE MODEL + CHOICE HISTORY
-  model8 <- glmer(accept ~ gain_centered + loss_centered + delta_ev_z +
+  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_ev_z +
                     choice_prev1 + (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
   # PREVIOUS GAIN + CHOICE HISTORY
-  model9 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_z +
+  model4 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_z +
                     choice_prev1 +
                     (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
   # PREVIOUS LOSS + CHOICE HISTORY
-  model10 <- glmer(accept ~ gain_centered + loss_centered + prev_loss_z +
-                     choice_prev1 +
-                     (1 + loss_centered + gain_centered | sub),
-                   data = df_sub, family = binomial, control = GLMER_CONTROL)
+  model5 <- glmer(accept ~ gain_centered + loss_centered + prev_loss_z +
+                    choice_prev1 +
+                    (1 + loss_centered + gain_centered | sub),
+                  data = df_sub, family = binomial, control = GLMER_CONTROL)
 
   # CHOICE HISTORY MODEL + RND EFFECT OF CHOICE HISTORY
   if (ds == "equalRange") {
@@ -64,12 +44,7 @@ for (ds in datasets) {
     M2_part1_rnd = model2_rnd,
     M3_part1 = model3,
     M4_part1 = model4,
-    M5_part1 = model5,
-    M6_part1 = model6,
-    M7_part1 = model7,
-    M8_part1 = model8,
-    M9_part1 = model9,
-    M10_part1 = model10
+    M5_part1 = model5
   )
   behavioral_models_list <- add_models_to_list(
     models_list = behavioral_models_list,
@@ -84,9 +59,7 @@ for (ds in datasets) {
 # =============================================================================
 print("Extracting model comparison and fixed effects for behavior models...")
 models <- c("M1_part1", "M2_part1", "M3_part1",
-            "M4_part1", "M5_part1", "M6_part1",
-            "M7_part1", "M8_part1", "M9_part1",
-            "M10_part1")
+            "M4_part1", "M5_part1")
 
 behavior_comparison_df <- compare_models(
   model_list      = behavioral_models_list,
@@ -99,8 +72,7 @@ write.csv(behavior_comparison_df, file.path(analysis_results_path,
           row.names = FALSE)
 
 models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1",
-            "M4_part1", "M5_part1", "M6_part1", "M7_part1",
-            "M8_part1", "M9_part1", "M10_part1")
+            "M4_part1", "M5_part1")
 fixed_effects <- extract_fixed_effects(
   model_list = behavioral_models_list,
   datasets   = datasets,
@@ -116,8 +88,7 @@ write.csv(fixed_effects, file.path(analysis_results_path,
 # =============================================================================
 print("Checking convergence for all behavioral models...")
 behavioral_models <- c("M1_part1", "M2_part1", "M2_part1_rnd", "M3_part1",
-                       "M4_part1", "M5_part1", "M6_part1", "M7_part1",
-                       "M8_part1", "M9_part1", "M10_part1")
+                       "M4_part1", "M5_part1")
 convergence_all <- check_convergence_all_models(
   model_list = behavioral_models_list,
   datasets   = datasets,

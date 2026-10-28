@@ -7,7 +7,7 @@ PUPILBETAS_TRANSITION_FIXED <-
 
 # Random-effects structure per dataset
 PUPILBETAS_TRANSITION_RANEF <- c(
-  equalIndifference = paste("(0 + rt_z + gain_z + loss_z + entropy_z +",
+  equalIndifference = paste("(0 + rt_z + gain_z + entropy_z +",
                             "abs_delta_ev_z + transition_AR +",
                             "transition_RA || sub)"),
   equalRange        = paste("(0 + rt_z + loss_z + entropy_z +",
