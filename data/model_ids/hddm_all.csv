@@ -10,6 +10,10 @@ HDDM_Base_Lag1-drift_Pupil,pupil
 HDDM_Base_Lag1-drift_Pupil_drift,pupil
 HDDM_Base_Lag1-stp_Pupil,pupil
 HDDM_Base_Lag1-stp_Pupil_stp,pupil
-HDDM_Base_Pupil_boundary,pupil
+HDDM_Base_Lag1-stpdrift_Pupil,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_stp,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_drift,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_stpdrift,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_driftmain,pupil
+HDDM_Base_Lag1-stpdrift_Pupil_stpmain,pupil
 HDDM_Base_Pupil_valuation,pupil
-HDDM_Base_Pupil_ndt,pupil

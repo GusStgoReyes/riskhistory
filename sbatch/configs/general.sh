@@ -2,7 +2,7 @@
 DATASET_DIR="$REPO_PTH/data"
 BEHAV_CSV="$DATASET_DIR/preprocessed/behavioral_data.csv"
 PUPIL_CSV="$DATASET_DIR/preprocessed/pupilbetas_glm_preprocessed.csv"
-RESULTS_DIR="$REPO_PTH/results/analysis_ddm_final_pupil"
+RESULTS_DIR="$REPO_PTH/results/analysis_ddm_final"
 
 # PyDDM Models
 MODEL_CSV="$DATASET_DIR/model_ids/pyddm.csv"

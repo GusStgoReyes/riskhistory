@@ -213,13 +213,50 @@ MODEL_REGISTRY = {
         "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
     },
-    "HDDM_Base_Pupil_boundary": {
+    "HDDM_Base_Lag1-stpdrift_Pupil": {
         "reg_descr": [
-            {
-                "model": "v ~ 1 + gain_centered + loss_centered",
-                "link_func": lambda x: x,
-            },
-            {"model": "a ~ 1 + pupil", "link_func": lambda x: x}
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1", "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-stpdrift_Pupil_stp": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1", "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1*pupil", "link_func": z_link_func},
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-stpdrift_Pupil_drift": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1*pupil", "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1*pupil", "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1*pupil", "link_func": z_link_func},
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-stpdrift_Pupil_driftmain": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1 + pupil", "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1", "link_func": z_link_func},
+        ],
+        "group_only_nodes": [],
+        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
+    },
+    "HDDM_Base_Lag1-stpdrift_Pupil_stpmain": {
+        "reg_descr": [
+            {"model": "v ~ 1 + gain_centered + loss_centered + choice_prev1", "link_func": lambda x: x},
+            {"model": "z ~ 1 + choice_prev1 + pupil", "link_func": z_link_func},
         ],
         "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
@@ -233,18 +270,7 @@ MODEL_REGISTRY = {
         ],
         "group_only_nodes": [],
         **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
-    },
-    "HDDM_Base_Pupil_ndt": {
-        "reg_descr": [
-            {
-                "model": "v ~ 1 + gain_centered + loss_centered",
-                "link_func": lambda x: x,
-            },
-            {"model": "t ~ 1 + pupil", "link_func": lambda x: x}
-        ],
-        "group_only_nodes": [],
-        **DEFAULT_MODEL_PARAMS_NOCOLLAPSE,
-    },
+    }
 }
 
 # =============================================================================
