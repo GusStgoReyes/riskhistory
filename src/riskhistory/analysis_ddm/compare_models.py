@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 # Every HDDM model that has been fit and diagnosed (see compute_diagnostics.py).
@@ -126,14 +127,23 @@ def compare_pair(
     reliable_tgt = merged["reliable_k_tgt"].fillna(False)
     common_reliable = reliable_ref & reliable_tgt
 
+    # SE of the elpd diff clustered by subject: trials within a subject aren't
+    # independent, so sum the pointwise diffs per subject and use
+    # sqrt(n_subj * var(subject sums)). Unreliable trials contribute 0 to the
+    # reliable sums so every subject is still counted.
+    pointwise_diff = merged["elpd_tgt"] - merged["elpd_ref"]
+    reliable_diff = pointwise_diff.where(common_reliable, 0.0)
+    subj_keys = [merged["dataset"], merged["sub"]]
+    subj_diff = pointwise_diff.groupby(subj_keys).sum()
+    subj_reliable_diff = reliable_diff.groupby(subj_keys).sum()
+
     return {
         "reference_model": reference_model,
         "target_model": target_model,
-        "diff_elpd_loo": float(merged["elpd_tgt"].sum() - merged["elpd_ref"].sum()),
-        "diff_elpd_reliable": float(
-            merged.loc[common_reliable, "elpd_tgt"].sum()
-            - merged.loc[common_reliable, "elpd_ref"].sum()
-        ),
+        "diff_elpd_loo": float(pointwise_diff.sum()),
+        "se_diff_elpd_loo": float(np.sqrt(len(subj_diff) * subj_diff.var())),
+        "diff_elpd_reliable": float(reliable_diff.sum()),
+        "se_diff_elpd_reliable": float(np.sqrt(len(subj_reliable_diff) * subj_reliable_diff.var())),
         "num_unreliable": int((~common_reliable).sum()),
         "num_total": len(merged),
     }
