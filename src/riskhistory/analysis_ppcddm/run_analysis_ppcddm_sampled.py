@@ -127,20 +127,26 @@ def generate_simulated_data_sampled(model_id: str, dataset: str, sub: int,
 
 
 # ---------------------------------------------------------------------------
-# Job manifest: (dataset, sub, model_id) triples
+# Job manifest: lists of (dataset, sub, model_id) triples, one list per job
 # ---------------------------------------------------------------------------
-# One job per model too (not one per subject looping over models, as in
-# run_analysis_ppcddm.py): at 1000 draws a single model/sub takes ~6.5 h.
+# By default one job per (dataset, sub, model): at 1000 draws a single
+# model/sub takes ~6.5 h. With per_subject (e.g. for median runs, ~25 s per
+# model) one job per (dataset, sub) runs every selected model.
 
 def _build_job_manifest_per_model(behavioral_data: pd.DataFrame,
                                   behavioral_data_pupilclean: pd.DataFrame,
-                                  models: dict) -> list[tuple[str, int, str]]:
-    """Sorted (dataset, sub, model_id) triples; index = SLURM_ARRAY_TASK_ID.
-    Subjects with no trials in a model's population are skipped at run time."""
+                                  models: dict,
+                                  per_subject: bool = False) -> list[list[tuple[str, int, str]]]:
+    """Sorted jobs, each a list of (dataset, sub, model_id) triples; index =
+    SLURM_ARRAY_TASK_ID. Subjects with no trials in a model's population are
+    skipped at run time."""
     dataset_sub_pairs = sorted(set(_build_job_manifest(behavioral_data))
                                | set(_build_job_manifest(behavioral_data_pupilclean)))
-    return [(ds, sub, model_id) for ds, sub in dataset_sub_pairs
-            for model_id in models.values()]
+    jobs = [[(ds, sub, model_id) for model_id in models.values()]
+            for ds, sub in dataset_sub_pairs]
+    if per_subject:
+        return jobs
+    return [[triple] for job in jobs for triple in job]
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +190,7 @@ if __name__ == "__main__":
         description="PPC-DDM posterior-predictive simulation (sampled parameters)"
     )
     parser.add_argument("--job_index", type=int, default=None,
-                        help="SLURM_ARRAY_TASK_ID: index into (dataset, sub, model) manifest")
+                        help="SLURM_ARRAY_TASK_ID: index into the job manifest")
     parser.add_argument("--print_njobs", action="store_true",
                         help="Print total number of jobs and exit (for sbatch array sizing)")
     parser.add_argument("--models", type=str, default=None,
@@ -193,6 +199,9 @@ if __name__ == "__main__":
     parser.add_argument("--num_draws", type=int, default=NUM_PARAM_DRAWS,
                         help="Posterior parameter draws per subject/model (default: "
                              "%(default)s); 1 simulates from the posterior medians instead.")
+    parser.add_argument("--per_subject", action="store_true",
+                        help="One job per (dataset, sub) running every selected model, "
+                             "instead of one job per (dataset, sub, model)")
     parser.add_argument("--results_pth", type=Path, default=DEFAULT_DDM_RESULTS_PTH,
                         help="HDDM results folder containing hddm_posteriors/ "
                              "(default: %(default)s)")
@@ -220,7 +229,8 @@ if __name__ == "__main__":
 
     behavioral_data_pupilclean = load_behavioral_data_pupilclean()
 
-    jobs = _build_job_manifest_per_model(behavioral_data, behavioral_data_pupilclean, models)
+    jobs = _build_job_manifest_per_model(behavioral_data, behavioral_data_pupilclean, models,
+                                         per_subject=args.per_subject)
 
     if args.print_njobs:
         print(len(jobs))
@@ -232,7 +242,7 @@ if __name__ == "__main__":
             raise SystemExit(0)
         jobs = [jobs[args.job_index]]
 
-    for dataset_name, sub, model_id in jobs:
+    for dataset_name, sub, model_id in (triple for job in jobs for triple in job):
         print(f"\nProcessing dataset={dataset_name}, sub={sub}, model={model_id}")
         run_subject_model_sampled(dataset_name, sub, model_id, behavioral_data,
                                   behavioral_data_pupilclean,
