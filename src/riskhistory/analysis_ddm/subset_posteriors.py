@@ -15,8 +15,8 @@ MODEL_PARAMS = {
     "HDDM_Base_Lag1-full" : ["v_choice_prev1", "z_choice_prev1",
                              "v_gain_centered", "v_gain_centered:choice_prev1", 
                              "v_loss_centered:choice_prev1", "v_loss_centered"],
-    "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift": ["v_choice_prev1", "v_choice_prev1:pupil", "v_pupil",
-                                               "z_choice_prev1", "z_choice_prev1:pupil", "z_pupil"],
+    "HDDM_Base_Lag1-stpdrift_Pupil_stpdrift": ["v_Intercept", "v_choice_prev1", "v_choice_prev1:pupil", "v_pupil",
+                                               "z_Intercept", "z_choice_prev1", "z_choice_prev1:pupil", "z_pupil"],
     "HDDM_Base_Pupil_valuation": [
         "v_gain_centered",
         "v_loss_centered",
