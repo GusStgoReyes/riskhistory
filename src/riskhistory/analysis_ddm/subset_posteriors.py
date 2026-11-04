@@ -40,7 +40,7 @@ def subset_posterior(
     Parameters
     ----------
     npz_path : str or Path
-        Path to a posterior .npz written by extract_posteriors.py.
+        Path to a posterior .npz written by compute_diagnostics.py.
     output_pth : str or Path
         Directory to write the subset .npz into (created if needed). The
         filename is reused, so this must differ from the input directory.

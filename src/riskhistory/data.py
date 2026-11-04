@@ -267,7 +267,7 @@ _PPCDDM_DIR         = REPO_ROOT / "results" / "analysis_ppcddm"
 
 def _ddm_idx_save(pupil_col: str) -> str:
     """Filename suffix for a given pupil variant -- must match model_hddm.py /
-    utils_stats.py / compute_diagnostics.py / extract_posteriors.py exactly."""
+    utils_stats.py / compute_diagnostics.py exactly."""
     return "" if pupil_col == "pupil" else f"_{pupil_col}"
 
 

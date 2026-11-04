@@ -54,7 +54,7 @@ riskhistory/
 - **HDDM**: `analysis_ddm` runs only inside the `hcp4715/hddm` Docker image (as
   `hddm_latest.sif` under Singularity on Sherlock), with `PYTHONPATH=<repo>/src`. Its
   `__init__.py` imports `hddm`, so `riskhistory.analysis_ddm` cannot be imported from the uv
-  env. Submit with `bash sbatch/{fit_hddm,compute_diagnostics,compare_hddm,extract_posteriors}.bash <dataset>`.
+  env. Submit with `bash sbatch/{fit_hddm,compute_diagnostics,compare_hddm}.bash <dataset>`.
   Models fitted are listed in `data/model_ids/hddm.csv`.
 - There is no working Makefile (it is empty).
 

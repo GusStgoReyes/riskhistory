@@ -53,9 +53,8 @@ def save_posterior_npz(
 ) -> Path:
     """Save an already-loaded posterior Dataset to a compressed .npz.
 
-    Same output format as extract_posteriors.py, but takes the Dataset
-    directly instead of reopening the .nc file -- compute_diagnostics.py
-    already has it loaded for rhat/ess.
+    One float32 array per parameter plus `_chain`/`_draw`, readable with
+    plain numpy (no hddm/arviz/xarray needed).
     """
     arrays = {var: da.values.astype(dtype) for var, da in post_ds.data_vars.items()}
     arrays["_chain"] = post_ds["chain"].values
@@ -435,13 +434,6 @@ def main():
         help="Outlier mixture probability the model was fit with "
              "(must match P_OUTLIER in sbatch/configs/general.sh / the "
              "--p_outlier passed to model_hddm.py for this fit)",
-    )
-    parser.add_argument(
-        "--inspect_nc",
-        action="store_true",
-        help="Print every group/variable/attribute name in the .nc file "
-             "(metadata only, no data read) and exit without computing "
-             "diagnostics.",
     )
     args = parser.parse_args()
 

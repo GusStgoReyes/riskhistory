@@ -127,23 +127,18 @@ def compare_pair(
     reliable_tgt = merged["reliable_k_tgt"].fillna(False)
     common_reliable = reliable_ref & reliable_tgt
 
-    # SE of the elpd diff clustered by subject: trials within a subject aren't
-    # independent, so sum the pointwise diffs per subject and use
-    # sqrt(n_subj * var(subject sums)). Unreliable trials contribute 0 to the
-    # reliable sums so every subject is still counted.
+    # SE of the elpd diff from the pointwise diffs: sqrt(n * var(diff_i))
+    # (Vehtari, Gelman & Gabry 2017, eq. 24).
     pointwise_diff = merged["elpd_tgt"] - merged["elpd_ref"]
-    reliable_diff = pointwise_diff.where(common_reliable, 0.0)
-    subj_keys = [merged["dataset"], merged["sub"]]
-    subj_diff = pointwise_diff.groupby(subj_keys).sum()
-    subj_reliable_diff = reliable_diff.groupby(subj_keys).sum()
+    reliable_diff = pointwise_diff[common_reliable]
 
     return {
         "reference_model": reference_model,
         "target_model": target_model,
         "diff_elpd_loo": float(pointwise_diff.sum()),
-        "se_diff_elpd_loo": float(np.sqrt(len(subj_diff) * subj_diff.var())),
+        "se_diff_elpd_loo": float(np.sqrt(len(pointwise_diff) * pointwise_diff.var())),
         "diff_elpd_reliable": float(reliable_diff.sum()),
-        "se_diff_elpd_reliable": float(np.sqrt(len(subj_reliable_diff) * subj_reliable_diff.var())),
+        "se_diff_elpd_reliable": float(np.sqrt(len(reliable_diff) * reliable_diff.var())),
         "num_unreliable": int((~common_reliable).sum()),
         "num_total": len(merged),
     }

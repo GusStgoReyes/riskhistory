@@ -122,7 +122,6 @@ cd src/riskhistory/analysis_pupilbehavior    && Rscript run_analysis_pupilbehavi
 bash sbatch/fit_hddm.bash <dataset>                  # one array job per model in data/model_ids/hddm.csv
 bash sbatch/compute_diagnostics.bash <dataset>       # after the fits; LOO, R-hat, ESS per model
 bash sbatch/compare_hddm.bash <dataset> [diag_job_id]  # after diagnostics; waits on the job id if given
-bash sbatch/extract_posteriors.bash <dataset>        # after the fits; small .npz posteriors
 
 # 7. Posterior-predictive simulations, on the cluster       (needs: 6)
 bash sbatch/run_ppcddm_sampled.sh
@@ -279,9 +278,8 @@ array are listed in `data/model_ids/hddm.csv` (`model_id,pupil_col`).
 | Script | Does |
 |---|---|
 | `model_hddm.py` | Fits one model on one dataset; saves the full InferenceData (`hddm/`), group and per-participant summaries (`hddm_stats/`, `hddm_params/`). |
-| `compute_diagnostics.py` | Per-model LOO, R-hat and ESS, loading one netCDF group at a time to bound memory. |
+| `compute_diagnostics.py` | Per-model LOO, R-hat and ESS, loading one netCDF group at a time to bound memory; also saves each parameter's posterior samples to a compressed `.npz` (`hddm_posteriors/`) that plain numpy can read. |
 | `compare_models.py` | Aggregates the diagnostics into LOO model comparisons and convergence tables (`hddm_compare/`). |
-| `extract_posteriors.py` | Saves each parameter's posterior samples to a compressed `.npz` (`hddm_posteriors/`) that plain numpy can read. |
 | `subset_posteriors.py` | Optionally trims those `.npz` files to a few parameters for download. |
 | `utils_*.py` | Data preparation, model definitions, and summary statistics. |
 
