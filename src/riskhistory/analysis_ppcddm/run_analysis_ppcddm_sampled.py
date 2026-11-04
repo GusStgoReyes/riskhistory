@@ -20,9 +20,7 @@ from riskhistory.analysis_ppcddm.run_analysis_ppcddm import (
 )
 from riskhistory.config import behavioral_data_pth, results_pth
 
-NUM_PARAM_DRAWS = 1000
-# HDDM results folder holding hddm_posteriors/ (sbatch passes RESULTS_DIR from
-# sbatch/configs/general.sh via --results_pth)
+NUM_PARAM_DRAWS = 1
 DEFAULT_DDM_RESULTS_PTH = results_pth / "analysis_ddm_final"
 
 
@@ -31,11 +29,8 @@ DEFAULT_DDM_RESULTS_PTH = results_pth / "analysis_ddm_final"
 # ---------------------------------------------------------------------------
 
 def load_posterior_npz(model_id: str, dataset: str, ddm_results_pth: Path) -> dict:
-    """One model's posterior draws (compute_diagnostics.py's
-    save_posterior_npz): "{raw_param}" and "{raw_param}_subj.{sub}" arrays
-    of shape (n_chain, n_draw), keyed by HDDM's own raw param_name and the
-    actual `sub` label (not a synthetic index), plus "_chain"/"_draw"
-    coordinate arrays."""
+    """Posterior draws saved by compute_diagnostics.py: "{param}" and
+    "{param}_subj.{sub}" arrays of shape (n_chain, n_draw), plus "_chain"/"_draw"."""
     path = Path(ddm_results_pth) / "hddm_posteriors" / f"{model_id}_{dataset}_posterior.npz"
     if not path.exists():
         raise FileNotFoundError(f"{path} not found -- run compute_diagnostics.py first")
@@ -44,18 +39,11 @@ def load_posterior_npz(model_id: str, dataset: str, ddm_results_pth: Path) -> di
 
 def _draw_indices(model_id: str, dataset: str, n_chain: int, n_draw: int,
                   num_draws: int = NUM_PARAM_DRAWS) -> list[tuple[int, int]]:
-    """num_draws distinct (chain_idx, draw_idx) pairs, sampled without
-    replacement out of the n_chain * n_draw available posterior samples.
+    """num_draws distinct (chain_idx, draw_idx) pairs, sampled without replacement.
 
-    Seeded only on (model_id, dataset) -- NOT sub -- so every subject's
-    independent SLURM array task deterministically reproduces the identical
-    draw sequence: iteration i is the same joint posterior sample for every
-    subject of that model/dataset, preserving the between-subject
-    correlation induced by shared group-level hyperparameters (sampling
-    each subject's draws independently would break that). Uses a hash of
-    the encoded string rather than Python's builtin hash(), which is
-    randomized per-process (PYTHONHASHSEED) and would silently break that
-    cross-process reproducibility.
+    Seeded on (model_id, dataset) only, so every subject's array task uses the
+    same draws and the group-level correlation between subjects is preserved.
+    sha256 rather than hash(), which is randomized per process.
     """
     digest = hashlib.sha256(f"{model_id}|{dataset}".encode()).digest()
     seed = int.from_bytes(digest[:4], "little")
@@ -71,31 +59,21 @@ def _draw_indices(model_id: str, dataset: str, n_chain: int, n_draw: int,
 # ---------------------------------------------------------------------------
 
 def setup_model_parameters_sampled(model_id: str, posterior: dict,
-                                   chain_idx: int, draw_idx: int, sub: int):
-    """One posterior draw's worth of parameters -- built the same way
-    setup_model_parameters() combines group+subject CSV rows, except every
-    value here comes from the single (chain_idx, draw_idx) posterior sample
-    instead of a point estimate, and subject-specific values are looked up
-    directly as f"{raw}_subj.{sub}" (HDDM's own per-subject node naming)
-    rather than via a separate subj_params CSV. Falls back to the
-    population-level draw when this subject has no subject-level node for a
-    given parameter, mirroring setup_model_parameters()'s CSV-based
-    fallback.
-    """
+                                   draw: tuple[int, int] | None, sub: int):
+    """Same as setup_model_parameters(), but from one posterior draw
+    (chain_idx, draw_idx), or each parameter's posterior median if draw is
+    None: the subject-level value if it exists, else the group-level one."""
     model = get_model(model_id)
     required = set(model.parameters_bounds.keys())
 
-    # Only base (non-"_subj.") keys -- these are guaranteed present as a
-    # fallback for every parameter, and _std hyperparameters (irrelevant to
-    # set_parameters()) get filtered out below along with anything else the
-    # model doesn't actually need.
     raw_names = {k for k in posterior if k not in ("_chain", "_draw") and "_subj." not in k}
 
     param_dict = {}
     for raw in raw_names:
         subj_key = f"{raw}_subj.{sub}"
         arr = posterior[subj_key] if subj_key in posterior else posterior[raw]
-        param_dict[rename_hddm_param(raw)] = float(arr[chain_idx, draw_idx])
+        value = np.median(arr) if draw is None else arr[draw]
+        param_dict[rename_hddm_param(raw)] = float(value)
 
     missing = required - param_dict.keys()
     if missing:
@@ -104,12 +82,10 @@ def setup_model_parameters_sampled(model_id: str, posterior: dict,
             f"{sorted(missing)} -- check compute_diagnostics.py's posterior "
             f"npz for this model/dataset."
         )
-    # set_parameters() requires an exact key match -- drop anything the
-    # model doesn't use (e.g. another mechanism's lag term, _std entries).
+    # set_parameters() needs an exact key match (drops _std etc.)
     param_dict = {k: v for k, v in param_dict.items() if k in required}
 
-    # PyDDM Boundary is half of HDDM's a -- same halving as
-    # setup_model_parameters() in run_analysis_ppcddm.py.
+    # PyDDM's boundary is half of HDDM's a
     for key in ("a", "a_Intercept", "a_pupil"):
         if key in param_dict:
             param_dict[key] = param_dict[key] / 2.0
@@ -125,21 +101,19 @@ def setup_model_parameters_sampled(model_id: str, posterior: dict,
 def generate_simulated_data_sampled(model_id: str, dataset: str, sub: int,
                                     behavioral_data: pd.DataFrame, posterior: dict,
                                     num_draws: int = NUM_PARAM_DRAWS) -> pd.DataFrame:
-    """num_draws independent DDM simulations, one per posterior parameter
-    draw -- each internally averaged over NUM_SAMPLES_PER_CONDITION samples
-    per trial via the unmodified generate_simulated_data() -- then averaged
-    again across draws into the same per-trial columns
-    generate_simulated_data() already produces (posterior-predictive mean,
-    marginalizing over parameter uncertainty). Per-draw detail is discarded
-    once averaged, so the output has the same one-row-per-trial shape as
-    run_analysis_ppcddm.py's."""
-    n_chain = posterior["_chain"].shape[0]
-    n_draw = posterior["_draw"].shape[0]
-    draws = _draw_indices(model_id, dataset, n_chain, n_draw, num_draws)
+    """Simulate once per posterior draw, then average across draws: one row per
+    trial, same columns as generate_simulated_data(). With num_draws == 1,
+    simulates once from the posterior medians instead of a random draw."""
+    if num_draws == 1:
+        draws = [None]
+    else:
+        n_chain = posterior["_chain"].shape[0]
+        n_draw = posterior["_draw"].shape[0]
+        draws = _draw_indices(model_id, dataset, n_chain, n_draw, num_draws)
 
     per_draw = []
-    for i, (chain_idx, draw_idx) in enumerate(draws):
-        model = setup_model_parameters_sampled(model_id, posterior, chain_idx, draw_idx, sub)
+    for i, draw in enumerate(draws):
+        model = setup_model_parameters_sampled(model_id, posterior, draw, sub)
         draw_df = generate_simulated_data(model, dataset, sub, behavioral_data,
                                           num_samples_per_condition=NUM_SAMPLES_PER_CONDITION)
         draw_df["param_draw"] = i
@@ -155,26 +129,14 @@ def generate_simulated_data_sampled(model_id: str, dataset: str, sub: int,
 # ---------------------------------------------------------------------------
 # Job manifest: (dataset, sub, model_id) triples
 # ---------------------------------------------------------------------------
-#
-# run_analysis_ppcddm.py's array is one job per (dataset, sub), looping over
-# every model in MODELS inside that one job -- fine for a point-estimate
-# simulation, but at NUM_PARAM_DRAWS=1000 each model takes hours on its own
-# (measured: ~6.5h for one model/sub), so looping over 5 models serially in
-# one job means a single array task can take >30h. Splitting the array on
-# model too turns that into many independently-schedulable ~6.5h jobs
-# instead of one long serial chain per subject.
+# One job per model too (not one per subject looping over models, as in
+# run_analysis_ppcddm.py): at 1000 draws a single model/sub takes ~6.5 h.
 
 def _build_job_manifest_per_model(behavioral_data: pd.DataFrame,
                                   behavioral_data_pupilclean: pd.DataFrame,
                                   models: dict) -> list[tuple[str, int, str]]:
-    """Sorted list of (dataset, sub, model_id) triples -- index =
-    SLURM_ARRAY_TASK_ID. Built from the same union-of-populations (dataset,
-    sub) pairs run_analysis_ppcddm.py's manifest uses, crossed with every
-    selected model_id; a (dataset, sub, model_id) triple whose required
-    population has no trials for that subject is still included and simply
-    skipped at run time (see run_subject_model_sampled), matching
-    run_analysis_ppcddm.py's existing skip behavior rather than duplicating
-    the population-membership check here."""
+    """Sorted (dataset, sub, model_id) triples; index = SLURM_ARRAY_TASK_ID.
+    Subjects with no trials in a model's population are skipped at run time."""
     dataset_sub_pairs = sorted(set(_build_job_manifest(behavioral_data))
                                | set(_build_job_manifest(behavioral_data_pupilclean)))
     return [(ds, sub, model_id) for ds, sub in dataset_sub_pairs
@@ -190,10 +152,7 @@ def run_subject_model_sampled(dataset_name: str, sub: int, model_id: str,
                               behavioral_data_pupilclean: pd.DataFrame,
                               ddm_results_pth: Path,
                               num_draws: int = NUM_PARAM_DRAWS) -> None:
-    """One (dataset, sub, model_id) triple: posterior-predictive rather than
-    point-estimate -- loads that model's posterior npz and calls
-    generate_simulated_data_sampled() instead of generate_simulated_data()
-    directly."""
+    """Simulate one (dataset, sub, model_id) and append it to that model's CSV."""
     is_pupil_model = PUPIL_MODEL_MARKER in model_id
     data = behavioral_data_pupilclean if is_pupil_model else behavioral_data
     sub_data = data.query(f"dataset == '{dataset_name}' & sub == {sub}")
@@ -233,12 +192,10 @@ if __name__ == "__main__":
                              "or 'HDDM_Base,HDDM_Base_Lag1-full' (default: all in MODELS)")
     parser.add_argument("--num_draws", type=int, default=NUM_PARAM_DRAWS,
                         help="Posterior parameter draws per subject/model (default: "
-                             "%(default)s). Use a small number for a pilot timing run "
-                             "before sizing the full array job's --time.")
+                             "%(default)s); 1 simulates from the posterior medians instead.")
     parser.add_argument("--results_pth", type=Path, default=DEFAULT_DDM_RESULTS_PTH,
                         help="HDDM results folder containing hddm_posteriors/ "
-                             "(sbatch passes RESULTS_DIR from sbatch/configs/general.sh; "
-                             "default: %(default)s)")
+                             "(default: %(default)s)")
     args = parser.parse_args()
 
     if args.models:
@@ -263,9 +220,6 @@ if __name__ == "__main__":
 
     behavioral_data_pupilclean = load_behavioral_data_pupilclean()
 
-    # (dataset, sub, model_id) triples -- see _build_job_manifest_per_model's
-    # docstring for why the array is split this finely for the sampled
-    # simulation.
     jobs = _build_job_manifest_per_model(behavioral_data, behavioral_data_pupilclean, models)
 
     if args.print_njobs:

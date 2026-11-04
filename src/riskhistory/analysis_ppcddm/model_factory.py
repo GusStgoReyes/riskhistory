@@ -30,6 +30,8 @@ def get_model(model_id):
                 HDDM_Base_Lag1-stpdrift_Pupil_ndt,
                 HDDM_Base_Lag1-stpdrift_Pupil_drift,
                 HDDM_Base_Lag1-stpdrift_Pupil_stp,
+                HDDM_Base_Lag1-stpdrift_Pupil_driftmain,
+                HDDM_Base_Lag1-stpdrift_Pupil_stpmain,
                 HDDM_Base_Lag1-drift_Pupil,
                 HDDM_Base_Lag1-drift_Pupil_drift,
                 HDDM_Base_Lag1-stp_Pupil,
@@ -230,6 +232,31 @@ def get_model(model_id):
         parameters.set_parameters_to_fit(
             ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
              "v_choice_prev1", "z_choice_prev1", "z_choice_prev1_pupil", "z_pupil"]
+        )
+        parameters.set_conditions_constant(
+            [f"choice_prev{i}" for i in range(2, 7)]
+        )
+        startingposition_fn = startingposition_sigmoid_pupil
+
+    # Pupil main effect only: the choice_prev1 x pupil term stays at its
+    # constant 0, so the pupil-aware functions add just v_pupil / z_pupil.
+    elif model_id == "HDDM_Base_Lag1-stpdrift_Pupil_driftmain":
+        parameters = PupilDDMParameters()
+        parameters.set_parameters_to_fit(
+            ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
+             "v_choice_prev1", "z_choice_prev1", "v_pupil"]
+        )
+        parameters.set_conditions_constant(
+            [f"choice_prev{i}" for i in range(2, 7)]
+        )
+        drift = drift_linear_pupil
+        startingposition_fn = startingposition_sigmoid
+
+    elif model_id == "HDDM_Base_Lag1-stpdrift_Pupil_stpmain":
+        parameters = PupilDDMParameters()
+        parameters.set_parameters_to_fit(
+            ["v_gain", "v_loss", "v_Intercept", "a", "z", "ter",
+             "v_choice_prev1", "z_choice_prev1", "z_pupil"]
         )
         parameters.set_conditions_constant(
             [f"choice_prev{i}" for i in range(2, 7)]

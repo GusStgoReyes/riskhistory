@@ -2,40 +2,12 @@
 # =============================================================================
 # Posterior-predictive PPC-DDM job array — one job per (dataset, sub, model)
 # triple
-#
-# Usage (from repo root):
-#   bash sbatch/run_ppcddm_sampled.sh
-#
-# Unlike run_ppcddm.sh (point-estimate simulation, one job per (dataset,
-# sub) looping over every model), this runs run_analysis_ppcddm_sampled.py
-# with the array split on model too: at NUM_DRAWS=1000, one (dataset, sub,
-# model) posterior-predictive simulation measured ~6.5h on its own, so
-# looping over multiple models serially in one job (as run_ppcddm.sh does)
-# would mean a single array task taking >30h. --time below is set from that
-# measured 6.5h plus margin -- re-measure with a pilot run if NUM_DRAWS or
-# the model set changes substantially:
-#   uv run python -m riskhistory.analysis_ppcddm.run_analysis_ppcddm_sampled \
-#       --job_index 0 --num_draws 20 --models HDDM_Base
-#
-# MODELS below controls which model_id(s) get simulated (comma-separated,
-# passed through to --models). Leave empty ("") to simulate every model
-# currently in run_analysis_ppcddm.py's MODELS dict.
-#
-# Posteriors are read from $RESULTS_DIR/hddm_posteriors, with RESULTS_DIR set
-# in sbatch/configs/general.sh (the same folder the HDDM fit/diagnostics jobs
-# write to).
-#
-# CONCURRENCY: the array is now (n_dataset_sub_pairs * n_models) jobs --
-# e.g. 190 subs * 5 models = 950 -- specifically so more of them can run at
-# once. The %<N> below is a placeholder; raise it to whatever your
-# partition/QOS actually allows concurrently, or this refactor doesn't buy
-# you anything.
 # =============================================================================
 
 set -euo pipefail
 
-MODELS="HDDM_Base_Lag1-drift_Pupil,HDDM_Base_Lag1-drift_Pupil_drift,HDDM_Base_Lag1-stp_Pupil,HDDM_Base_Lag1-stp_Pupil_stp"
-NUM_DRAWS=1000
+MODELS="HDDM_Base,HDDM_Base_Lag1-stpdrift_Pupil,HDDM_Base_Lag1-stpdrift_Pupil_stpmain,HDDM_Base_Lag1-stpdrift_Pupil_stp,HDDM_Base_Lag1-stpdrift_Pupil_driftmain,HDDM_Base_Lag1-stpdrift_Pupil_drift,HDDM_Base_Lag1-stpdrift_Pupil_stpdrift"
+NUM_DRAWS=1
 MAX_CONCURRENT=250
 
 REPO_PTH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -64,7 +36,7 @@ echo "Posteriors from: $RESULTS_DIR/hddm_posteriors"
 sbatch <<EOF
 #!/bin/bash
 #SBATCH --job-name=ppcddm_sampled
-#SBATCH --time=10:00:00
+#SBATCH --time=00:30:00
 #SBATCH --partition=normal,russpold
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=1
