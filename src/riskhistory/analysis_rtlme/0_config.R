@@ -36,6 +36,7 @@ source(file.path(shared_utils_path, "utils_checkmodelconverge.R"))
 source(file.path(shared_utils_path, "utils_savefixedeffects.R"))
 source(file.path(shared_utils_path, "utils_modelanalytics.R"))
 source(file.path(shared_utils_path, "utils_createtransitionregressor.R"))
+source(file.path(shared_utils_path, "utils_rtswitch.R"))
 
 # =============================================================================
 # Load and prepare data

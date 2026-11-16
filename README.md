@@ -21,7 +21,7 @@ There are three, one per kind of step:
 
 | Environment | Used by | Setup |
 |---|---|---|
-| **Python 3.12** (via [`uv`](https://docs.astral.sh/uv/)) | `setup_behavioraldata`, `setup_pupilbetas`, `analysis_acceptglme/1_fitprospecttheory.py`, `analysis_ppcddm` | `uv sync` from the repo root (installs `riskhistory` in editable mode into `.venv/`) |
+| **Python 3.12** (via [`uv`](https://docs.astral.sh/uv/)) | `setup_behavioraldata`, `setup_pupilbetas`, `analysis_acceptglme/fitprospecttheory.py`, `analysis_ppcddm`, `analysis_splithalf/*.py` | `uv sync` from the repo root (installs `riskhistory` in editable mode into `.venv/`) |
 | **R 4.3+** | every other `setup_*` / `analysis_*` folder | install the CRAN packages below |
 | **HDDM container** | `analysis_ddm` only | see below |
 
@@ -109,7 +109,7 @@ cd src/riskhistory/setup_pupildata && Rscript run_setup_pupildata.R
 uv run python -m riskhistory.setup_pupilbetas.run_setup_pupilglm
 
 # 4. Prospect-theory fits, then acceptance GLMEs            (needs: 1)
-uv run python -m riskhistory.analysis_acceptglme.1_fitprospecttheory
+uv run python -m riskhistory.analysis_acceptglme.fitprospecttheory
 cd src/riskhistory/analysis_acceptglme && Rscript run_analysis_acceptglme.R
 
 # 5. RT and pupil mixed models -- any order                 (needs: 1, 4; pupil ones also 2, 3)
@@ -128,6 +128,11 @@ bash sbatch/run_ppcddm_sampled.sh
 
 # 8. Mixed models on the simulated behavior                 (needs: 7)
 cd src/riskhistory/analysis_ddmppcbehavior && Rscript run_analysis_ddmppcbehavior.R
+
+# 9. Split-half fits (DDM on Sherlock; PT then RT locally)  (needs: 1)
+bash sbatch/run_ddm_splithalf.sh
+uv run python -m riskhistory.analysis_splithalf.1_fitprospecttheory_splithalf
+cd src/riskhistory/analysis_splithalf && Rscript run_analysis_splithalf.R
 ```
 
 `<dataset>` is `equalIndifference`, `equalRange`, or `sheng2020`. Pass `1` as a
@@ -215,7 +220,7 @@ random-effect extraction, and AIC/BIC/Bayes-factor model comparison.
 
 Does the previous choice change the probability of accepting a gamble?
 
-1. `1_fitprospecttheory.py` – per-participant prospect-theory fits (loss
+1. `fitprospecttheory.py` – per-participant prospect-theory fits (loss
    aversion λ, with and without a choice-history term). The baseline betas give
    the subjective values that the later R analyses use. **Run it before the R
    steps**; it is not called by the R runner.
@@ -296,10 +301,29 @@ jobs (`--job_index`, `--print_njobs`, `--models`).
 ### `analysis_ddmppcbehavior/` (R)
 
 Checks whether the simulated behavior reproduces the pupil × choice-history
-effect. For each pupil DDM and its no-pupil baseline (starting-point and drift
-pairs), it stacks both simulations and fits
-`logit(mean_accept) ~ gain + loss + prev_choice × pupil × model` with maximal
-random effects, saving fixed effects and a convergence report
+effect. It fits the real-data model
+`logit(mean_accept) ~ gain + loss + prev_choice × pupil` separately to the
+behavior simulated from each of six DDMs: the no-pupil SP-Drift-CH baseline
+(`HDDM_Base_Lag1-stpdrift_Pupil`) and the five pupil DDMs (pupil on the
+starting point or drift, as a main effect or interacting with the previous
+choice, or interacting on both). Each DDM × dataset fit has its own random
+effects, simplified from the maximal structure (`results/ranef_selection.md`).
+Fixed effects and a convergence report for all DDMs are saved to one CSV each
 (`1_pupilaccept_comparison.R`).
 
 Entry point: `run_analysis_ddmppcbehavior.R`.
+
+### `analysis_splithalf/` (Python + R)
+
+Per-participant choice-history measures estimated separately in each half of the
+data (`half_id`: Sheng2020 run 1 / run 2; NARPS runs 1–2 / runs 3–4), so DDM and
+behavioral measures can be compared across halves.
+
+1. `1_fitprospecttheory_splithalf.py` – prospect-theory fits per half (baseline,
+   for half-specific subjective values, and with the choice-history term).
+2. `2_fitddm_splithalf.py` – pyddm SP-Drift-CH fits per participant and half (raw
+   pyddm parameters); run on Sherlock with `sbatch/run_ddm_splithalf.sh`.
+3. `3_rtswitch_splithalf.R` – per-participant RT switch effect per half (Gamma
+   GLM, same as `analysis_rtlme/3_rtlme_switchpersubject.R`).
+
+Entry point: `run_analysis_splithalf.R` (step 3; run step 1 first).

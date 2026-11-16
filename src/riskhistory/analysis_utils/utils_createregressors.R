@@ -14,11 +14,11 @@ entropy_from_sv <- function(sv) {
 # =============================================================================
 # Behavioral regressors
 # =============================================================================
-add_subjectivevalues <- function(df, pth_betas) {
+add_subjectivevalues <- function(df, pth_betas, by = c("sub", "dataset")) {
   betas_sub <- read.csv(pth_betas) %>%
-    select(sub, dataset, bias, theta, lambda_)
+    select(all_of(by), bias, theta, lambda_)
 
-  data <- merge(df, betas_sub, by = c("sub", "dataset"))
+  data <- merge(df, betas_sub, by = by)
 
   data <- data %>%
     group_by(dataset, sub, run) %>%
@@ -89,8 +89,8 @@ standardize_behavioral_regressors <- function(df) {
   return(df)
 }
 
-add_subjectivevalues_and_regressors <- function(df, pth_betas) {
-  data <- add_subjectivevalues(df, pth_betas)
+add_subjectivevalues_and_regressors <- function(df, pth_betas, by = c("sub", "dataset")) {
+  data <- add_subjectivevalues(df, pth_betas, by)
   data <- subset(data, !exclude)
   standardize_behavioral_regressors(data)
 }

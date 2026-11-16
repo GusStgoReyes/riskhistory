@@ -15,21 +15,6 @@ https://github.com/panwanke/kabuki/blob/a2302364b8b76c36c10e386520cea6917d6c0565
 (3) pdf_array() function sets w_outlier = 0 | only returns log(y * (1 - p_outlier))
 https://github.com/panwanke/hddm/blob/4205656814327fb709421e3f2287ba13c58e00e2/src/wfpt.pyx
 (4) w_outlier is automatically set to 0.1 at fitting time, need to add these amounts to the loglikelihoods
-
-Consequence for LOO: adding the outlier term back saturates. Any raw
-log_lik below about -42 becomes bit-identical to log(p_outlier * W_OUTLIER)
-in float64, so trials the DDM finds essentially impossible end up with a
-constant corrected log-likelihood across draws. PSIS cannot fit a Pareto
-tail to a constant and az.loo raises "All tail values are the same". Those
-trials are therefore identified (scan_log_lik) and dropped before az.loo.
-Because the dropped set is model-specific, elpd_loo is a sum over a
-different number of trials per model, and az.compare -- which requires an
-equal observation count across models -- will reject the resulting
-ELPDData objects. elpd/pareto_k are therefore saved per trial (keyed by
-sub/trial, not just pickled as one ELPDData object) so compare_models.py
-can align models on their common trial set before comparing.
-(Note this arviz version names the pointwise field `elpd_i`, not `loo_i`.)
-
 """
 import argparse
 from pathlib import Path
@@ -40,11 +25,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-# HDDM's own outlier-mixture density (hddm/likelihoods.py, hddm_regression.py,
-# etc. -- hardcoded default across every model class), NOT derived from the
-# behavioral data's RT range. See module docstring: the log_lik saved to the
-# .nc file is computed with this term dropped (w_outlier=0 at extraction time
-# vs. 0.1 at fit time), so it must be added back in by hand.
+# HDDM's outlier-mixture density
 W_OUTLIER = 0.1
 
 def save_posterior_npz(
@@ -98,27 +79,6 @@ def scan_log_lik(ll_arr, obs_id, outlier_log_term: float, n_tail: int,
 
     Walks `ll_arr` (chain, draw, obs_id) in blocks of `block` observations
     so no whole-array temporary is ever materialised 
-    
-    The degeneracy flag reproduces arviz's own check exactly rather than
-    approximating it. PSIS fits the Pareto tail to only the `n_tail` most
-    extreme draws, and `_ps_tail` raises "All tail values are the same"
-    when `abs(max_tail - min_tail) < np.finfo(float).tiny`. After the
-    outlier correction, any raw log_lik below about -42 saturates to
-    exactly log(p_outlier * W_OUTLIER) -- `exp(ll)` has fallen below the
-    float64 resolution of that constant -- so a trial spending even ~1% of
-    its draws down there has a bit-constant tail and trips the check.
-
-    Also computes, for every observation, the raw (unsmoothed) importance-
-    sampling elpd estimate PSIS would smooth the tail of: with r_s =
-    1/likelihood_s the leave-one-out importance ratio for draw s,
-    elpd_raw_is = log(S / sum_s r_s) = log(S) - logsumexp(-corrected_ll).
-    This is usable even for degenerate trials -- unlike the general
-    heavy-tailed case this estimator is unstable for, the outlier
-    correction floors corrected_ll from below, which bounds r_s from
-    above and keeps the sum well-behaved.
-
-    Returns per-observation stats (correction already applied to `ll_arr`)
-    and a dict of whole-array summaries collected on the *raw* values.
     """
     n_chain, n_draw, n_obs = ll_arr.shape
     n_samples = n_chain * n_draw
@@ -236,15 +196,6 @@ def compute_diagnostics(model_id: str,
     # instead of the full InferenceData (posterior + log_likelihood +
     # sample_stats + ...) all at once.
     print(f"Loading log_likelihood group from {nc_path} ...", flush=True)
-    # log_lik carries a `coordinates` attribute pointing at `node`/`subj_idx`/
-    # `trial` (broadcast to the full (chain, draw, obs) shape -- an HDDM/pymc
-    # storage artifact). xarray's CF decoding attaches those as
-    # non-dimension coordinates on open, and a data_vars selection like
-    # ds[["log_lik"]] does NOT drop existing coordinates -- so `node` (a
-    # ~800M-element string array, far bigger than log_lik itself) still gets
-    # pulled into memory even after "selecting only what we need" via
-    # xarray. Reading log_lik directly through netCDF4 avoids xarray's CF
-    # decoding entirely and never touches those arrays.
     with nc4.Dataset(str(nc_path), "r") as f:
         ll_grp = f.groups["log_likelihood"]
         ll_grp.set_auto_mask(False)
@@ -257,12 +208,7 @@ def compute_diagnostics(model_id: str,
     n_obs_total = ll_arr.shape[2]
 
     # Correct the log_likelihood for the missing outlier-mixture term (see
-    # module docstring): the saved log_lik is log(y * (1 - p_outlier)), so
-    # log(exp(log_lik) + p_outlier * W_OUTLIER) recovers
-    # log(y * (1 - p_outlier) + w_outlier * p_outlier), the actual mixture
-    # density HDDM used at fit time. np.logaddexp is the numerically stable
-    # form of this and correctly no-ops when p_outlier == 0 (log(0) = -inf
-    # contributes nothing).
+    # module docstring)
     outlier_log_term = np.log(p_outlier * W_OUTLIER) if p_outlier > 0 else -np.inf
 
     # reff must match the value handed to az.loo below, or the tail length
@@ -321,14 +267,7 @@ def compute_diagnostics(model_id: str,
     
     print(f"  Computing LOO (pointwise) on {len(obs_keep)} retained trials "
           f"({ll_keep.nbytes / 1e9:.2f} GB) ...", flush=True)
-    # reff=1.0 (i.e. assume no autocorrelation) sidesteps az.loo's internal
-    # requirement for a `posterior` group to estimate effective sample size --
-    # loading the full 80k-draw posterior just for that isn't worth it here.
-    # This only affects the reported SE's precision, not the elpd_loo point
-    # estimate itself. mixture stays False: that flag selects Mix-IS-LOO
-    # (Silva & Zanella 2023), which assumes the draws came from a mixture of
-    # leave-one-out *posteriors* -- a property of the sampling scheme,
-    # unrelated to HDDM's outlier-mixture likelihood.
+    # reff=1.0 (i.e. assume no autocorrelation) 
     try:
         loo_result = az.loo(idata_ll, pointwise=True, reff=reff, mixture=False)
     except ValueError as err:

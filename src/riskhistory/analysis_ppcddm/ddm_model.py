@@ -22,14 +22,18 @@ class Model:
         raise NotImplementedError("This method should be implemented in subclasses.")
     def save_model_results(self):
         raise NotImplementedError("This method should be implemented in subclasses.")
-    def save_model_results(self, 
-                           file_path, 
+    def save_model_results(self,
+                           file_path,
                            simulated_params = None):
         """
             Save the fitted model parameters and performance metrics to a CSV file.
                 - file_path: path to the CSV file where results will be saved
                 - simulated_params: dictionary of true parameter values if data is simulated
         """
+        df = self.get_model_results(simulated_params)
+        df.to_csv(file_path, mode="a", index=False)
+
+    def get_model_results(self, simulated_params = None):
         if self.model is None:
             raise ValueError("Model not set. Please fit the model using fit_model() method before saving parameters.")
         
@@ -47,9 +51,8 @@ class Model:
         fitted_parameters["accuracy"] = [accuracy] * n_params
         fitted_parameters["num_params"] = self.num_parameters
         fitted_parameters["num_datapoints"] = [len(self.data)] * n_params
-        df = pd.DataFrame(fitted_parameters)
-        df.to_csv(file_path, mode="a", index=False)
-    
+        return pd.DataFrame(fitted_parameters)
+
 class PTDDM(Model):
     def __init__(self, 
                  name, 

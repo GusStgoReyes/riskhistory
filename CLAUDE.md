@@ -31,6 +31,7 @@ riskhistory/
 │   ├── analysis_ddm/               # Python, HDDM container only: fit/diagnose/compare/extract
 │   ├── analysis_ppcddm/            # Python (pyddm): posterior-predictive simulations
 │   ├── analysis_ddmppcbehavior/    # R: models on the simulated behavior
+│   ├── analysis_splithalf/         # Python + R: per-half PT, pyddm SP-Drift-CH and RT switch fits
 │   └── trash/                      # unused; ignore
 ├── sbatch/                         # SLURM wrappers (HDDM fits/diagnostics, PPC arrays)
 ├── scripts/                        # LaTeX table generators
@@ -45,7 +46,7 @@ riskhistory/
   `uv run python -m riskhistory.<folder>.<module>`, e.g.
   `uv run python -m riskhistory.setup_behavioraldata.run_setup_behavioraldata`,
   `uv run python -m riskhistory.setup_pupilbetas.run_setup_pupilglm`,
-  `uv run python -m riskhistory.analysis_acceptglme.1_fitprospecttheory`.
+  `uv run python -m riskhistory.analysis_acceptglme.fitprospecttheory`.
   Dependency upper bounds in `pyproject.toml` exist for Sherlock's glibc 2.17 — don't raise
   them casually. The system `python3` on this machine is broken; use `.venv/bin/python` or `uv run`.
 - **R 4.3+**: every R folder has a `0_config.R`, numbered steps, and a `run_*.R` runner.
@@ -59,7 +60,7 @@ riskhistory/
 - There is no working Makefile (it is empty).
 
 Pipeline order (details in README): setup_behavioraldata → setup_pupildata → setup_pupilbetas
-→ analysis_acceptglme (`1_fitprospecttheory.py` first; the R runner does not call it) →
+→ analysis_acceptglme (`fitprospecttheory.py` first; the R runner does not call it) →
 rtlme / pupiltimeseries / pupilbetas / pupilbehavior → analysis_ddm → analysis_ppcddm →
 analysis_ddmppcbehavior.
 

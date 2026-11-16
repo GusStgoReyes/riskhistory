@@ -344,6 +344,20 @@ wheels = [
 ]
 
 [[package]]
+name = "gpyreg"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/64/a1/cfdcca222e1627ae99ca8299bf7a3cfd15a1a3fcacc1f9686bc4e9d76665/gpyreg-1.4.0.tar.gz", hash = "sha256:c3d76cbc924dc17f9ad9db30f82d61a9218bdd1d418bd33923e4d7af7ef5deed", size = 171939, upload-time = "2026-09-30T06:02:00.605Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7d/9c/ab70badb26933524ba3005579c927192ae86baf2637cc2c33313906290fe/gpyreg-1.4.0-py3-none-any.whl", hash = "sha256:094139e1f52262b426763a807c46beb1d05fafce5a7024da027a0c3f9de13ccd", size = 168101, upload-time = "2026-09-30T06:01:59.319Z" },
+]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1213,6 +1227,21 @@ wheels = [
 ]
 
 [[package]]
+name = "pybads"
+version = "1.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gpyreg" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/b5/bfb29c2414238c3eed7827faef9e3efc29cd993f8a8df854615b8e40e465/pybads-1.5.1.tar.gz", hash = "sha256:36d4cd4d8b3da2c6fdb774d53ae176ccfd407542685cc8900a5a4e3facfd49a4", size = 646417, upload-time = "2026-10-06T20:07:11.893Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/46/83/59ff636a1a864c106c2da7547feb1ed7d895b249ef94a133e6135feca72e/pybads-1.5.1-py3-none-any.whl", hash = "sha256:f30a3e6f183784aa5f6bee88055e7ca08dbe8c281742ab2b9de2465d05bc60fc", size = 589263, upload-time = "2026-10-06T20:07:10.08Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "2.23"
 source = { registry = "https://pypi.org/simple" }
@@ -1413,6 +1442,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pathos" },
     { name = "pingouin" },
+    { name = "pybads" },
     { name = "pyddm" },
     { name = "rpy2" },
     { name = "scikit-learn" },
@@ -1429,6 +1459,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2,<2.3.3" },
     { name = "pathos", specifier = ">=0.3.5" },
     { name = "pingouin", specifier = ">=0.6.1" },
+    { name = "pybads", specifier = ">=1.5.1" },
     { name = "pyddm", specifier = ">=0.9.0" },
     { name = "rpy2", specifier = ">=3.6.4" },
     { name = "scikit-learn", specifier = ">=1.7,<1.8" },

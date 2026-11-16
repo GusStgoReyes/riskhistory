@@ -13,17 +13,18 @@ for (ds in datasets) {
   model2 <- glmer(accept ~ gain_centered + loss_centered + choice_prev1 +
                     (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
-  # PREVIOUS EXPECTED VALUE MODEL + CHOICE HISTORY
-  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_ev_z +
-                    choice_prev1 + (1 + loss_centered + gain_centered | sub),
+  # PREVIOUS GAIN + PREVIOUS LOSS + CHOICE HISTORY
+  model3 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_centered +
+                    prev_loss_centered + choice_prev1 + 
+                    (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
   # PREVIOUS GAIN + CHOICE HISTORY
-  model4 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_z +
+  model4 <- glmer(accept ~ gain_centered + loss_centered + prev_gain_centered +
                     choice_prev1 +
                     (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
   # PREVIOUS LOSS + CHOICE HISTORY
-  model5 <- glmer(accept ~ gain_centered + loss_centered + prev_loss_z +
+  model5 <- glmer(accept ~ gain_centered + loss_centered + prev_loss_centered +
                     choice_prev1 +
                     (1 + loss_centered + gain_centered | sub),
                   data = df_sub, family = binomial, control = GLMER_CONTROL)
