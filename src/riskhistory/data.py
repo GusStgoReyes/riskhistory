@@ -235,6 +235,24 @@ def load_rtlme_switchpersubject_betas():
     return pd.read_csv(path)
 
 
+def load_splithalf_choicehistory_betas():
+    path = (REPO_ROOT / "results" / "analysis_splithalf"
+            / "1_prospecttheory_choicehistory_betas_splithalf.csv")
+    return pd.read_csv(path)
+
+
+def load_splithalf_ddm_params():
+    path = (REPO_ROOT / "results" / "analysis_splithalf"
+            / "2_ddm_stpdrift_splithalf_params.csv")
+    return pd.read_csv(path)
+
+
+def load_splithalf_rtswitch_betas():
+    path = (REPO_ROOT / "results" / "analysis_splithalf"
+            / "3_rtswitch_splithalf_betas.csv")
+    return pd.read_csv(path)
+
+
 def load_convergence():
     path = (REPO_ROOT / "results" / "analysis_acceptglme"
             / "4_model_convergence_report.csv")

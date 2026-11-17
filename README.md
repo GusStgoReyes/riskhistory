@@ -316,7 +316,7 @@ Entry point: `run_analysis_ddmppcbehavior.R`.
 ### `analysis_splithalf/` (Python + R)
 
 Per-participant choice-history measures estimated separately in each half of the
-data (`half_id`: Sheng2020 run 1 / run 2; NARPS runs 1–2 / runs 3–4), so DDM and
+data (`half_id`: Sheng2020 run 1 / run 2; NARPS runs 1 and 4 / runs 2 and 3), so DDM and
 behavioral measures can be compared across halves.
 
 1. `1_fitprospecttheory_splithalf.py` – prospect-theory fits per half (baseline,

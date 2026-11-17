@@ -34,7 +34,7 @@ source(file.path(shared_utils_path, "utils_rtswitch.R"))
 # =============================================================================
 add_half_id <- function(df) {
   df$half_id <- ifelse(df$dataset == "sheng2020", df$run,
-                       ifelse(df$run <= 2, 1, 2))
+                       ifelse(df$run %in% c(1, 4), 1, 2))
   df
 }
 
