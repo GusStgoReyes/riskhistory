@@ -79,7 +79,8 @@ analysis_ddmppcbehavior.
 
 - **Choice coding**: `choice_prev[N]` is +1 accept / −1 reject (0 = unavailable), computed
   **within runs** on pre-exclusion data. DDM choice-history parameters (`z_choice_prev1`,
-  `v_choice_prev1`) are reported as 2× the coefficient (accept − reject difference).
+  `v_choice_prev1`) are reported as the raw ±1-coded coefficient (not 2×; the accept − reject
+  difference would be 2× it).
 - **Transitions**: `transition` factor `{accept,reject}_to_{accept,reject}` from
   `analysis_utils/utils_createtransitionregressor.R`; marginaleffects pairwise labels follow
   level order, so normalize direction with `analysis_utils/utils_contrasts.R` or check both

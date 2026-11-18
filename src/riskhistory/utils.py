@@ -93,3 +93,30 @@ def bootstrap_spearman_difference(
         "bootstrap_differences": bootstrap_diffs,
         "n": n,
     }
+
+def flag_outliers_mad(values, k=3):
+    """|x - median| > k scaled MADs (1.4826 * MAD, the SD under normality)."""
+    deviation = np.abs(values - values.median())
+    scaled_mad = 1.4826 * deviation.median()
+    if scaled_mad == 0:
+        return pd.Series(False, index=values.index)
+    return deviation / scaled_mad > k
+
+
+def remove_outliers_mad(df, columns, k=3, group_col="dataset", id_col="sub"):
+    """Drop rows that are MAD outliers on any of `columns`, within each `group_col`.
+    Returns the outlier-free dataframe and a per-group summary (n_total,
+    n_outliers, outlier ids)."""
+    is_outlier = pd.concat(
+        [df.groupby(group_col)[c].transform(flag_outliers_mad, k=k) for c in columns], axis=1
+    ).any(axis=1)
+
+    summary = (df.assign(is_outlier=is_outlier)
+               .groupby(group_col, sort=False)
+               .apply(lambda g: pd.Series({
+                   "n_total": len(g),
+                   "n_outliers": int(g["is_outlier"].sum()),
+                   "outliers": g.loc[g["is_outlier"], id_col].tolist(),
+               }), include_groups=False)
+               .reset_index())
+    return df[~is_outlier], summary
